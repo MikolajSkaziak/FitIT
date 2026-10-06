@@ -1,0 +1,29 @@
+# system
+.DS_Store
+
+# sekrety: nigdy w repozytorium
+.env
+.env.*
+!.env.example
+
+# stan narzędzi agentowych
+.omc/
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+coverage/
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# film promocyjny: klatki i inne pliki pośrednie
+brag-output*/work/

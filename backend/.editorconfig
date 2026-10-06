@@ -1,0 +1,35 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,props,csproj,slnx}]
+indent_size = 2
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_sort_system_directives_first = true
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_style_qualification_for_field = false:warning
+csharp_style_var_when_type_is_apparent = true:suggestion
+
+# ASP.NET Core has no synchronisation context
+dotnet_diagnostic.CA2007.severity = none
+# High-performance logging delegates are not worth the noise at this size
+dotnet_diagnostic.CA1848.severity = none
+# Flags even a list's Count passed to a log call; nothing logged here is costly to evaluate
+dotnet_diagnostic.CA1873.severity = none
+# Nullable reference types already cover argument checks
+dotnet_diagnostic.CA1062.severity = none
+
+[tests/**.cs]
+# Test names read as sentences
+dotnet_diagnostic.CA1707.severity = none
+
+[**/Migrations/*.cs]
+generated_code = true

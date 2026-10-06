@@ -1,0 +1,42 @@
+# Local development and, later, the single VM: the same file in both places.
+#   docker compose up -d db                     database only; run the API with `dotnet watch`
+#   docker compose --profile full up -d --build database and API together
+name: fitit
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fitit}
+      POSTGRES_USER: ${POSTGRES_USER:-fitit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fitit}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - fitit_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    profiles: ["full"]
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__Database: Host=db;Port=5432;Database=${POSTGRES_DB:-fitit};Username=${POSTGRES_USER:-fitit};Password=${POSTGRES_PASSWORD:-fitit}
+      Database__MigrateOnStartup: "true"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-}
+      App__PublicBaseUrl: ${PUBLIC_BASE_URL:-}
+    ports:
+      - "${API_PORT:-5080}:5080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  fitit_pgdata:

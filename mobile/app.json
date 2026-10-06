@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "FitIt",
+    "slug": "fitit",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "fitit",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "pl.fitit.app",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "pl.fitit.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#2F5D4C",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F5F7F3",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 96,
+          "dark": {
+            "backgroundColor": "#121815"
+          }
+        }
+      ],
+      "expo-secure-store",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "FitIt sprawdza pogodę w Twojej okolicy, żeby dobrać zestaw na dziś."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FitIt potrzebuje dostępu do zdjęć, żeby dodać ubrania do Twojej szafy.",
+          "cameraPermission": "FitIt potrzebuje aparatu, żeby sfotografować ubrania do Twojej szafy."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

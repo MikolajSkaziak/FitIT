@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FitIt.Api/FitIt.Api.csproj" />
+    <Project Path="src/FitIt.Core/FitIt.Core.csproj" />
+    <Project Path="src/FitIt.Infrastructure/FitIt.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FitIt.Tests/FitIt.Tests.csproj" />
+  </Folder>
+</Solution>
