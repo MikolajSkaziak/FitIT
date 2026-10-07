@@ -6,6 +6,7 @@ import type { ReactElement } from 'react';
 export const router = {
   push: jest.fn(),
   replace: jest.fn(),
+  navigate: jest.fn(),
   back: jest.fn(),
   dismissTo: jest.fn(),
 };

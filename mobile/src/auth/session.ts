@@ -27,17 +27,21 @@ const signedOut: SessionState = { status: 'signedOut', user: null, accessToken: 
 
 export const useSession = create<SessionState>(() => ({ ...signedOut, status: 'loading' }));
 
-/** Called after anything that ends the session, so screens can drop what they cached for the previous person. */
-let onSessionEnd: () => void = () => {};
+const sessionEndHandlers = new Set<() => void>();
 
-export function setSessionEndHandler(handler: () => void): void {
-  onSessionEnd = handler;
+/**
+ * Registers something to run after anything that ends the session, so the app can drop what it holds for the
+ * previous person (cached answers, photos waiting to be sent). Returns a function that removes the handler.
+ */
+export function onSessionEnd(handler: () => void): () => void {
+  sessionEndHandlers.add(handler);
+  return () => sessionEndHandlers.delete(handler);
 }
 
 async function endSession(): Promise<void> {
   await tokenStorage.clear();
   useSession.setState(signedOut);
-  onSessionEnd();
+  sessionEndHandlers.forEach((handler) => handler());
 }
 
 interface TokenPair {

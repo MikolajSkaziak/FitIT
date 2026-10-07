@@ -1,9 +1,10 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { updateProfile, type ProfileChange } from '@/api/account';
+import { weatherKeys } from '@/api/weather';
 import { setUser } from '@/auth/session';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -15,10 +16,13 @@ import { space } from '@/theme';
 
 /** Saves a change to the profile; the signed-in person kept in memory is replaced by what the server answers. */
 export function useSaveProfile(onSaved: () => void) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (change: ProfileChange) => updateProfile(change),
     onSuccess: (user) => {
       setUser(user);
+      // The thermal preference shifts the forecast's band, so the weather on Dziś is asked for again.
+      void queryClient.invalidateQueries({ queryKey: weatherKeys.all });
       onSaved();
     },
   });

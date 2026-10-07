@@ -1,5 +1,5 @@
 import { ApiError, networkProblem } from '@/api/problem';
-import { refreshSession, restoreSession, setSessionEndHandler, signOut, startSession, useSession, type User } from '@/auth/session';
+import { onSessionEnd, refreshSession, restoreSession, signOut, startSession, useSession, type User } from '@/auth/session';
 import { tokenStorage } from '@/auth/tokenStorage';
 import { goOffline, json, serveWith } from '@/test/http';
 
@@ -22,12 +22,12 @@ jest.mock('@/auth/tokenStorage', () => {
 const ola = { id: 'u1', displayName: 'Ola', email: 'ola@poczta.pl' } as User;
 const pair = { accessToken: 'access-2', refreshToken: 'refresh-2', expiresIn: 900 };
 const onEnd = jest.fn();
+onSessionEnd(onEnd);
 
 beforeEach(async () => {
   jest.clearAllMocks();
   await tokenStorage.clear();
   useSession.setState({ status: 'loading', user: null, accessToken: null, refreshToken: null });
-  setSessionEndHandler(onEnd);
   onEnd.mockClear();
 });
 

@@ -52,6 +52,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dictionaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDictionaries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/weather/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWeatherToday"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outfits/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["suggestOutfits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outfits/{id}/visualizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createVisualization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/visualizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getVisualization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/email-check": {
         parameters: {
             query?: never;
@@ -116,6 +228,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/password-reset/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/logout": {
         parameters: {
             query?: never;
@@ -142,16 +286,131 @@ export interface paths {
         get: operations["getProfile"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteAccount"];
         options?: never;
         head?: never;
         patch: operations["updateProfile"];
+        trace?: never;
+    };
+    "/api/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clothes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listClothes"];
+        put?: never;
+        post: operations["addClothing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clothes/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWardrobeStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clothes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getClothing"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteClothing"];
+        options?: never;
+        head?: never;
+        patch: operations["updateClothing"];
+        trace?: never;
+    };
+    "/api/clothes/{id}/reprocess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reprocessClothing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outfits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listOutfits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outfits/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getOutfit"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteOutfit"];
+        options?: never;
+        head?: never;
+        patch: operations["updateOutfit"];
         trace?: never;
     };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AddClothingRequest: {
+            key: string;
+        };
         AuthResponse: {
             accessToken: string;
             refreshToken: string;
@@ -167,6 +426,68 @@ export interface components {
             label: string;
             imageUrl: string;
             thumbUrl: string;
+        };
+        /** @enum {unknown} */
+        Category: "top" | "mid_layer" | "bottom" | "one_piece" | "outerwear" | "shoes" | "accessory";
+        CategoryEntry: {
+            code: components["schemas"]["Category"];
+            label: string;
+            types: components["schemas"]["TypeEntry"][];
+        };
+        ChangePasswordRequest: {
+            currentPassword: string;
+            newPassword: string;
+            refreshToken?: null | string;
+        };
+        ClothingResponse: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["ClothingStatus"];
+            name: null | string;
+            category: null | components["schemas"]["Category"];
+            subcategory: null | components["schemas"]["Subcategory"];
+            colors: components["schemas"]["Color"][];
+            pattern: null | components["schemas"]["Pattern"];
+            material: null | components["schemas"]["Material"];
+            /** Format: int32 */
+            formality: null | number;
+            /** Format: int32 */
+            warmth: null | number;
+            rainOk: null | boolean;
+            styles: components["schemas"]["StyleTag"][];
+            inLaundry: boolean;
+            rarelyWorn: boolean;
+            isForgotten: boolean;
+            /** Format: int32 */
+            wearCount: number;
+            /** Format: date */
+            lastWornOn: null | string;
+            rejectReason: null | components["schemas"]["RejectReason"];
+            imageUrl: null | string;
+            imageKey: null | string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @enum {unknown} */
+        ClothingStatus: "processing" | "ready" | "failed" | "rejected";
+        /** @enum {unknown} */
+        Color: "white" | "cream" | "beige" | "grey" | "black" | "navy" | "brown" | "blue" | "light_blue" | "green" | "olive" | "red" | "burgundy" | "pink" | "purple" | "yellow" | "orange";
+        ColorEntry: {
+            code: components["schemas"]["Color"];
+            label: string;
+            neutral: boolean;
+        };
+        DeleteAccountRequest: {
+            password: string;
+        };
+        DictionariesResponse: {
+            categories: components["schemas"]["CategoryEntry"][];
+            colors: components["schemas"]["ColorEntry"][];
+            patterns: components["schemas"]["PatternEntry"][];
+            materials: components["schemas"]["MaterialEntry"][];
+            styles: components["schemas"]["StyleEntry"][];
+            formality: components["schemas"]["ScaleEntry"][];
+            warmth: components["schemas"]["ScaleEntry"][];
         };
         EmailCheckRequest: {
             email: string;
@@ -212,6 +533,88 @@ export interface components {
             email: string;
             password: string;
         };
+        /** @enum {unknown} */
+        Material: "cotton" | "denim" | "wool" | "linen" | "leather" | "suede" | "synthetic" | "knit" | "silk" | "down" | "other";
+        MaterialEntry: {
+            code: components["schemas"]["Material"];
+            label: string;
+        };
+        /** @enum {unknown} */
+        Occasion: "everyday" | "work" | "business" | "date" | "friends" | "workout";
+        OutfitItemResponse: {
+            slot: components["schemas"]["Category"];
+            clothing: components["schemas"]["ClothingResponse"];
+        };
+        /** @enum {unknown} */
+        OutfitKind: "sure_bet" | "discovery" | "new_pairing" | null;
+        /** @enum {unknown} */
+        OutfitRating: "none" | "like" | "dislike";
+        OutfitResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            requestId: string;
+            occasion: components["schemas"]["Occasion"];
+            occasionNote: null | string;
+            kind: null | components["schemas"]["OutfitKind"];
+            /** Format: int32 */
+            score: number;
+            reasoning: string;
+            weatherNote: null | string;
+            umbrella: boolean;
+            relaxations: components["schemas"]["RelaxationResponse"][];
+            source: components["schemas"]["OutfitSource"];
+            rating: components["schemas"]["OutfitRating"];
+            isSaved: boolean;
+            /** Format: date */
+            wornOn: null | string;
+            weather: components["schemas"]["OutfitWeatherResponse"];
+            items: components["schemas"]["OutfitItemResponse"][];
+            visualization: null | components["schemas"]["OutfitVisualizationResponse"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @enum {unknown} */
+        OutfitSource: "model" | "rules";
+        OutfitVisualizationResponse: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["VisualizationStatus"];
+            imageUrl: null | string;
+            imageKey: null | string;
+        };
+        OutfitWeatherResponse: {
+            place: string;
+            forTomorrow: boolean;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: int32 */
+            feelsMin: number;
+            /** Format: int32 */
+            feelsMax: number;
+            sky: components["schemas"]["Sky"];
+            rain: boolean;
+            /** Format: int32 */
+            rainProbability: number;
+            needsLayers: boolean;
+            band: components["schemas"]["TemperatureBand"];
+        };
+        PasswordResetConfirmRequest: {
+            email: string;
+            code: string;
+            newPassword: string;
+        };
+        PasswordResetRequest: {
+            email: string;
+        };
+        /** @enum {unknown} */
+        Pattern: "plain" | "stripes" | "check" | "floral" | "print" | "other";
+        PatternEntry: {
+            code: components["schemas"]["Pattern"];
+            label: string;
+        };
         PlaceResponse: {
             name: string;
             region: null | string;
@@ -246,7 +649,49 @@ export interface components {
             location?: null | components["schemas"]["LocationRequest"];
         };
         /** @enum {unknown} */
+        RejectReason: "no_garment" | "several_garments" | "underwear_or_swimwear" | "unclear" | null;
+        RelaxationResponse: {
+            role: components["schemas"]["Category"];
+            rule: components["schemas"]["RelaxedRule"];
+        };
+        /** @enum {unknown} */
+        RelaxedRule: "formality" | "style" | "warmth";
+        ScaleEntry: {
+            /** Format: int32 */
+            value: number;
+            label: string;
+        };
+        /** @enum {unknown} */
+        Sky: "sun" | "cloud_sun" | "cloud" | "rain" | "snow";
+        StyleEntry: {
+            code: components["schemas"]["StyleTag"];
+            label: string;
+        };
+        /** @enum {unknown} */
         StyleTag: "casual" | "smart" | "elegant" | "sporty" | "streetwear";
+        /** @enum {unknown} */
+        Subcategory: "t_shirt" | "shirt" | "blouse" | "polo" | "tank_top" | "longsleeve" | "turtleneck" | "sweater" | "sweatshirt" | "hoodie" | "cardigan" | "blazer" | "vest" | "jeans" | "trousers" | "chinos" | "shorts" | "skirt" | "leggings" | "sweatpants" | "dress" | "jumpsuit" | "coat" | "jacket" | "down_jacket" | "trench_coat" | "raincoat" | "parka" | "bomber_jacket" | "denim_jacket" | "leather_jacket" | "sneakers" | "boots" | "winter_boots" | "loafers" | "dress_shoes" | "heels" | "flats" | "sandals" | "flip_flops" | "sports_shoes" | "rain_boots" | "scarf" | "hat" | "cap" | "gloves" | "belt" | "bag" | "backpack" | "tie" | "sunglasses";
+        SuggestionsResponse: {
+            status: components["schemas"]["SuggestionStatus"];
+            missing: components["schemas"]["Category"][];
+            missingEither: components["schemas"]["Category"][];
+            fallback: boolean;
+            occasion: components["schemas"]["Occasion"];
+            weather: components["schemas"]["WeatherResponse"];
+            relaxations: components["schemas"]["RelaxationResponse"][];
+            umbrella: boolean;
+            outfits: components["schemas"]["OutfitResponse"][];
+        };
+        /** @enum {unknown} */
+        SuggestionStatus: "proposed" | "missing_garments";
+        SuggestOutfitsRequest: {
+            occasion: null | components["schemas"]["Occasion"];
+            note?: null | string;
+            /** Format: uuid */
+            baseItemId?: null | string;
+        };
+        /** @enum {unknown} */
+        TemperatureBand: "hot" | "warm" | "mild" | "cold" | "freezing";
         /** @enum {unknown} */
         ThermalPreference: "runs_cold" | "normal" | "runs_warm";
         TokenResponse: {
@@ -254,6 +699,31 @@ export interface components {
             refreshToken: string;
             /** Format: int32 */
             expiresIn: number;
+        };
+        TypeEntry: {
+            code: components["schemas"]["Subcategory"];
+            label: string;
+        };
+        UpdateClothingRequest: {
+            category?: null | components["schemas"]["Category"];
+            subcategory?: null | components["schemas"]["Subcategory"];
+            name?: null | string;
+            colors?: null | components["schemas"]["Color"][];
+            pattern?: null | components["schemas"]["Pattern"];
+            material?: null | components["schemas"]["Material"];
+            /** Format: int32 */
+            formality?: null | number;
+            /** Format: int32 */
+            warmth?: null | number;
+            rainOk?: null | boolean;
+            styles?: null | components["schemas"]["StyleTag"][];
+            inLaundry?: null | boolean;
+            rarelyWorn?: null | boolean;
+        };
+        UpdateOutfitRequest: {
+            saved?: null | boolean;
+            rating?: null | components["schemas"]["OutfitRating"];
+            worn?: null | boolean;
         };
         UpdateProfileRequest: {
             displayName?: null | string;
@@ -267,6 +737,31 @@ export interface components {
             location?: null | components["schemas"]["LocationRequest"];
             clearLocation?: null | boolean;
             aiConsent?: null | boolean;
+        };
+        UploadResponse: {
+            key: string;
+            url: string;
+            method: string;
+            headers: {
+                [key: string]: string;
+            };
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: int64 */
+            maxBytes: number;
+        };
+        UsageLineResponse: {
+            /** Format: int32 */
+            used: number;
+            /** Format: int32 */
+            limit: number;
+        };
+        UsageResponse: {
+            items: components["schemas"]["UsageLineResponse"];
+            suggestions: components["schemas"]["UsageLineResponse"];
+            visualizations: components["schemas"]["UsageLineResponse"];
+            /** Format: date-time */
+            resetsAt: string;
         };
         UserResponse: {
             /** Format: uuid */
@@ -284,6 +779,58 @@ export interface components {
             aiConsentAt: null | string;
             /** Format: date-time */
             createdAt: string;
+        };
+        VisualizationResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            outfitId: string;
+            status: components["schemas"]["VisualizationStatus"];
+            imageUrl: null | string;
+            imageKey: null | string;
+            errorCode: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt: null | string;
+        };
+        /** @enum {unknown} */
+        VisualizationStatus: "pending" | "running" | "completed" | "failed" | "blocked";
+        WardrobeStatsResponse: {
+            /** Format: int32 */
+            total: number;
+            /** Format: int32 */
+            wornLast30Days: number;
+            /** Format: int32 */
+            forgotten: number;
+            /** Format: int32 */
+            processing: number;
+            /** Format: int32 */
+            needsTags: number;
+        };
+        WeatherResponse: {
+            place: string;
+            forTomorrow: boolean;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: int32 */
+            feelsMin: number;
+            /** Format: int32 */
+            feelsMax: number;
+            /** Format: date-time */
+            coldestAt: string;
+            /** Format: date-time */
+            warmestAt: string;
+            sky: components["schemas"]["Sky"];
+            rain: boolean;
+            /** Format: int32 */
+            rainProbability: number;
+            /** Format: date-time */
+            rainFrom: null | string;
+            needsLayers: boolean;
+            band: components["schemas"]["TemperatureBand"];
         };
     };
     responses: never;
@@ -385,6 +932,354 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getDictionaries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictionariesResponse"];
+                };
+            };
+        };
+    };
+    getUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getWeatherToday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeatherResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    suggestOutfits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuggestOutfitsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createVisualization: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisualizationResponse"];
+                };
+            };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisualizationResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getVisualization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisualizationResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -562,6 +1457,86 @@ export interface operations {
             };
         };
     };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    confirmPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     logout: {
         parameters: {
             query?: never;
@@ -622,6 +1597,55 @@ export interface operations {
             };
         };
     };
+    deleteAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     updateProfile: {
         parameters: {
             query?: never;
@@ -655,6 +1679,547 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listClothes: {
+        parameters: {
+            query?: {
+                q?: string;
+                category?: string;
+                forgotten?: boolean;
+                ids?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClothingResponse"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    addClothing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddClothingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClothingResponse"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClothingResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getWardrobeStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardrobeStatsResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getClothing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClothingResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deleteClothing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    updateClothing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateClothingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClothingResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    reprocessClothing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClothingResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listOutfits: {
+        parameters: {
+            query?: {
+                saved?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutfitResponse"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getOutfit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutfitResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deleteOutfit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    updateOutfit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOutfitRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutfitResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

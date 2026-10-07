@@ -1,4 +1,4 @@
-import { addYears, formatDate, formatLongDate, formatWeekday, fromIso, fromJsDate, isAfter, maskDate, parseDate, toIso, toJsDate } from '@/lib/dates';
+import { addYears, formatCalendarDay, formatCalendarWeekday, formatDate, formatLongDate, formatWeekday, fromIso, fromJsDate, isAfter, maskDate, parseDate, toIso, toJsDate, wallClock } from '@/lib/dates';
 
 describe('parseDate', () => {
   it.each([
@@ -80,5 +80,29 @@ describe('comparing', () => {
     expect(addYears({ day: 29, month: 2, year: 2008 }, 16)).toEqual({ day: 29, month: 2, year: 2024 });
     expect(addYears({ day: 29, month: 2, year: 2008 }, 17)).toEqual({ day: 28, month: 2, year: 2025 });
     expect(addYears({ day: 5, month: 10, year: 2026 }, -120)).toEqual({ day: 5, month: 10, year: 1906 });
+  });
+});
+
+describe('wallClock', () => {
+  it('keeps the clock of the place the timestamp is stamped with', () => {
+    expect(wallClock('2026-10-05T07:00:00+02:00')).toEqual({ date: { day: 5, month: 10, year: 2026 }, hour: 7, minute: 0 });
+    // Seven in the morning in Tokyo is still the fifth there, though it is the fourth in UTC.
+    expect(wallClock('2026-10-05T07:30:00+09:00')).toEqual({ date: { day: 5, month: 10, year: 2026 }, hour: 7, minute: 30 });
+    expect(wallClock('2026-10-05T23:15:00-07:00')?.hour).toBe(23);
+  });
+
+  it('refuses what is not a timestamp', () => {
+    expect(wallClock('2026-10-05')).toBeNull();
+    expect(wallClock('2026-02-30T07:00:00Z')).toBeNull();
+    expect(wallClock('soon')).toBeNull();
+  });
+});
+
+describe('calendar days', () => {
+  it('names a calendar date, adding the year only when it is not this one', () => {
+    const now = new Date(2026, 9, 5);
+    expect(formatCalendarDay({ day: 3, month: 10, year: 2026 }, now)).toBe('3 października');
+    expect(formatCalendarDay({ day: 28, month: 12, year: 2025 }, now)).toBe('28 grudnia 2025');
+    expect(formatCalendarWeekday({ day: 5, month: 10, year: 2026 })).toBe('poniedziałek, 5 października');
   });
 });

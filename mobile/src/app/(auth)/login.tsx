@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -14,17 +14,25 @@ import { FormError, PasswordField } from '@/components/forms';
 import { TitleBlock } from '@/components/headers';
 import { Screen } from '@/components/Screen';
 import { messageFor } from '@/copy/errors';
+import { useResetDraft } from '@/features/profile/passwordReset';
 import { emailError, messages } from '@/features/registration/validation';
 import { space } from '@/theme';
 
 export default function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const { reset } = useLocalSearchParams<{ reset?: string }>();
+  const justReset = reset === '1';
+  // The address lives in the reset draft too: what is typed here is what the reset asks about, and what the reset leaves is here when it is done.
+  const email = useResetDraft((draft) => draft.email);
+  const setEmail = useResetDraft((draft) => draft.set);
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string | null; password?: string | null }>({});
   const signIn = useMutation({
     mutationFn: (credentials: { email: string; password: string }) => login(credentials),
-    onSuccess: (auth) => startSession(auth),
+    onSuccess: (auth) => {
+      useResetDraft.getState().reset();
+      return startSession(auth);
+    },
   });
 
   const submit = () => {
@@ -52,7 +60,7 @@ export default function Login() {
       }>
       <View style={styles.top}>
         <Brandmark small />
-        <TitleBlock title="Dobrze Cię widzieć" lead="Zaloguj się, żeby zobaczyć zestawy na dziś." />
+        <TitleBlock title="Dobrze Cię widzieć" lead={justReset ? 'Hasło zostało zmienione. Zaloguj się nowym hasłem.' : 'Zaloguj się, żeby zobaczyć zestawy na dziś.'} />
         <View style={styles.form}>
           <Field
             label="E-mail"
@@ -71,18 +79,21 @@ export default function Login() {
             returnKeyType="next"
             testID="login-email"
           />
-          <PasswordField
-            label="Hasło"
-            value={password}
-            onChangeText={(text) => {
-              setPassword(text);
-              signIn.reset();
-            }}
-            error={errors.password}
-            returnKeyType="go"
-            onSubmitEditing={submit}
-            testID="login-password"
-          />
+          <View>
+            <PasswordField
+              label="Hasło"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                signIn.reset();
+              }}
+              error={errors.password}
+              returnKeyType="go"
+              onSubmitEditing={submit}
+              testID="login-password"
+            />
+            <LinkText label="Nie pamiętasz hasła?" onPress={() => router.push('/reset')} testID="login-forgot" />
+          </View>
         </View>
       </View>
     </Screen>

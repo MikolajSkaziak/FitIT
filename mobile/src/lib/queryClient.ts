@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@/api/problem';
+import { onSessionEnd } from '@/auth/session';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -12,3 +13,6 @@ export const queryClient = new QueryClient({
     mutations: { retry: false },
   },
 });
+
+// What was loaded for one person must not be shown to the next one who signs in on this phone.
+onSessionEnd(() => queryClient.clear());

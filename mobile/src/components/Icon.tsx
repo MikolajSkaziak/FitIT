@@ -22,6 +22,7 @@ import { ThumbsDownIcon } from 'phosphor-react-native/src/icons/ThumbsDown';
 import { ThumbsUpIcon } from 'phosphor-react-native/src/icons/ThumbsUp';
 import { UserIcon } from 'phosphor-react-native/src/icons/User';
 import { XIcon } from 'phosphor-react-native/src/icons/X';
+import { View } from 'react-native';
 
 import { useTheme, type ColorToken } from '@/theme';
 
@@ -65,6 +66,21 @@ export function Icon({ name, size = 24, color = 'text' }: IconProps) {
   return <Glyph size={size} color={theme[color]} weight="bold" />;
 }
 
+interface BackdropIconProps {
+  name: IconName;
+  size?: number;
+}
+
+/**
+ * The icon of a place, large and tone on tone with the page: the centrepiece of an empty screen.
+ * Decorative, so it is hidden from screen readers by the view that holds it.
+ */
+export function BackdropIcon({ name, size = 144 }: BackdropIconProps) {
+  const theme = useTheme();
+  const Glyph = icons[name];
+  return <Glyph size={size} color={theme.sage} weight="duotone" duotoneColor={theme.sage} duotoneOpacity={0.55} />;
+}
+
 const skies = {
   sun: SunIcon,
   'cloud-sun': CloudSunIcon,
@@ -87,14 +103,16 @@ interface SkyGlyphProps {
 export function SkyGlyph({ sky, size = 80, muted = false, label }: SkyGlyphProps) {
   const theme = useTheme();
   const Glyph = skies[sky];
+  // The label sits on a view around the glyph: the library's own `title` becomes an SVG element the native renderer does not know.
   return (
-    <Glyph
-      size={size}
-      color={muted ? theme.borderControl : theme.text}
-      weight={muted ? 'regular' : 'duotone'}
-      duotoneColor={theme.onSage}
-      duotoneOpacity={0.28}
-      title={label}
-    />
+    <View accessible accessibilityRole="image" accessibilityLabel={label}>
+      <Glyph
+        size={size}
+        color={muted ? theme.borderControl : theme.text}
+        weight={muted ? 'regular' : 'duotone'}
+        duotoneColor={theme.onSage}
+        duotoneOpacity={0.28}
+      />
+    </View>
   );
 }

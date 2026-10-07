@@ -92,3 +92,38 @@ export const formatLongDate = ({ day, month, year }: CalendarDate): string => `$
 
 /** "poniedziałek, 5 października". */
 export const formatWeekday = (date: Date): string => `${weekdays[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
+
+/** "2 października", with the year added when it is not this one: for "added on" lines. */
+export function formatDay(date: Date, now: Date = new Date()): string {
+  const day = `${date.getDate()} ${months[date.getMonth()]}`;
+  return date.getFullYear() === now.getFullYear() ? day : `${day} ${date.getFullYear()}`;
+}
+
+export interface WallClock {
+  date: CalendarDate;
+  hour: number;
+  minute: number;
+}
+
+/**
+ * The date and time as written in an ISO timestamp, with whatever offset it carries. The server stamps a forecast with
+ * the offset of the place, so this is the clock on the wall there; converting to the phone's zone would be wrong.
+ */
+export function wallClock(iso: string): WallClock | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (!match) {
+    return null;
+  }
+
+  const date = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+  return exists(date) ? { date, hour: Number(match[4]), minute: Number(match[5]) } : null;
+}
+
+/** "5 października", for a calendar date; the year is added when it is not the current one. */
+export function formatCalendarDay(date: CalendarDate, now: Date = new Date()): string {
+  const day = `${date.day} ${months[date.month - 1]}`;
+  return date.year === now.getFullYear() ? day : `${day} ${date.year}`;
+}
+
+/** "poniedziałek, 5 października", for a calendar date. */
+export const formatCalendarWeekday = (date: CalendarDate): string => formatWeekday(toJsDate(date));

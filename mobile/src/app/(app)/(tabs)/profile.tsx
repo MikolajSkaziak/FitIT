@@ -1,15 +1,22 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
-import { signOut, useSession } from '@/auth/session';
+import { updateProfile } from '@/api/account';
+import { fetchUsage, wardrobeKeys } from '@/api/wardrobe';
+import { setUser, signOut, useSession } from '@/auth/session';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { LinkText } from '@/components/controls';
+import { FormError } from '@/components/forms';
 import { Group, Row } from '@/components/lists';
 import { Screen } from '@/components/Screen';
-import { genderLabel } from '@/copy/labels';
+import { ToggleRow } from '@/components/toggles';
+import { messageFor } from '@/copy/errors';
+import { genderLabel, styleLabel, thermalLabel } from '@/copy/labels';
+import { consentLine } from '@/features/profile/consent';
+import { privacyPolicyUrl } from '@/features/profile/legal';
 import { formatDate, fromIso } from '@/lib/dates';
 import { radius, space, useTheme } from '@/theme';
 
@@ -18,6 +25,9 @@ export default function Profile() {
   const router = useRouter();
   const user = useSession((session) => session.user);
   const leave = useMutation({ mutationFn: () => signOut() });
+  // Switching it takes effect at once, like every switch of a settings list; the answer replaces the person kept in memory.
+  const consent = useMutation({ mutationFn: (agreed: boolean) => updateProfile({ aiConsent: agreed }), onSuccess: (updated) => setUser(updated) });
+  const usage = useQuery({ queryKey: wardrobeKeys.usage, queryFn: fetchUsage });
 
   // This tab only exists while somebody is signed in; the check keeps the types honest during sign out.
   if (!user) {
@@ -25,6 +35,7 @@ export default function Profile() {
   }
 
   const birthDate = fromIso(user.birthDate);
+  const policyUrl = privacyPolicyUrl();
 
   return (
     <Screen aboveTabBar testID="profile-screen">
@@ -61,7 +72,61 @@ export default function Profile() {
           <Row label="Płeć" value={genderLabel(user.gender)} onPress={() => router.push('/account/gender')} testID="profile-row-gender" />
           <Row label="E-mail" value={user.email} last />
         </Group>
+        <Group title="Pogoda i styl">
+          <Row
+            label="Pogoda według"
+            value={user.location ? (user.location.source === 'device' ? 'Lokalizacji telefonu' : 'Wybranego miasta') : 'Nie ustawiono'}
+            meta={user.location?.name}
+            onPress={() => router.push('/account/place')}
+            testID="profile-row-place"
+          />
+          <Row
+            label="Odczuwanie temperatury"
+            value={thermalLabel(user.thermalPreference)}
+            onPress={() => router.push('/account/thermal')}
+            testID="profile-row-thermal"
+          />
+          {/* There is no screen for changing the styles yet, so the row only tells what is chosen. */}
+          <Row
+            label="Preferowane style"
+            value={user.styles.length > 0 ? user.styles.map((tag) => styleLabel(tag).toLowerCase()).join(', ') : 'Nie wybrano'}
+            last
+            testID="profile-row-styles"
+          />
+        </Group>
+        {usage.data ? (
+          <Group title="Limity na dziś">
+            <Row label="Propozycje" value={`${usage.data.suggestions.used} z ${usage.data.suggestions.limit}`} testID="profile-limit-suggestions" />
+            <Row label="Wizualizacje" value={`${usage.data.visualizations.used} z ${usage.data.visualizations.limit}`} testID="profile-limit-visualizations" />
+            <Row label="Nowe ubrania" value={`${usage.data.items.used} z ${usage.data.items.limit}`} last testID="profile-limit-items" />
+          </Group>
+        ) : null}
+        <View style={styles.privacy}>
+          <Group title="Prywatność">
+            <ToggleRow
+              label="Zdjęcia ubrań w zewnętrznym AI"
+              meta={consentLine(user.aiConsentAt)}
+              value={Boolean(user.aiConsentAt)}
+              onChange={(agreed) => consent.mutate(agreed)}
+              disabled={consent.isPending}
+              last={!policyUrl}
+              testID="profile-consent"
+            />
+            {policyUrl ? <Row label="Polityka prywatności" onPress={() => void Linking.openURL(policyUrl)} last testID="profile-row-privacy" /> : null}
+          </Group>
+          <FormError message={consent.isError ? messageFor(consent.error) : null} />
+        </View>
         <Button label="Wyloguj się" kind="secondary" busy={leave.isPending} onPress={() => leave.mutate()} testID="profile-sign-out" />
+        <View style={styles.danger}>
+          <Group title="Usuwanie konta">
+            <View style={styles.dangerBody}>
+              <AppText variant="secondary" color="textSecondary">
+                Usuniemy konto, ubrania, zestawy i obrazy. Tego nie da się cofnąć.
+              </AppText>
+              <Button label="Usuń konto" kind="dangerText" inline onPress={() => router.push('/account/delete')} testID="profile-delete-account" />
+            </View>
+          </Group>
+        </View>
       </View>
     </Screen>
   );
@@ -72,4 +137,8 @@ const styles = StyleSheet.create({
   me: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
   avatar: { width: 72, height: 96, borderRadius: radius.well },
   meText: { flex: 1, alignItems: 'flex-start' },
+  privacy: { gap: space[2] },
+  // The mock-up sets the danger zone a little apart from the button above it.
+  danger: { marginTop: space[2] },
+  dangerBody: { padding: space[4], gap: space[1], alignItems: 'flex-start' },
 });

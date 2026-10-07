@@ -3,7 +3,7 @@ import { addYears, isAfter, parseDate, today as currentDay, type CalendarDate } 
 import type { RegistrationDraft } from './draft';
 
 /** Mirrors the server's limits (AccountContracts.cs). The server stays the judge; this only saves a round trip. */
-export const limits = { email: 254, passwordMin: 8, passwordMax: 128, name: 40, oldestAge: 120 } as const;
+export const limits = { email: 254, passwordMin: 8, passwordMax: 128, name: 40, oldestAge: 120, resetCode: 6 } as const;
 
 /** The server sends its own value with the `underage` error; this one is used before asking the server. */
 export const minimumAge = 16;
@@ -15,6 +15,8 @@ export const messages = {
   passwordMissing: 'Podaj hasło.',
   passwordShort: `Hasło musi mieć co najmniej ${limits.passwordMin} znaków.`,
   passwordLong: `Hasło może mieć najwyżej ${limits.passwordMax} znaków.`,
+  codeMissing: 'Wpisz kod z wiadomości.',
+  codeInvalid: 'Kod ma sześć cyfr. Sprawdź, czy jest wpisany w całości.',
   nameMissing: 'Podaj imię.',
   birthDateMissing: 'Podaj datę urodzenia.',
   birthDateInvalid: 'Wpisz datę jako dzień, miesiąc i rok, na przykład 14.03.1999.',
@@ -43,6 +45,17 @@ export function passwordError(password: string): string | null {
   }
 
   return password.length > limits.passwordMax ? messages.passwordLong : null;
+}
+
+/** What the e-mail's code field keeps: digits only, so a pasted "123 456" still works. */
+export const digitsOnly = (text: string): string => text.replace(/\D/g, '').slice(0, limits.resetCode);
+
+export function resetCodeError(code: string): string | null {
+  if (code.length === 0) {
+    return messages.codeMissing;
+  }
+
+  return code.length === limits.resetCode ? null : messages.codeInvalid;
 }
 
 export const nameError = (name: string): string | null => (name.trim().length === 0 ? messages.nameMissing : null);
