@@ -4,6 +4,10 @@
     <Project Path="src/FitIt.Core/FitIt.Core.csproj" />
     <Project Path="src/FitIt.Infrastructure/FitIt.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/FitIt.Eval/FitIt.Eval.csproj" />
+    <Project Path="tools/FitIt.ProviderCheck/FitIt.ProviderCheck.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/FitIt.Tests/FitIt.Tests.csproj" />
   </Folder>

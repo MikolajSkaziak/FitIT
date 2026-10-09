@@ -80,4 +80,64 @@ internal static class TestApi
         var auth = await factory.CreateClient().RegisterAsync(change: change);
         return (factory.Authorized(auth.AccessToken), auth);
     }
+
+    /// <summary>A new person who has agreed to their garment photos being processed by AI services.</summary>
+    public static async Task<(HttpClient Client, AuthResponse Auth)> SignedInWithConsentAsync(this ApiFactory factory)
+    {
+        var (client, auth) = await factory.SignedInAsync();
+        await client.GiveConsentAsync();
+        return (client, auth);
+    }
+
+    public static async Task GiveConsentAsync(this HttpClient client, bool consent = true)
+    {
+        var response = await client.PatchJsonAsync("/api/me", new JsonObject { ["aiConsent"] = consent });
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>A fresh access token for somebody whose first one has aged out because a test moved the clock.</summary>
+    public static async Task<HttpClient> SignInAgainAsync(this ApiFactory factory, AuthResponse auth)
+    {
+        var response = await factory.CreateClient().PostJsonAsync("/api/auth/login", new JsonObject { ["email"] = auth.User.Email, ["password"] = Password });
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        return factory.Authorized((await response.ReadAsync<AuthResponse>()).AccessToken);
+    }
+
+    /// <summary>The smallest thing that passes for a JPEG: the three magic bytes and some padding.</summary>
+    public static byte[] Jpeg(int size = 2048)
+    {
+        var bytes = new byte[size];
+        bytes[0] = 0xFF;
+        bytes[1] = 0xD8;
+        bytes[2] = 0xFF;
+        bytes[3] = 0xE0;
+        return bytes;
+    }
+
+    /// <summary>Asks for an upload address and plays the phone: puts the photo into storage under the issued key.</summary>
+    public static async Task<string> UploadPhotoAsync(this HttpClient client, FitIt.Infrastructure.Storage.InMemoryImageStorage storage, byte[]? content = null)
+    {
+        var response = await client.PostAsync("/api/uploads", null);
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var ticket = await response.ReadAsync<UploadResponse>();
+        storage.Put(ticket.Key, content ?? Jpeg());
+        return ticket.Key;
+    }
+
+    /// <summary>Uploads a photo and turns it into a garment that waits for the processing job.</summary>
+    public static async Task<ClothingResponse> AddGarmentAsync(this HttpClient client, FitIt.Infrastructure.Storage.InMemoryImageStorage storage)
+    {
+        var key = await client.UploadPhotoAsync(storage);
+        var response = await client.PostJsonAsync("/api/clothes", new JsonObject { ["key"] = key });
+        Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
+        return await response.ReadAsync<ClothingResponse>();
+    }
+
+    /// <summary>Adds a garment and runs its processing job, so it is ready (unless the test scripted the AI otherwise).</summary>
+    public static async Task<ClothingResponse> AddProcessedGarmentAsync(this ApiFactory factory, HttpClient client)
+    {
+        var added = await client.AddGarmentAsync(factory.Storage);
+        await factory.ProcessAsync(added.Id);
+        return await (await client.GetAsync($"/api/clothes/{added.Id}")).ReadAsync<ClothingResponse>();
+    }
 }

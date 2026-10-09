@@ -34,6 +34,8 @@ export function useRegister() {
         avatarId: draft.avatarId,
         styles: draft.styles,
         thermalPreference: draft.thermalPreference,
+        clothingSize: draft.clothingSize ?? undefined,
+        legLength: draft.legLength ?? undefined,
         location: place,
       });
     },

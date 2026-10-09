@@ -10,10 +10,11 @@ import { space } from '@/theme';
 import { AppText } from './AppText';
 import { Field } from './Field';
 import { Card, Row, Skeleton } from './lists';
+import { Fade } from './motion';
 
 const minimumLength = 2;
 
-/** "Śląskie, Polska": what tells two places of the same name apart. */
+/** "Silesia, Poland": what tells two places of the same name apart. */
 export const placeDetail = (place: Pick<PlaceMatch, 'region' | 'country'>): string => [place.region, place.country].filter(Boolean).join(', ');
 
 interface PlaceSearchProps {
@@ -22,10 +23,12 @@ interface PlaceSearchProps {
   /** Shown under the field when nothing has been picked and the form was sent. */
   error?: string | null;
   initialText?: string;
+  /** Opens the keyboard on the field as soon as it appears: for when the person has just chosen to search. */
+  autoFocus?: boolean;
 }
 
 /** A city field: type a few letters, pick the place from the matches below. */
-export function PlaceSearch({ value, onChange, error, initialText = '' }: PlaceSearchProps) {
+export function PlaceSearch({ value, onChange, error, initialText = '', autoFocus = false }: PlaceSearchProps) {
   const [text, setText] = useState(value?.name ?? initialText);
   const query = useDebounced(text.trim(), 300);
   const searching = !value && query.length >= minimumLength;
@@ -39,7 +42,7 @@ export function PlaceSearch({ value, onChange, error, initialText = '' }: PlaceS
   return (
     <View style={styles.search}>
       <Field
-        label="Miasto"
+        label="City"
         value={text}
         onChangeText={(next) => {
           setText(next);
@@ -48,8 +51,9 @@ export function PlaceSearch({ value, onChange, error, initialText = '' }: PlaceS
           }
         }}
         error={error}
-        helper={value ? placeDetail(value) : 'Wpisz co najmniej dwie litery i wybierz miejscowość z listy.'}
+        helper={value ? placeDetail(value) : 'Type at least two letters, then pick a city from the list.'}
         leadingIcon="search"
+        autoFocus={autoFocus}
         autoCapitalize="words"
         autoCorrect={false}
         autoComplete="off"
@@ -60,18 +64,20 @@ export function PlaceSearch({ value, onChange, error, initialText = '' }: PlaceS
       {searching ? (
         matches.isPending ? (
           <Card>
-            <View style={styles.loading} accessibilityRole="progressbar" accessibilityLabel="Szukamy miejscowości">
+            <View style={styles.loading} accessibilityRole="progressbar" accessibilityLabel="Searching for places">
               <Skeleton height={16} width="45%" />
               <Skeleton height={12} width="65%" />
             </View>
           </Card>
         ) : matches.isError ? (
-          <AppText variant="secondary" color="danger" accessibilityRole="alert">
-            {messageFor(matches.error)}
-          </AppText>
+          <Fade key="problem">
+            <AppText variant="secondary" color="danger" accessibilityRole="alert">
+              {messageFor(matches.error)}
+            </AppText>
+          </Fade>
         ) : matches.data.length === 0 ? (
           <AppText variant="secondary" color="textSecondary">
-            Nie znaleźliśmy takiej miejscowości. Sprawdź pisownię albo wpisz większe miasto w pobliżu.
+            We couldn’t find that place. Check the spelling, or try a larger city nearby.
           </AppText>
         ) : (
           <Card>

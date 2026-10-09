@@ -15,14 +15,17 @@ import { messageFor } from '@/copy/errors';
 import { space } from '@/theme';
 
 /** Saves a change to the profile; the signed-in person kept in memory is replaced by what the server answers. */
-export function useSaveProfile(onSaved: () => void) {
+export function useSaveProfile(onSaved: () => void, { weather = true }: { weather?: boolean } = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (change: ProfileChange) => updateProfile(change),
     onSuccess: (user) => {
       setUser(user);
-      // The thermal preference shifts the forecast's band, so the weather on Dziś is asked for again.
-      void queryClient.invalidateQueries({ queryKey: weatherKeys.all });
+      // The thermal preference shifts the forecast's band, so the weather on Today is asked for again.
+      if (weather) {
+        void queryClient.invalidateQueries({ queryKey: weatherKeys.all });
+      }
+
       onSaved();
     },
   });
@@ -39,11 +42,13 @@ interface EditScreenProps {
   error?: unknown;
   /** Something the person still has to do before the action can run. */
   notice?: string | null;
+  /** A quiet action under the button, such as taking a choice back. */
+  secondary?: ReactNode;
   testID?: string;
 }
 
 /** A screen that changes one thing in the profile: a way back, the control, one button. */
-export function EditScreen({ title, lead, children, actionLabel = 'Zapisz', onAction, busy, error, notice, testID }: EditScreenProps) {
+export function EditScreen({ title, lead, children, actionLabel = 'Save', onAction, busy, error, notice, secondary, testID }: EditScreenProps) {
   const router = useRouter();
   return (
     <Screen
@@ -52,6 +57,7 @@ export function EditScreen({ title, lead, children, actionLabel = 'Zapisz', onAc
         <>
           <FormError message={notice ?? (error ? messageFor(error) : null)} />
           <Button label={actionLabel} busy={busy} onPress={onAction} testID="edit-save" />
+          {secondary}
         </>
       }>
       <View style={styles.content}>

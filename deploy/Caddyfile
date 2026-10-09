@@ -1,0 +1,73 @@
+# Reverse proxy for the FitIt API. Caddy gets and renews the HTTPS certificate by itself (Let's Encrypt)
+# for the host name in DOMAIN; both variables come from the env file through compose.yml.
+{
+	email {$ACME_EMAIL}
+}
+
+# Shared by every response, API and static pages alike. The Content-Security-Policy differs and is set per route below.
+(common_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+}
+
+{$DOMAIN} {
+	# One line per request on stdout (rotated by Docker). Authorization and cookies are redacted by Caddy.
+	log {
+		output stdout
+	}
+
+	encode zstd gzip
+
+	# The API takes small JSON documents; photos go straight from the phone to R2. Larger bodies get 413.
+	# Raise it here if an endpoint that takes bigger JSON is ever added.
+	request_body {
+		max_size 256KB
+	}
+
+	import common_headers
+
+	# Never reachable from the internet:
+	#  - /hangfire: the jobs dashboard. The API protects it with Basic auth and mounts it only when credentials are set,
+	#    but there is no reason to expose a login page for it. Use the SSH tunnel from README.md.
+	#  - /openapi: the machine-readable API description, public in every environment (Program.cs MapOpenApi).
+	# The matchers look at the path as received, so odd spellings (//hangfire, upper case) are caught too.
+	@internal_path path /hangfire /hangfire/* /openapi /openapi/*
+	@internal_regexp path_regexp internal (?i)^/+(hangfire|openapi)(/|$)
+	handle @internal_path {
+		respond 404
+	}
+	handle @internal_regexp {
+		respond 404
+	}
+
+	# Legal documents, added later to deploy/legal/ as self-contained HTML files:
+	#   deploy/legal/regulamin.html   ->  https://<DOMAIN>/regulamin
+	#   deploy/legal/prywatnosc.html  ->  https://<DOMAIN>/prywatnosc
+	# Until a file exists the address answers 404.
+	@regulamin path /regulamin /regulamin/
+	handle @regulamin {
+		header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; frame-ancestors 'none'"
+		root * /srv/legal
+		rewrite * /regulamin.html
+		file_server
+	}
+	@prywatnosc path /prywatnosc /prywatnosc/
+	handle @prywatnosc {
+		header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; frame-ancestors 'none'"
+		root * /srv/legal
+		rewrite * /prywatnosc.html
+		file_server
+	}
+
+	# Everything else is the API (its JSON and the silhouette pictures it serves as static files).
+	handle {
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		reverse_proxy api:5080
+	}
+}

@@ -1,17 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { PlaceMatch } from '@/api/account';
 import { useSession } from '@/auth/session';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { LinkText } from '@/components/controls';
-import { FormError } from '@/components/forms';
 import { PlaceSearch } from '@/components/PlaceSearch';
 import { messageFor } from '@/copy/errors';
 import { EditScreen } from '@/features/profile/EditScreen';
-import { locationProblems } from '@/features/weather/copy';
+import { LocationProblem } from '@/features/weather/LocationProblem';
 import { useChooseCity, useLocate } from '@/features/weather/place';
 import { space } from '@/theme';
 
@@ -25,35 +23,33 @@ export default function EditPlace() {
   const choose = useChooseCity();
 
   const outcome = locate.data;
-  const problem = locate.isError ? messageFor(locate.error) : outcome === 'denied' || outcome === 'unavailable' ? locationProblems[outcome] : null;
 
   return (
     <EditScreen
-      title="Miejsce pogody"
-      lead="Zestawy dobieramy do pogody w tym miejscu."
-      actionLabel="Zapisz miasto"
+      title="Weather location"
+      lead="We pick outfits for the weather in this place."
+      actionLabel="Save city"
       busy={choose.isPending}
       error={choose.error}
-      notice={missing && !city ? 'Wybierz miejscowość z listy.' : null}
+      notice={missing && !city ? 'Pick a place from the list.' : null}
       onAction={() => (city ? choose.mutate(city, { onSuccess: () => router.back() }) : setMissing(true))}
       testID="edit-place">
       <View style={styles.body}>
         {place ? (
           <AppText variant="secondary" color="textSecondary" testID="place-current">
-            Teraz: {place.name}, {place.source === 'device' ? 'według lokalizacji telefonu' : 'wybrane miasto'}.
+            Now: {place.name}, {place.source === 'device' ? 'from your phone’s location' : 'chosen city'}.
           </AppText>
         ) : null}
         <View style={styles.device}>
           <Button
-            label="Użyj lokalizacji telefonu"
+            label="Use phone location"
             icon="location"
             kind="secondary"
             busy={locate.isPending}
             onPress={() => locate.mutate(undefined, { onSuccess: (result) => result === 'saved' && router.back() })}
             testID="place-locate"
           />
-          <FormError message={problem} />
-          {outcome === 'denied' ? <LinkText label="Otwórz ustawienia telefonu" onPress={() => void Linking.openSettings()} testID="place-settings" /> : null}
+          <LocationProblem outcome={outcome === 'denied' || outcome === 'unavailable' ? outcome : null} message={locate.isError ? messageFor(locate.error) : null} />
         </View>
         <PlaceSearch
           value={city}

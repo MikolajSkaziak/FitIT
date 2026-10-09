@@ -13,10 +13,21 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Hangfire.Core" />
     <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="GeoTimeZone" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The versioned system prompts of the models travel inside the assembly. -->
+    <EmbeddedResource Include="Styling\Prompts\*.md" />
+    <EmbeddedResource Include="Visualizations\Prompts\*.md" />
+    <EmbeddedResource Include="Gemini\Prompts\*.md" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="FitIt.Tests" />
+    <InternalsVisibleTo Include="FitIt.Eval" />
   </ItemGroup>
 
 </Project>

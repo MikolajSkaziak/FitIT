@@ -1,16 +1,9 @@
-/**
- * Polish plural forms: 1 ubranie, 2 ubrania, 5 ubrań, 22 ubrania, 112 ubrań.
- * `forms` is [one, few, many].
- */
-export function plural(count: number, forms: readonly [string, string, string]): string {
-  const n = Math.abs(count);
-  if (n === 1) {
-    return forms[0];
-  }
-
-  const lastTwo = n % 100;
-  const last = n % 10;
-  return last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14) ? forms[1] : forms[2];
+/** English plural forms: 1 item, 0 items, 2 items. `forms` is [one, other]. */
+export function plural(count: number, forms: readonly [string, string]): string {
+  return Math.abs(count) === 1 ? forms[0] : forms[1];
 }
 
-export const garments = (count: number): string => `${count} ${plural(count, ['ubranie', 'ubrania', 'ubrań'])}`;
+export const garments = (count: number): string => `${count} ${plural(count, ['item', 'items'])}`;
+
+/** "light blue" to "Light blue": dictionary labels are lower case where they sit in a sentence, and capitalized where they stand alone. */
+export const capitalized = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);

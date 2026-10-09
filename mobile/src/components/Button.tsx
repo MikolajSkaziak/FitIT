@@ -1,9 +1,10 @@
-import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { radius, size, space, useTheme, type ColorToken } from '@/theme';
+import { motion, radius, size, space, useTheme, type ColorToken } from '@/theme';
 
 import { AppText } from './AppText';
 import { Icon, type IconName } from './Icon';
+import { Fade, PressScale } from './motion';
 
 type Kind = 'primary' | 'secondary' | 'text' | 'danger' | 'dangerText';
 
@@ -37,14 +38,14 @@ export function Button({ label, onPress, kind = 'primary', icon, compact, inline
   const theme = useTheme();
   const look = disabled ? { fill: 'disabledFill' as const, text: 'disabledText' as const, line: 'disabledFill' as const } : looks[kind];
   return (
-    <Pressable
+    <PressScale
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: disabled || busy, busy }}
       disabled={disabled || busy}
       onPress={onPress}
       testID={testID}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         {
           height: compact ? size.controlCompact : size.control,
@@ -52,16 +53,24 @@ export function Button({ label, onPress, kind = 'primary', icon, compact, inline
           borderColor: look.line ? theme[look.line] : 'transparent',
           alignSelf: inline ? 'flex-start' : 'stretch',
         },
-        pressed ? styles.pressed : null,
         style,
       ]}>
-      {busy ? <ActivityIndicator size="small" color={theme[look.text]} /> : icon ? <Icon name={icon} size={20} color={look.text} /> : null}
+      {busy ? (
+        <ActivityIndicator size="small" color={theme[look.text]} />
+      ) : icon === 'check' ? (
+        // A check is the answer to something that was just done: it settles in rather than appearing.
+        <Fade pop duration={motion.exit}>
+          <Icon name={icon} size={20} color={look.text} />
+        </Fade>
+      ) : icon ? (
+        <Icon name={icon} size={20} color={look.text} />
+      ) : null}
       <View style={styles.label}>
         <AppText variant="label" color={look.text} numberOfLines={1}>
           {label}
         </AppText>
       </View>
-    </Pressable>
+    </PressScale>
   );
 }
 
@@ -76,5 +85,4 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   label: { flexShrink: 1 },
-  pressed: { opacity: 0.88, transform: [{ scale: 0.97 }] },
 });

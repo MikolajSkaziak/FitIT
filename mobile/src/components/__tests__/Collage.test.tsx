@@ -5,7 +5,7 @@ import type { OutfitItem } from '@/api/outfits';
 import { Collage } from '@/components/Collage';
 import { clothing, fourItems } from '@/test/fixtures';
 
-const item = (index: number, slot: OutfitItem['slot']): OutfitItem => ({ slot, clothing: clothing(`c${index}`, `Ubranie ${index}`, slot) });
+const item = (index: number, slot: OutfitItem['slot']): OutfitItem => ({ slot, clothing: clothing(`c${index}`, `Item ${index}`, slot) });
 
 const frameOf = (testID: string) => StyleSheet.flatten(screen.getByTestId(testID).props.style) as { width: number; height: number };
 
@@ -16,7 +16,7 @@ describe('Collage', () => {
 
     await render(<Collage items={items} width={358} testID="collage" />);
 
-    expect(screen.getByLabelText(/^Zestaw: /)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Outfit: /)).toBeOnTheScreen();
     for (const entry of items) {
       expect(screen.getByLabelText(new RegExp(entry.clothing.name as string))).toBeOnTheScreen();
     }
@@ -25,7 +25,7 @@ describe('Collage', () => {
   it('reads as one picture with the names of the garments, from head to toe', async () => {
     await render(<Collage items={[...fourItems].reverse()} width={358} />);
 
-    expect(screen.getByRole('image', { name: 'Zestaw: Granatowa koszula, Szary płaszcz, Beżowe chinosy, Białe trampki' })).toBeOnTheScreen();
+    expect(screen.getByRole('image', { name: 'Outfit: Navy shirt, Gray coat, Beige chinos, White sneakers' })).toBeOnTheScreen();
   });
 
   it('is as high as its rows and as wide as it was told', async () => {
@@ -42,6 +42,6 @@ describe('Collage', () => {
 
     await render(<Collage items={items} width={358} />);
 
-    expect(screen.getByRole('image', { name: 'Zestaw: Ubranie 2, Ubranie 1, Ubranie 0' })).toBeOnTheScreen();
+    expect(screen.getByRole('image', { name: 'Outfit: Item 2, Item 1, Item 0' })).toBeOnTheScreen();
   });
 });

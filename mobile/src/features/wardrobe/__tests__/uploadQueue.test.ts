@@ -208,7 +208,7 @@ describe('the upload queue', () => {
     expect(entries()[0]?.status).toBe('processing');
 
     online = true;
-    server.set('item-u/me/orig/1.jpg', garment('item-u/me/orig/1.jpg', { status: 'ready', name: 'Białe sneakersy' }));
+    server.set('item-u/me/orig/1.jpg', garment('item-u/me/orig/1.jpg', { status: 'ready', name: 'White sneakers' }));
     await tick();
     expect(entries()[0]?.status).toBe('ready');
 

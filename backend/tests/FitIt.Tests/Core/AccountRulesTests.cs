@@ -58,7 +58,9 @@ public sealed class AccountRulesTests
         Assert.Equal(ThermalPreference.RunsWarm, EnumCodes.Parse<ThermalPreference>("runs_warm"));
         Assert.False(EnumCodes.TryParse<Gender>("Female", out _));
         Assert.False(EnumCodes.TryParse<Gender>(null, out _));
-        Assert.Equal(["female", "male"], EnumCodes.All<Gender>());
+        Assert.Equal(["female", "male", "non_binary", "unspecified"], EnumCodes.All<Gender>());
+        Assert.Equal(Gender.NonBinary, EnumCodes.Parse<Gender>("non_binary"));
+        Assert.Equal(Gender.Unspecified, EnumCodes.Parse<Gender>("unspecified"));
     }
 
     [Fact]

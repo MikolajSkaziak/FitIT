@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FitIt",
+    "name": "fitit.",
     "slug": "fitit",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "pl.fitit.app",
+      "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#2F5D4C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -35,18 +36,17 @@
         }
       ],
       "expo-secure-store",
-      "@react-native-community/datetimepicker",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "FitIt sprawdza pogodę w Twojej okolicy, żeby dobrać zestaw na dziś."
+          "locationWhenInUsePermission": "fitit. uses your location to check the weather and suggest outfits that suit it."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "FitIt potrzebuje dostępu do zdjęć, żeby dodać ubrania do Twojej szafy.",
-          "cameraPermission": "FitIt potrzebuje aparatu, żeby sfotografować ubrania do Twojej szafy."
+          "photosPermission": "fitit. needs your photos so you can add clothes to your wardrobe.",
+          "cameraPermission": "fitit. uses the camera so you can take photos of your clothes."
         }
       ]
     ],

@@ -26,13 +26,19 @@ function attachVisualization(queryClient: QueryClient, record: Visualization): v
   queryClient.setQueriesData<Outfit>({ queryKey: ['outfits', 'one'] }, (outfit) => (outfit ? swap(outfit) : outfit));
 }
 
-/** The picture of one outfit: its state, the words for it, and how much of today's allowance is left. */
-export function useVisualization(outfit: Outfit) {
+/**
+ * The picture of one outfit: its state, the words for it, and how much of today's allowance is left.
+ *
+ * An outfit that is still being put together has no id to order a picture for. It is given as null with `prepare`,
+ * which stores it and answers with its id when the picture is ordered, and with the same id every time after that.
+ */
+export function useVisualization(outfit: Outfit | null, prepare?: () => Promise<string>) {
   const queryClient = useQueryClient();
-  const known = visualizationOf(outfit);
+  const known = outfit ? visualizationOf(outfit) : null;
+  const outfitId = outfit?.id ?? null;
   const order = useMemo(
     () =>
-      createVisualizationOrder(outfit.id, {
+      createVisualizationOrder(outfitId ?? '', {
         request: requestVisualization,
         read: fetchVisualization,
         wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -46,7 +52,7 @@ export function useVisualization(outfit: Outfit) {
           }
         },
       }),
-    [outfit.id, queryClient],
+    [outfitId, queryClient],
   );
 
   const state = useOrder(order, (current) => current);
@@ -74,6 +80,6 @@ export function useVisualization(outfit: Outfit) {
     leftLine: left ? leftToday(left) : null,
     /** Nothing left for today: ordering now would only be refused. */
     usedUp: left ? left.used >= left.limit : false,
-    start: order.start,
+    start: () => order.start(outfitId ? undefined : prepare),
   };
 }

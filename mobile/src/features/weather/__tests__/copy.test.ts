@@ -16,6 +16,7 @@ const weather: Weather = {
   rainFrom: null,
   needsLayers: false,
   band: 'mild',
+  hours: [],
 };
 
 describe('formatRange', () => {
@@ -29,8 +30,8 @@ describe('formatRange', () => {
   });
 
   it('spells a range below zero with words, so no hyphen reads as a minus', () => {
-    expect(formatRange(-4, 1)).toBe('−4 do 1°C');
-    expect(formatRange(-8, -3)).toBe('−8 do −3°C');
+    expect(formatRange(-4, 1)).toBe('−4 to 1°C');
+    expect(formatRange(-8, -3)).toBe('−8 to −3°C');
     expect(formatRange(-5, -5)).toBe('−5°C');
   });
 
@@ -41,13 +42,13 @@ describe('formatRange', () => {
 
 describe('partOfDay', () => {
   it.each([
-    [2, 'w nocy'],
-    [7, 'rano'],
-    [11, 'rano'],
-    [12, 'po południu'],
-    [17, 'po południu'],
-    [18, 'wieczorem'],
-    [23, 'wieczorem'],
+    [2, 'at night'],
+    [7, 'in the morning'],
+    [11, 'in the morning'],
+    [12, 'in the afternoon'],
+    [17, 'in the afternoon'],
+    [18, 'in the evening'],
+    [23, 'in the evening'],
   ] as const)('calls %i o\'clock %s', (hour, part) => {
     expect(partOfDay(hour)).toBe(part);
   });
@@ -55,43 +56,43 @@ describe('partOfDay', () => {
 
 describe('headline', () => {
   it('says the sky and that nothing falls from it', () => {
-    expect(headline(weather)).toBe('Słonecznie, bez opadów');
-    expect(headline({ ...weather, sky: 'cloud' })).toBe('Pochmurno, bez opadów');
-    expect(headline({ ...weather, sky: 'cloud_sun' })).toBe('Przejaśnienia, bez opadów');
+    expect(headline(weather)).toBe('Sunny, no rain');
+    expect(headline({ ...weather, sky: 'cloud' })).toBe('Cloudy, no rain');
+    expect(headline({ ...weather, sky: 'cloud_sun' })).toBe('Partly cloudy, no rain');
   });
 
   it('says when the rain starts if it starts well after the window does', () => {
-    expect(headline({ ...weather, sky: 'rain', rain: true, rainFrom: '2026-10-05T14:00:00+02:00' })).toBe('Deszcz po południu');
-    expect(headline({ ...weather, sky: 'rain', rain: true, rainFrom: '2026-10-05T19:00:00+02:00' })).toBe('Deszcz wieczorem');
+    expect(headline({ ...weather, sky: 'rain', rain: true, rainFrom: '2026-10-05T14:00:00+02:00' })).toBe('Rain from 2 pm');
+    expect(headline({ ...weather, sky: 'rain', rain: true, rainFrom: '2026-10-05T19:00:00+02:00' })).toBe('Rain from 7 pm');
   });
 
   it('does not repeat "from the start" as a time of day', () => {
-    expect(headline({ ...weather, sky: 'rain', rain: true, rainFrom: '2026-10-05T09:00:00+02:00' })).toBe('Deszcz');
-    expect(headline({ ...weather, sky: 'snow', rain: true, rainFrom: '2026-10-05T10:00:00+02:00' })).toBe('Śnieg');
+    expect(headline({ ...weather, sky: 'rain', rain: true, rainFrom: '2026-10-05T09:00:00+02:00' })).toBe('Rain');
+    expect(headline({ ...weather, sky: 'snow', rain: true, rainFrom: '2026-10-05T10:00:00+02:00' })).toBe('Snow');
   });
 
   it('warns about rain under a sky that does not look it', () => {
-    expect(headline({ ...weather, sky: 'cloud', rain: true, rainFrom: '2026-10-05T17:00:00+02:00' })).toBe('Pochmurno, możliwy deszcz po południu');
+    expect(headline({ ...weather, sky: 'cloud', rain: true, rainFrom: '2026-10-05T17:00:00+02:00' })).toBe('Cloudy, chance of rain from 5 pm');
   });
 
   it('reads the clock of the place, not the phone', () => {
-    // 07:00 in Tokyo is 22:00 the day before in UTC; the rain still starts "rano" there.
-    expect(headline({ sky: 'rain', rain: true, from: '2026-10-05T05:00:00+09:00', rainFrom: '2026-10-05T08:00:00+09:00' })).toBe('Deszcz rano');
+    // 05:00 in Tokyo is 20:00 the day before in UTC; the rain still starts at 8 am there, whatever the phone's clock says.
+    expect(headline({ sky: 'rain', rain: true, from: '2026-10-05T05:00:00+09:00', rainFrom: '2026-10-05T08:00:00+09:00' })).toBe('Rain from 8 am');
   });
 });
 
 describe('advice', () => {
   it('suggests a layer to take off when the day swings, naming when it is coldest', () => {
-    expect(advice({ ...weather, needsLayers: true })).toBe('Rano chłodno, przyda się warstwa do zdjęcia.');
-    expect(advice({ ...weather, needsLayers: true, coldestAt: '2026-10-05T20:00:00+02:00' })).toBe('Wieczorem chłodno, przyda się warstwa do zdjęcia.');
+    expect(advice({ ...weather, needsLayers: true })).toBe('It’ll be cool in the morning. Wear a layer you can take off.');
+    expect(advice({ ...weather, needsLayers: true, coldestAt: '2026-10-05T20:00:00+02:00' })).toBe('It’ll be cool in the evening. Wear a layer you can take off.');
   });
 
   it('puts rain before everything else', () => {
-    expect(advice({ ...weather, rain: true, band: 'cold', needsLayers: true })).toBe('Zimno i mokro, ubierz się ciepło i nieprzemakalnie.');
-    expect(advice({ ...weather, rain: true, band: 'warm' })).toBe('Ciepło, ale może padać. Weź coś na deszcz.');
+    expect(advice({ ...weather, rain: true, band: 'cold', needsLayers: true })).toBe('Cold and wet. Dress warm and stay dry.');
+    expect(advice({ ...weather, rain: true, band: 'warm' })).toBe('Warm, but rain is possible. Bring something for the rain.');
   });
 
-  it('speaks to the person without gendered forms', () => {
+  it('speaks to the person without dashes', () => {
     for (const band of ['hot', 'warm', 'mild', 'cold', 'freezing'] as const) {
       expect(advice({ ...weather, band })).not.toMatch(/–|—/);
       expect(advice({ ...weather, band, rain: true })).not.toMatch(/–|—/);
@@ -100,8 +101,8 @@ describe('advice', () => {
 });
 
 describe('placeLine', () => {
-  it('says "jutro" once the forecast is for the next day', () => {
+  it('says "tomorrow" once the forecast is for the next day', () => {
     expect(placeLine(weather)).toBe('Gliwice');
-    expect(placeLine({ ...weather, forTomorrow: true })).toBe('Gliwice, jutro');
+    expect(placeLine({ ...weather, forTomorrow: true })).toBe('Gliwice, tomorrow');
   });
 });

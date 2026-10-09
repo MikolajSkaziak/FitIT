@@ -1,6 +1,6 @@
 # Local development and, later, the single VM: the same file in both places.
-#   docker compose up -d db                     database only; run the API with `dotnet watch`
-#   docker compose --profile full up -d --build database and API together
+#   docker compose up -d db storage             database and file storage; run the API with `dotnet watch`
+#   docker compose --profile full up -d --build database, file storage and API together
 name: fitit
 
 services:
@@ -21,6 +21,23 @@ services:
       timeout: 3s
       retries: 20
 
+  # File storage that speaks the S3 protocol, standing in for Cloudflare R2 on a developer's machine.
+  # Photos go from the phone straight here, so a real phone needs STORAGE_BIND=0.0.0.0 and
+  # Storage__PublicEndpoint=http://<this computer's address>:9000 on the API. The simulator reaches it as localhost.
+  storage:
+    image: versity/versitygw:v1.8.0
+    restart: unless-stopped
+    # Object metadata is kept in /meta, so /data needs no extended attributes from the volume's filesystem.
+    command: ["posix", "--sidecar", "/meta", "/data"]
+    environment:
+      ROOT_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-fitit-local}
+      ROOT_SECRET_KEY: ${STORAGE_SECRET_KEY:-fitit-local-secret}
+    ports:
+      - "${STORAGE_BIND:-127.0.0.1}:${STORAGE_PORT:-9000}:7070"
+    volumes:
+      - fitit_files:/data
+      - fitit_files_meta:/meta
+
   api:
     profiles: ["full"]
     build:
@@ -32,11 +49,22 @@ services:
       Database__MigrateOnStartup: "true"
       Jwt__SigningKey: ${JWT_SIGNING_KEY:-}
       App__PublicBaseUrl: ${PUBLIC_BASE_URL:-}
+      # The API reaches storage by its service name; phones need an address they can open.
+      Storage__Endpoint: http://storage:7070
+      Storage__PublicEndpoint: ${STORAGE_PUBLIC_URL:-http://localhost:9000}
+      Storage__Region: us-east-1
+      Storage__AccessKey: ${STORAGE_ACCESS_KEY:-fitit-local}
+      Storage__SecretKey: ${STORAGE_SECRET_KEY:-fitit-local-secret}
+      Storage__CreateBucket: "true"
     ports:
       - "${API_PORT:-5080}:5080"
     depends_on:
       db:
         condition: service_healthy
+      storage:
+        condition: service_started
 
 volumes:
   fitit_pgdata:
+  fitit_files:
+  fitit_files_meta:

@@ -8,7 +8,7 @@ import { StepHeader } from '@/components/StepHeader';
 import { space } from '@/theme';
 
 interface WizardStepProps {
-  step: 1 | 2 | 3 | 4 | 5;
+  step: number;
   title: string;
   lead: string;
   children: ReactNode;

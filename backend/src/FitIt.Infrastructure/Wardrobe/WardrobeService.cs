@@ -5,6 +5,7 @@ using FitIt.Infrastructure.Common;
 using FitIt.Infrastructure.Jobs;
 using FitIt.Infrastructure.Persistence;
 using FitIt.Infrastructure.Usage;
+using FitIt.Infrastructure.Visualizations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -19,10 +20,34 @@ public sealed record ClothingQuery
 
     public Category? Category { get; init; }
 
+    /// <summary>A garment in any of these groups is listed.</summary>
+    public IReadOnlyCollection<GarmentGroup>? Groups { get; init; }
+
+    /// <summary>A garment of any of these types is listed.</summary>
+    public IReadOnlyCollection<Subcategory>? Types { get; init; }
+
+    /// <summary>A garment with any of these colours is listed.</summary>
+    public IReadOnlyCollection<Color>? Colors { get; init; }
+
+    /// <summary>A garment for any of these seasons is listed.</summary>
+    public IReadOnlyCollection<Season>? Seasons { get; init; }
+
+    /// <summary>A garment made of any of these materials is listed.</summary>
+    public IReadOnlyCollection<Material>? Materials { get; init; }
+
+    /// <summary>Whether the garment is part of at least one of the person's saved outfits.</summary>
+    public WardrobeUsage? Usage { get; init; }
+
     public bool Forgotten { get; init; }
 
     /// <summary>Exactly these garments, whatever their state: how the upload queue follows what it sent.</summary>
     public IReadOnlyCollection<Guid>? Ids { get; init; }
+}
+
+public enum WardrobeUsage
+{
+    Used,
+    Unused,
 }
 
 /// <summary>Changes to a garment. A null member means "leave as it is".</summary>
@@ -48,13 +73,15 @@ public sealed record ClothingPatch
 
     public IReadOnlyList<StyleTag>? Styles { get; init; }
 
+    public IReadOnlyList<Season>? Seasons { get; init; }
+
     public bool? InLaundry { get; init; }
 
     public bool? RarelyWorn { get; init; }
 
     public bool ChangesTags =>
         Category is not null || Subcategory is not null || Name is not null || Colors is not null || Pattern is not null
-        || Material is not null || Formality is not null || Warmth is not null || RainOk is not null || Styles is not null;
+        || Material is not null || Formality is not null || Warmth is not null || RainOk is not null || Styles is not null || Seasons is not null;
 }
 
 public sealed record WardrobeStats(int Total, int WornLast30Days, int Forgotten, int Processing, int NeedsTags);
@@ -65,6 +92,8 @@ public sealed class WardrobeService(
     UsageCounters usage,
     IBackgroundJobs jobs,
     AppClock clock,
+    PersonalCalendar calendar,
+    VisualizationFiles visualizationFiles,
     IOptions<StorageOptions> storageOptions,
     ILogger<WardrobeService> logger)
 {
@@ -93,7 +122,7 @@ public sealed class WardrobeService(
         // Asked here so that nobody uploads a photo that is certain to be refused a moment later. The real count is taken when the garment is created.
         if (!await usage.HasRoomAsync(userId, UsageKind.ItemAdded, cancellationToken))
         {
-            return usage.LimitReached(UsageKind.ItemAdded);
+            return await usage.LimitReachedAsync(userId, UsageKind.ItemAdded, cancellationToken);
         }
 
         return storage.CreateUpload(ObjectKeys.NewOriginal(userId), PhotoContentType, UploadLifetime);
@@ -132,7 +161,7 @@ public sealed class WardrobeService(
             // The counter and the row stand or fall together: a refused or duplicated garment costs nothing.
             if (!await usage.TryTakeAsync(userId, UsageKind.ItemAdded, cancellationToken))
             {
-                return usage.LimitReached(UsageKind.ItemAdded);
+                return await usage.LimitReachedAsync(userId, UsageKind.ItemAdded, cancellationToken);
             }
 
             db.Clothes.Add(item);
@@ -173,6 +202,43 @@ public sealed class WardrobeService(
             clothes = clothes.Where(item => item.Category == category);
         }
 
+        if (query.Groups is { } groups)
+        {
+            var types = groups.SelectMany(GarmentCatalog.TypesOf).Distinct().ToList();
+            clothes = clothes.Where(item => item.Subcategory != null && types.Contains(item.Subcategory.Value));
+        }
+
+        if (query.Types is { } wantedTypes)
+        {
+            var typeList = wantedTypes.ToList();
+            clothes = clothes.Where(item => item.Subcategory != null && typeList.Contains(item.Subcategory.Value));
+        }
+
+        if (query.Colors is { } wantedColors)
+        {
+            var colorCodes = wantedColors.Select(EnumCodes.ToCode).ToArray();
+            clothes = clothes.Where(item => item.Colors.Any(code => colorCodes.Contains(code)));
+        }
+
+        if (query.Seasons is { } wantedSeasons)
+        {
+            var seasonCodes = wantedSeasons.Select(EnumCodes.ToCode).ToArray();
+            clothes = clothes.Where(item => item.Seasons.Any(code => seasonCodes.Contains(code)));
+        }
+
+        if (query.Materials is { } wantedMaterials)
+        {
+            var materialList = wantedMaterials.ToList();
+            clothes = clothes.Where(item => item.Material != null && materialList.Contains(item.Material.Value));
+        }
+
+        if (query.Usage is { } usageFilter)
+        {
+            // Only the person's own saved outfits count: an outfit belongs to one person and holds only their garments.
+            var used = db.Outfits.Where(outfit => outfit.UserId == userId && outfit.IsSaved).SelectMany(outfit => outfit.Items).Select(part => part.ClothingItemId);
+            clothes = usageFilter == WardrobeUsage.Used ? clothes.Where(item => used.Contains(item.Id)) : clothes.Where(item => !used.Contains(item.Id));
+        }
+
         if (query.Search?.Trim() is { Length: > 0 } search)
         {
             var pattern = $"%{search.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal)}%";
@@ -181,7 +247,7 @@ public sealed class WardrobeService(
 
         if (query.Forgotten)
         {
-            clothes = clothes.Where(item => item.Status == ClothingStatus.Ready).Where(ForgottenOn(clock));
+            clothes = clothes.Where(item => item.Status == ClothingStatus.Ready).Where(ForgottenOn(await calendar.OfAsync(userId, cancellationToken)));
         }
 
         return await clothes.OrderByDescending(item => item.CreatedAt).ThenBy(item => item.Id).Take(MaxListed).ToListAsync(cancellationToken);
@@ -220,7 +286,7 @@ public sealed class WardrobeService(
         return item;
     }
 
-    /// <summary>Removes the garment and both of its pictures.</summary>
+    /// <summary>Removes the garment, both of its pictures, the outfits it was part of and the visualizations of those.</summary>
     public async Task<Result<Unit>> DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
         var item = await FindAsync(userId, id, cancellationToken);
@@ -229,9 +295,21 @@ public sealed class WardrobeService(
             return ApiError.NotFound();
         }
 
-        db.Clothes.Remove(item);
-        await db.SaveChangesAsync(cancellationToken);
+        IReadOnlyList<string> visualizationKeys;
+        await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
+        {
+            // An outfit with a hole in it is no outfit: every outfit the garment was part of goes with it, and so do its visualizations.
+            // Their pictures are files, so their keys are read before the rows are gone.
+            var outfitIds = db.Outfits.Where(outfit => outfit.UserId == userId && outfit.Items.Any(part => part.ClothingItemId == id)).Select(outfit => outfit.Id);
+            visualizationKeys = await visualizationFiles.KeysOfAsync(outfitIds, cancellationToken);
+            await db.Outfits.Where(outfit => outfit.UserId == userId && outfit.Items.Any(part => part.ClothingItemId == id)).ExecuteDeleteAsync(cancellationToken);
+            db.Clothes.Remove(item);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
         await DeleteFilesAsync(item, cancellationToken);
+        await visualizationFiles.DeleteAsync([.. visualizationKeys], cancellationToken);
         return Unit.Value;
     }
 
@@ -261,13 +339,14 @@ public sealed class WardrobeService(
 
     public async Task<WardrobeStats> StatsAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var recently = clock.Today.AddDays(-ClothingItem.ForgottenAfterDays);
+        var today = await calendar.OfAsync(userId, cancellationToken);
+        var recently = today.Today.AddDays(-ClothingItem.ForgottenAfterDays);
         var mine = db.Clothes.AsNoTracking().Where(item => item.UserId == userId);
         var ready = mine.Where(item => item.Status == ClothingStatus.Ready);
         return new WardrobeStats(
             await ready.CountAsync(cancellationToken),
             await ready.CountAsync(item => item.LastWornOn > recently, cancellationToken),
-            await ready.Where(ForgottenOn(clock)).CountAsync(cancellationToken),
+            await ready.Where(ForgottenOn(today)).CountAsync(cancellationToken),
             await mine.CountAsync(item => item.Status == ClothingStatus.Processing, cancellationToken),
             await mine.CountAsync(item => item.Status == ClothingStatus.Failed, cancellationToken));
     }
@@ -275,7 +354,10 @@ public sealed class WardrobeService(
     /// <summary>The signed address of the picture to show, valid for an hour.</summary>
     public Uri ImageUrl(ClothingItem item) => storage.SignRead(item.ImageKey, ReadLifetime);
 
-    public bool IsForgotten(ClothingItem item) => item.Status == ClothingStatus.Ready && item.IsForgotten(clock.Today, clock.Zone);
+    /// <summary>The person's own day: what "forgotten" and wear dates are counted against.</summary>
+    public Task<LocalDay> TodayOfAsync(Guid userId, CancellationToken cancellationToken) => calendar.OfAsync(userId, cancellationToken);
+
+    public static bool IsForgotten(ClothingItem item, LocalDay today) => item.Status == ClothingStatus.Ready && item.IsForgotten(today.Today, today.Zone);
 
     internal async Task DeleteFilesAsync(ClothingItem item, CancellationToken cancellationToken)
     {
@@ -292,10 +374,10 @@ public sealed class WardrobeService(
     }
 
     /// <summary>The same rule as <see cref="ClothingItem.IsForgotten"/>, in a form the database can evaluate.</summary>
-    private static System.Linq.Expressions.Expression<Func<ClothingItem, bool>> ForgottenOn(AppClock clock)
+    private static System.Linq.Expressions.Expression<Func<ClothingItem, bool>> ForgottenOn(LocalDay today)
     {
-        var lastDay = clock.Today.AddDays(-ClothingItem.ForgottenAfterDays);
-        var createdBefore = clock.StartOf(lastDay.AddDays(1));
+        var lastDay = today.Today.AddDays(-ClothingItem.ForgottenAfterDays);
+        var createdBefore = today.StartOf(lastDay.AddDays(1));
         return item => item.RarelyWorn || (item.LastWornOn != null ? item.LastWornOn <= lastDay : item.CreatedAt < createdBefore);
     }
 
@@ -316,7 +398,7 @@ public sealed class WardrobeService(
             return ApiError.BadRequest("tags_incomplete", "A garment without tags needs all of them at once: category, type, name, colours, pattern, material, formality, warmth and rain.");
         }
 
-        var tags = new GarmentTags(category.Value, type.Value, name, colors, pattern.Value, material.Value, formality.Value, warmth.Value, rainOk.Value, patch.Styles ?? current?.Styles ?? []);
+        var tags = new GarmentTags(category.Value, type.Value, name, colors, pattern.Value, material.Value, formality.Value, warmth.Value, rainOk.Value, patch.Styles ?? current?.Styles ?? [], patch.Seasons ?? current?.Seasons);
         return tags.Check() is { } problem ? problem : tags;
     }
 

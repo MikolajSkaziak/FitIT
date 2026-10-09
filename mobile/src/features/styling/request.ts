@@ -8,7 +8,7 @@ export interface ProposalsRequest {
 }
 
 /**
- * Where "Zaproponuj zestawy" leads. The request travels as route parameters; `request` is a fresh id, so the screen
+ * Where "Suggest outfits" leads. The request travels as route parameters; `request` is a fresh id, so the screen
  * asks the server once per press, and coming back to it does not ask again.
  */
 export function proposalsRoute({ occasion, note, baseItemId }: ProposalsRequest) {

@@ -1,69 +1,39 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { updateProfile } from '@/api/account';
 import { fetchUsage, wardrobeKeys } from '@/api/wardrobe';
-import { setUser, useSession } from '@/auth/session';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { IconButton, ProgressBar } from '@/components/controls';
-import { FormError } from '@/components/forms';
 import { Icon, type IconName } from '@/components/Icon';
-import { Card, Row } from '@/components/lists';
-import { messageFor } from '@/copy/errors';
+import { Card } from '@/components/lists';
+import { Fade, PressScale, useChanged } from '@/components/motion';
 import { pickFromGallery, takePhoto } from '@/features/wardrobe/photos';
 import { uploads } from '@/features/wardrobe/queue';
 import { describeEntry } from '@/features/wardrobe/uploadCopy';
 import { isInFlight, useQueue, type UploadEntry } from '@/features/wardrobe/uploadQueue';
 import { garments } from '@/lib/plural';
-import { radius, size, space, useTheme } from '@/theme';
+import { motion, radius, size, space, useTheme } from '@/theme';
 
 /** How many photos the gallery lets a person pick in one go. */
 const batch = 20;
 
 /**
- * Adding garments: a sheet over the wardrobe. The first time, it asks for consent to send garment photos to the
- * outside services that describe them; after that it is two buttons and the list of what is on its way.
+ * Adding garments: a sheet over the wardrobe, straight on its two sources and the list of what is on its way. There is no
+ * consent step here: creating the account was the agreement to AI processing. The server still checks it on every upload,
+ * and withdrawing it in Profile is answered there.
  */
 export default function AddClothes() {
   const insets = useSafeAreaInsets();
-  const consented = useSession((session) => Boolean(session.user?.aiConsentAt));
   // The root stays a real native view: react-native-screens resizes a ScrollView it finds directly under a sheet to the whole sheet.
   return (
     <View collapsable={false} style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space[4]) }]} testID="add-sheet">
-      {consented ? <Adding /> : <Consent />}
+      <Adding />
     </View>
-  );
-}
-
-function Consent() {
-  const router = useRouter();
-  const agree = useMutation({ mutationFn: () => updateProfile({ aiConsent: true }), onSuccess: (user) => setUser(user) });
-  return (
-    <>
-      <AppText variant="heading" accessibilityRole="header">
-        Zanim dodasz pierwsze zdjęcie
-      </AppText>
-      <ScrollView contentContainerStyle={styles.consent} showsVerticalScrollIndicator={false}>
-        <AppText>Żeby opisać ubrania i pokazać zestaw na sylwetce, wysyłamy zdjęcia ubrań do zewnętrznych usług.</AppText>
-        <Card>
-          <Row label="fal.ai i Google" meta="wycinanie tła, obraz na sylwetce" />
-          <Row label="Anthropic" meta="opis ubrań i dobór zestawów" last />
-        </Card>
-        <AppText variant="secondary" color="textSecondary">
-          Nie wysyłamy zdjęć osób. Zgodę możesz wycofać w profilu.
-        </AppText>
-      </ScrollView>
-      <View style={styles.actions}>
-        <FormError message={agree.isError ? messageFor(agree.error) : null} />
-        <Button label="Zgadzam się" busy={agree.isPending} onPress={() => agree.mutate()} testID="consent-agree" />
-        <Button label="Nie teraz" kind="text" onPress={() => router.back()} testID="consent-later" />
-      </View>
-    </>
   );
 }
 
@@ -100,31 +70,31 @@ function Adding() {
     <>
       <View style={styles.head}>
         <AppText variant="heading" accessibilityRole="header">
-          Dodaj ubrania
+          Add clothes
         </AppText>
-        <IconButton icon="close" label="Zamknij" onPress={close} />
+        <IconButton icon="close" label="Close" onPress={close} />
       </View>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.sources}>
-          <Source icon="camera" label="Zrób zdjęcie" onPress={() => void fromCamera()} disabled={full} testID="add-camera" />
-          <Source icon="image" label="Wybierz z galerii" onPress={() => void fromGallery()} disabled={full} testID="add-gallery" />
+          <Source icon="camera" label="Take a photo" onPress={() => void fromCamera()} disabled={full} testID="add-camera" />
+          <Source icon="image" label="Choose from library" onPress={() => void fromGallery()} disabled={full} testID="add-gallery" />
         </View>
         {cameraDenied ? (
-          <View style={styles.denied}>
+          <Fade key="denied" style={styles.denied}>
             <AppText variant="secondary" color="danger" accessibilityRole="alert">
-              Aparat jest wyłączony dla FitIt. Włącz go w ustawieniach telefonu albo wybierz zdjęcia z galerii.
+              fitit. can’t use your camera. Turn it on in Settings, or choose photos from your library.
             </AppText>
-            <Button label="Otwórz ustawienia" kind="secondary" compact inline onPress={() => void Linking.openSettings()} />
-          </View>
+            <Button label="Open settings" kind="secondary" compact inline onPress={() => void Linking.openSettings()} />
+          </Fade>
         ) : (
           <AppText variant="secondary" color="textSecondary">
-            Jedno ubranie na zdjęciu, najlepiej na jasnym tle.
+            One item per photo works best, ideally on a light background.
           </AppText>
         )}
         {entries.length > 0 ? (
           <View style={styles.group}>
             <AppText variant="subheading" accessibilityRole="header">
-              Wysyłanie
+              Uploads
             </AppText>
             <Card>
               {entries.map((entry, index) => (
@@ -144,10 +114,10 @@ function Adding() {
       <View style={styles.actions}>
         {left !== null ? (
           <AppText variant="meta" color={full ? 'danger' : 'textSecondary'} align="center" tabular>
-            {full ? 'Dzisiejszy limit nowych ubrań jest wykorzystany. Wróć jutro.' : `Dziś możesz dodać jeszcze ${garments(left)}.`}
+            {full ? 'You’ve added all the new clothes you can today. More tomorrow.' : `You can add ${garments(left)} more today.`}
           </AppText>
         ) : null}
-        <Button label="Gotowe" onPress={close} testID="add-done" />
+        <Button label="Done" onPress={close} testID="add-done" />
       </View>
     </>
   );
@@ -165,23 +135,19 @@ interface SourceProps {
 function Source({ icon, label, onPress, disabled, testID }: SourceProps) {
   const theme = useTheme();
   return (
-    <Pressable
+    <PressScale
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
       testID={testID}
-      style={({ pressed }) => [
-        styles.source,
-        { backgroundColor: disabled ? theme.disabledFill : theme.surface, borderColor: disabled ? theme.disabledFill : theme.borderControl },
-        pressed ? styles.pressed : null,
-      ]}>
+      style={[styles.source, { backgroundColor: disabled ? theme.disabledFill : theme.surface, borderColor: disabled ? theme.disabledFill : theme.borderControl }]}>
       <Icon name={icon} color={disabled ? 'disabledText' : 'action'} />
       <AppText variant="secondaryStrong" color={disabled ? 'disabledText' : 'text'}>
         {label}
       </AppText>
-    </Pressable>
+    </PressScale>
   );
 }
 
@@ -195,8 +161,10 @@ interface QueueRowProps {
 
 function QueueRow({ entry, position, last, onRetry, onOpen }: QueueRowProps) {
   const theme = useTheme();
-  const title = entry.name ?? `Zdjęcie ${position}`;
+  const title = entry.name ?? `Photo ${position}`;
   const { text, trouble } = describeEntry(entry);
+  // The line under the name changes with the status ("Uploading", "Done"); it changes by a fade, but a row that is new does not animate.
+  const changed = useChanged(entry.status);
   return (
     <View style={[styles.queueRow, last ? null : { borderBottomWidth: 1, borderBottomColor: theme.border }]} testID={`upload-${position}`}>
       <Image
@@ -209,20 +177,26 @@ function QueueRow({ entry, position, last, onRetry, onOpen }: QueueRowProps) {
         <AppText variant="secondaryStrong" numberOfLines={1}>
           {title}
         </AppText>
-        <AppText variant="meta" color={trouble ? 'danger' : 'textSecondary'}>
-          {text}
-        </AppText>
+        <Fade key={entry.status} enter={changed} duration={motion.exit}>
+          <AppText variant="meta" color={trouble ? 'danger' : 'textSecondary'}>
+            {text}
+          </AppText>
+        </Fade>
         {entry.status === 'uploading' ? (
           <View style={styles.progress}>
-            <ProgressBar progress={entry.progress} label={`Wysyłanie: ${title}`} />
+            <ProgressBar progress={entry.progress} label={`Uploading: ${title}`} />
           </View>
         ) : null}
       </View>
-      {entry.status === 'ready' ? <Icon name="check" size={20} color="action" /> : null}
-      {entry.status === 'failed' && entry.errorCode !== 'limit_reached' && entry.errorCode !== 'not_found' ? (
-        <Button label="Ponów" kind="secondary" compact inline onPress={onRetry} accessibilityLabel={`Ponów wysyłanie: ${title}`} />
+      {entry.status === 'ready' ? (
+        <Fade pop enter={changed} duration={motion.exit}>
+          <Icon name="check" size={20} color="action" />
+        </Fade>
       ) : null}
-      {entry.status === 'needs_tags' && onOpen ? <Button label="Uzupełnij" kind="secondary" compact inline onPress={onOpen} accessibilityLabel={`Uzupełnij opis: ${title}`} /> : null}
+      {entry.status === 'failed' && entry.errorCode !== 'limit_reached' && entry.errorCode !== 'not_found' ? (
+        <Button label="Retry" kind="secondary" compact inline onPress={onRetry} accessibilityLabel={`Retry upload: ${title}`} />
+      ) : null}
+      {entry.status === 'needs_tags' && onOpen ? <Button label="Fill in" kind="secondary" compact inline onPress={onOpen} accessibilityLabel={`Fill in details: ${title}`} /> : null}
     </View>
   );
 }
@@ -230,7 +204,6 @@ function QueueRow({ entry, position, last, onRetry, onOpen }: QueueRowProps) {
 const styles = StyleSheet.create({
   sheet: { flex: 1, paddingHorizontal: size.gutter, paddingTop: space[6], gap: space[4] },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  consent: { gap: space[4], paddingBottom: space[2] },
   body: { gap: space[4], paddingBottom: space[2] },
   sources: { flexDirection: 'row', gap: space[2] },
   source: { flex: 1, height: 96, borderWidth: 1, borderRadius: radius.card, alignItems: 'center', justifyContent: 'center', gap: space[2] },
@@ -241,5 +214,4 @@ const styles = StyleSheet.create({
   queueText: { flex: 1 },
   progress: { marginTop: space[1] },
   actions: { gap: space[2] },
-  pressed: { opacity: 0.85 },
 });

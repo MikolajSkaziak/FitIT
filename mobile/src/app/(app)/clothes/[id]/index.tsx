@@ -6,6 +6,7 @@ import { deleteClothing, fetchClothing, reprocessClothing, updateClothing, wardr
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/controls';
+import { Icon } from '@/components/Icon';
 import { FormError } from '@/components/forms';
 import { GarmentImage } from '@/components/garments';
 import { Card, Row, Skeleton } from '@/components/lists';
@@ -78,7 +79,7 @@ export default function GarmentDetail() {
   });
 
   const item = garment.data;
-  const back = <IconButton icon="back" label="Wróć" onPress={() => router.back()} />;
+  const back = <IconButton icon="back" label="Back" onPress={() => router.back()} />;
 
   if (!item) {
     return (
@@ -88,10 +89,10 @@ export default function GarmentDetail() {
           {garment.isError ? (
             <View style={styles.problem}>
               <AppText color="textSecondary">{messageFor(garment.error)}</AppText>
-              <Button label="Spróbuj ponownie" kind="secondary" inline onPress={() => void garment.refetch()} />
+              <Button label="Try again" kind="secondary" inline onPress={() => void garment.refetch()} />
             </View>
           ) : (
-            <View style={styles.loading} accessibilityRole="progressbar" accessibilityLabel="Wczytujemy ubranie">
+            <View style={styles.loading} accessibilityRole="progressbar" accessibilityLabel="Loading item">
               <Skeleton height={photoHeight} radius={radius.card} />
               <Skeleton height={24} width="70%" />
               <Skeleton height={16} width="40%" />
@@ -102,17 +103,17 @@ export default function GarmentDetail() {
     );
   }
 
-  const name = item.name ?? 'Ubranie bez opisu';
-  const added = `Dodano ${formatDay(new Date(item.createdAt))}.`;
-  const worn = item.wearCount > 0 ? ` W zestawach ${item.wearCount} ${plural(item.wearCount, ['raz', 'razy', 'razy'])}.` : '';
+  const name = item.name ?? 'Unnamed item';
+  const added = `Added ${formatDay(new Date(item.createdAt))}.`;
+  const worn = item.wearCount > 0 ? ` In ${item.wearCount} ${plural(item.wearCount, ['outfit', 'outfits'])}.` : '';
   const scale = (entries: readonly { value: number; label: string }[] | undefined, value: number | null) =>
     value === null ? undefined : (entries?.find((entry) => entry.value === value)?.label ?? String(value));
   const edit = () => router.push({ pathname: '/clothes/[id]/edit', params: { id } });
 
   const confirmRemoval = () =>
-    Alert.alert(`Usunąć „${name}”?`, 'Usuniemy to ubranie i jego zdjęcia. Tego nie da się cofnąć.', [
-      { text: 'Zostaw', style: 'cancel' },
-      { text: 'Usuń ubranie', style: 'destructive', onPress: () => remove.mutate() },
+    Alert.alert(`Delete “${name}”?`, 'We’ll delete this item and its photos. This can’t be undone.', [
+      { text: 'Keep', style: 'cancel' },
+      { text: 'Delete item', style: 'destructive', onPress: () => remove.mutate() },
     ]);
 
   return (
@@ -122,11 +123,14 @@ export default function GarmentDetail() {
         <GarmentImage url={item.imageUrl} cacheKey={item.imageKey} height={photoHeight} inset={24} corner={radius.card} label={name} />
 
         {item.status === 'processing' ? (
-          <View style={styles.title} accessibilityRole="progressbar" accessibilityLabel="Opisujemy zdjęcie">
-            <AppText variant="heading" color="textSecondary">
-              Opisujemy zdjęcie
-            </AppText>
-            <AppText color="textSecondary">Za chwilę pojawią się tu nazwa i opis ubrania.</AppText>
+          <View style={styles.title} accessibilityRole="progressbar" accessibilityLabel="Describing your photo">
+            <View style={styles.describing}>
+              <Icon name="sparkle" color="action" />
+              <AppText variant="heading" color="textSecondary">
+                Describing your photo
+              </AppText>
+            </View>
+            <AppText color="textSecondary">The name and details will show up here in a moment.</AppText>
           </View>
         ) : (
           <View style={styles.title}>
@@ -143,13 +147,13 @@ export default function GarmentDetail() {
 
         {item.status === 'failed' ? (
           <View style={styles.failed}>
-            <AppText variant="label">Nie udało się opisać tego ubrania</AppText>
+            <AppText variant="label">We couldn’t describe this item</AppText>
             <AppText variant="secondary" color="textSecondary">
-              Uzupełnij opis samodzielnie albo spróbuj jeszcze raz. Bez opisu nie trafi do zestawów.
+              Fill in the details yourself, or try again. Until it has details, we can’t use it in outfits.
             </AppText>
             <View style={styles.failedActions}>
-              <Button label="Uzupełnij opis" compact inline onPress={edit} testID="garment-fill" />
-              <Button label="Opisz ponownie" kind="secondary" compact inline busy={retry.isPending} onPress={() => retry.mutate()} testID="garment-retry" />
+              <Button label="Fill in details" compact inline onPress={edit} testID="garment-fill" />
+              <Button label="Describe again" kind="secondary" compact inline busy={retry.isPending} onPress={() => retry.mutate()} testID="garment-retry" />
             </View>
             <FormError message={retry.isError ? messageFor(retry.error) : null} />
           </View>
@@ -157,29 +161,32 @@ export default function GarmentDetail() {
 
         {item.status === 'ready' ? (
           <Card>
-            <Row label="Kolor" value={item.colors.map((color) => dictionaries.data?.colors.find((entry) => entry.code === color)?.label ?? color).join(', ')} />
-            <Row label="Wzór" value={dictionaries.data?.patterns.find((entry) => entry.code === item.pattern)?.label} />
-            <Row label="Materiał" value={dictionaries.data?.materials.find((entry) => entry.code === item.material)?.label} />
-            <Row label="Formalność" value={scale(dictionaries.data?.formality, item.formality)} />
-            <Row label="Ciepło" value={scale(dictionaries.data?.warmth, item.warmth)} />
-            <Row label="Na deszcz" value={item.rainOk ? 'tak' : 'nie'} />
-            {item.styles.length > 0 ? <Row label="Styl" value={item.styles.map((style) => styleLabel(style).toLowerCase()).join(', ')} /> : null}
-            <Row label="Popraw opis" onPress={edit} last testID="garment-edit" />
+            <Row label="Color" value={item.colors.map((color) => dictionaries.data?.colors.find((entry) => entry.code === color)?.label ?? color).join(', ')} />
+            <Row label="Pattern" value={dictionaries.data?.patterns.find((entry) => entry.code === item.pattern)?.label} />
+            <Row label="Material" value={dictionaries.data?.materials.find((entry) => entry.code === item.material)?.label} />
+            <Row label="Formality" value={scale(dictionaries.data?.formality, item.formality)} />
+            <Row label="Warmth" value={scale(dictionaries.data?.warmth, item.warmth)} />
+            {item.seasons.length > 0 ? (
+              <Row label="Seasons" value={item.seasons.map((season) => dictionaries.data?.seasons.find((entry) => entry.code === season)?.label ?? season).join(', ')} />
+            ) : null}
+            <Row label="Good in rain" value={item.rainOk ? 'Yes' : 'No'} />
+            {item.styles.length > 0 ? <Row label="Style" value={item.styles.map((style) => styleLabel(style).toLowerCase()).join(', ')} /> : null}
+            <Row label="Edit details" onPress={edit} last testID="garment-edit" />
           </Card>
         ) : null}
 
         {item.status !== 'processing' ? (
           <Card>
             <ToggleRow
-              label="W praniu"
-              meta="Pomijamy w propozycjach."
+              label="In the laundry"
+              meta="We’ll skip it in outfit suggestions."
               value={item.inLaundry}
               onChange={(value) => flag.mutate({ inLaundry: value })}
               testID="garment-laundry"
             />
             <ToggleRow
-              label="Rzadko noszę"
-              meta="Chętniej podsuniemy jako odkrycie."
+              label="Rarely worn"
+              meta="We’ll suggest it more often, as a Discovery."
               value={item.rarelyWorn}
               onChange={(value) => flag.mutate({ rarelyWorn: value })}
               last
@@ -190,10 +197,10 @@ export default function GarmentDetail() {
 
         <View style={styles.footer}>
           {item.status === 'ready' ? (
-            <Button label="Dobierz do tego" onPress={() => router.push({ pathname: '/occasion', params: { base: id } })} testID="garment-match" />
+            <Button label="Style this" onPress={() => router.push({ pathname: '/occasion', params: { base: id } })} testID="garment-match" />
           ) : null}
           <FormError message={flag.isError ? messageFor(flag.error) : remove.isError ? messageFor(remove.error) : null} />
-          <Button label="Usuń ubranie" kind="dangerText" busy={remove.isPending} onPress={confirmRemoval} testID="garment-delete" />
+          <Button label="Delete item" kind="dangerText" busy={remove.isPending} onPress={confirmRemoval} testID="garment-delete" />
         </View>
       </View>
     </Screen>
@@ -203,6 +210,7 @@ export default function GarmentDetail() {
 const styles = StyleSheet.create({
   content: { gap: space[4] },
   // The 24 icon sits in a 44 target; pulling it out by 10 lines the icon up with the content edge.
+  describing: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: -10 },
   title: { gap: space[1] },
   loading: { gap: space[3] },

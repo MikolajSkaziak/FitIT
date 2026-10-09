@@ -5,20 +5,20 @@ import { useSession } from '@/auth/session';
 import { BirthDateField } from '@/components/forms';
 import { EditScreen, useSaveProfile } from '@/features/profile/EditScreen';
 import { checkBirthDate } from '@/features/registration/validation';
-import { formatDate, fromIso, toIso } from '@/lib/dates';
+import { emptyDateParts, fromIso, toDateParts, toIso, type DateParts } from '@/lib/dates';
 
 export default function EditBirthDate() {
   const router = useRouter();
   const current = useSession((session) => session.user?.birthDate ?? '');
-  const [text, setText] = useState(() => {
+  const [parts, setParts] = useState<DateParts>(() => {
     const date = fromIso(current);
-    return date ? formatDate(date) : '';
+    return date ? toDateParts(date) : emptyDateParts;
   });
   const [error, setError] = useState<string | null>(null);
   const save = useSaveProfile(() => router.back());
 
   const submit = () => {
-    const checked = checkBirthDate(text);
+    const checked = checkBirthDate(parts);
     setError(checked.error);
     if (!checked.date) {
       return;
@@ -33,15 +33,15 @@ export default function EditBirthDate() {
   };
 
   return (
-    <EditScreen title="Data urodzenia" onAction={submit} busy={save.isPending} error={save.error} testID="edit-birth-date">
+    <EditScreen title="Birth date" onAction={submit} busy={save.isPending} error={save.error} testID="edit-birth-date">
       <BirthDateField
-        value={text}
-        onChangeText={(next) => {
-          setText(next);
+        value={parts}
+        onChange={(next) => {
+          setParts(next);
           setError(null);
         }}
         error={error}
-        helper="Potrzebna do potwierdzenia wieku. Nikomu jej nie pokazujemy."
+        helper="We only use it to check your age. No one else sees it."
         testID="edit-birth-date-field"
       />
     </EditScreen>

@@ -9,12 +9,13 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { Field } from '@/components/Field';
+import { Fade, staggerOf, useIntro } from '@/components/motion';
 import { Skeleton } from '@/components/lists';
 import { messageFor } from '@/copy/errors';
 import { matchesOutfit } from '@/features/styling/search';
 import { SavedOutfitTile } from '@/features/visualization/SavedOutfitTile';
 import { plural } from '@/lib/plural';
-import { radius, size, space, useTheme } from '@/theme';
+import { motion, radius, size, space, useTheme } from '@/theme';
 
 const columnGap = space[2];
 const skeletons = ['a', 'b', 'c', 'd'];
@@ -29,6 +30,8 @@ export default function Outfits() {
 
   const saved = useQuery({ queryKey: outfitKeys.saved, queryFn: fetchSavedOutfits });
   const all = saved.data ?? [];
+  // The first screenful of tiles arrives in turn when the first answer does; searching and refetching never replay it.
+  const intro = useIntro(saved.data !== undefined);
   const items = all.filter((outfit) => matchesOutfit(outfit, search));
   const searching = search.trim().length > 0;
 
@@ -44,20 +47,20 @@ export default function Outfits() {
     <View style={styles.header}>
       <View>
         <AppText variant="display" accessibilityRole="header">
-          Outfity
+          Outfits
         </AppText>
         {all.length > 0 ? (
           <AppText variant="secondary" color="textSecondary" tabular testID="outfits-count">
-            {all.length} {plural(all.length, ['zapisany zestaw', 'zapisane zestawy', 'zapisanych zestawów'])}
+            {all.length} {plural(all.length, ['saved outfit', 'saved outfits'])}
           </AppText>
         ) : null}
       </View>
       {all.length > 0 ? (
         <Field
-          accessibilityLabel="Szukaj w zapisanych zestawach"
+          accessibilityLabel="Search saved outfits"
           value={search}
           onChangeText={setSearch}
-          placeholder="Szukaj po okazji lub ubraniu"
+          placeholder="Search by occasion or item"
           leadingIcon="search"
           autoCorrect={false}
           autoCapitalize="none"
@@ -70,31 +73,33 @@ export default function Outfits() {
   );
 
   const empty = saved.isPending ? (
-    <View style={styles.skeletons} accessibilityRole="progressbar" accessibilityLabel="Wczytujemy zapisane zestawy">
-      {skeletons.map((key) => (
-        <Skeleton key={key} height={tileWidth} width={tileWidth} radius={radius.thumb} />
-      ))}
-    </View>
+    <Fade key="loading" enter={false} exit duration={motion.exit}>
+      <View style={styles.skeletons} accessibilityRole="progressbar" accessibilityLabel="Loading saved outfits">
+        {skeletons.map((key) => (
+          <Skeleton key={key} height={tileWidth} width={tileWidth} radius={radius.thumb} />
+        ))}
+      </View>
+    </Fade>
   ) : saved.isError ? (
-    <View style={styles.problem}>
+    <Fade key="problem" style={styles.problem}>
       <AppText color="textSecondary">{messageFor(saved.error)}</AppText>
-      <Button label="Spróbuj ponownie" kind="secondary" inline onPress={() => void saved.refetch()} testID="outfits-retry" />
-    </View>
+      <Button label="Try again" kind="secondary" inline onPress={() => void saved.refetch()} testID="outfits-retry" />
+    </Fade>
   ) : searching ? (
     <EmptyState
       icon="bookmark"
-      title="Nic nie pasuje do wyszukiwania"
-      text="Wpisz inną okazję albo nazwę ubrania."
-      action={{ label: 'Wyczyść wyszukiwanie', onPress: () => setSearch(''), testID: 'outfits-clear-search' }}
+      title="No matches"
+      text="Try a different occasion or item."
+      action={{ label: 'Clear search', onPress: () => setSearch(''), testID: 'outfits-clear-search' }}
       compact
       testID="outfits-no-match"
     />
   ) : (
     <EmptyState
       icon="bookmark"
-      title="Tu trafią zapisane zestawy"
-      text="Zapisz propozycję, która Ci się spodoba, a znajdziesz ją tutaj, kiedy tylko zechcesz."
-      action={{ label: 'Otwórz Dziś', icon: 'sun', onPress: () => router.navigate('/'), testID: 'outfits-open-today' }}
+      title="Saved outfits live here"
+      text="Save an outfit you like and it’ll be waiting for you here."
+      action={{ label: 'Open Today', icon: 'sun', onPress: () => router.navigate('/'), testID: 'outfits-open-today' }}
       testID="outfits-empty"
     />
   );
@@ -109,7 +114,11 @@ export default function Outfits() {
         contentContainerStyle={styles.content}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
-        renderItem={({ item }) => <SavedOutfitTile outfit={item} width={tileWidth} onPress={() => router.push({ pathname: '/outfit/[id]', params: { id: item.id } })} />}
+        renderItem={({ item, index }) => (
+          <Fade {...staggerOf(index, intro)}>
+            <SavedOutfitTile outfit={item} width={tileWidth} onPress={() => router.push({ pathname: '/outfit/[id]', params: { id: item.id } })} />
+          </Fade>
+        )}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}

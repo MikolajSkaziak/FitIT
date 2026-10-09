@@ -2,7 +2,10 @@ using FitIt.Core.Common;
 
 namespace FitIt.Core.Wardrobe;
 
-/// <summary>The full description of a garment: everything the stylist's rules and the models need (product spec 5.2).</summary>
+/// <summary>
+/// The full description of a garment: everything the stylist's rules and the models need (product spec 5.2).
+/// <c>Seasons</c> is null or empty when nobody gave any; the garment then gets the ones its warmth suggests (<see cref="GarmentCatalog.SeasonsFor"/>).
+/// </summary>
 public sealed record GarmentTags(
     Category Category,
     Subcategory Subcategory,
@@ -13,10 +16,12 @@ public sealed record GarmentTags(
     int Formality,
     int Warmth,
     bool RainOk,
-    IReadOnlyList<StyleTag> Styles)
+    IReadOnlyList<StyleTag> Styles,
+    IReadOnlyList<Season>? Seasons = null)
 {
     public const int NameMaxLength = 60;
     public const int MaxColors = 2;
+    public const int MaxSeasons = 4;
 
     /// <summary>The first thing wrong with the tags, or null when they can be stored.</summary>
     public ApiError? Check()
@@ -46,7 +51,14 @@ public sealed record GarmentTags(
             return ApiError.BadRequest("warmth_invalid", "Warmth is a number from 1 to 5.");
         }
 
-        return Styles.Distinct().Count() != Styles.Count ? ApiError.BadRequest("styles_invalid", "A style may be listed once.") : null;
+        if (Styles.Distinct().Count() != Styles.Count)
+        {
+            return ApiError.BadRequest("styles_invalid", "A style may be listed once.");
+        }
+
+        return Seasons is { } seasons && (seasons.Count > MaxSeasons || seasons.Distinct().Count() != seasons.Count)
+            ? ApiError.BadRequest("seasons_invalid", "A season may be listed once.")
+            : null;
     }
 
     /// <summary>

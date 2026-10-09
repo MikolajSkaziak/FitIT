@@ -1,11 +1,15 @@
 namespace FitIt.Core.Usage;
 
-/// <summary>The three things a person can do a limited number of times a day (product spec 11.1).</summary>
+/// <summary>The things a person can do a limited number of times a day (product spec 11.1).</summary>
 public enum UsageKind
 {
     ItemAdded,
     Suggestion,
     Visualization,
+    ColorAnalysis,
+
+    /// <summary>Tips on an outfit the person built themselves.</summary>
+    Tips,
 }
 
 /// <summary>Calls to AI providers that cost money; each one is written to the usage log.</summary>
@@ -15,6 +19,8 @@ public enum AiOperation
     Tagging,
     Styling,
     Visualization,
+    ColorAnalysis,
+    Critique,
 }
 
 public sealed class UsageCounter

@@ -5,30 +5,33 @@ import { plural } from '@/lib/plural';
 import type { OrderStage } from './order';
 
 /** One name for this action everywhere in the app (.ux-profile.md). */
-export const showAction = 'Pokaż na sylwetce';
+export const showAction = 'Try it on';
 
-export const retryAction = 'Spróbuj ponownie';
+export const retryAction = 'Try again';
 
-export const viewLabel = 'Widok zestawu';
+export const viewLabel = 'Outfit view';
 
-export const collageView = 'Kolaż';
+/** The three ways to look at an outfit. "Try-on" is the AI picture of it on the person's body shape; "On figure" is instant and drawn on the phone. */
+export const figureView = 'On figure';
 
-export const silhouetteView = 'Na sylwetce';
+export const collageView = 'Collage';
+
+export const tryOnView = 'Try-on';
 
 /** Said under the picture, because the generator may miss a pattern or a logo (spec 7.6). */
-export const pictureCaption = 'Wizualizacja poglądowa. Kolory i detale mogą różnić się od ubrań.';
+export const pictureCaption = 'This picture is an illustration, so colors and details can differ a little. The collage shows your clothes exactly as they are.';
 
-export const pictureLabel = 'Zestaw na wybranej sylwetce';
+export const pictureLabel = 'Outfit on your body shape';
 
-export const enlargeAction = 'Powiększ obraz';
+export const enlargeAction = 'Enlarge picture';
 
-export const closeEnlarged = 'Zamknij obraz';
+export const closeEnlarged = 'Close picture';
 
 export const working = {
-  title: 'Tworzymy obraz',
-  text: 'To potrwa do minuty. Możesz wyjść z ekranu, obraz będzie czekał przy zestawie.',
+  title: 'Putting the outfit on you',
+  text: 'This can take up to a minute. Feel free to leave. The picture will be waiting with your outfit.',
   /** Names the bar for screen readers; the panel beside it carries the words. */
-  progressLabel: 'Postęp tworzenia obrazu',
+  progressLabel: 'Picture progress',
 };
 
 export interface Notice {
@@ -38,32 +41,32 @@ export interface Notice {
   action: string | null;
 }
 
-const collageStays = 'Kolaż z prawdziwymi zdjęciami ubrań zostaje przy zestawie.';
+const collageStays = 'Your collage of real clothing photos is still there.';
 
-const refunded = 'Ta wizualizacja nie liczy się do dzisiejszego limitu.';
+const refunded = 'This one doesn’t count toward today’s limit.';
 
 const consent: Notice = {
-  title: 'Potrzebna jest zgoda na przetwarzanie zdjęć',
-  text: `Obraz powstaje u zewnętrznego dostawcy, więc bez tej zgody go nie zrobimy. Zgodę można włączyć w profilu. ${collageStays}`,
+  title: 'We need your OK to use AI on your photos',
+  text: `An AI service makes these pictures, so we can’t send it your clothing photos without your consent. You can turn it on in Profile, under Privacy. ${collageStays}`,
   action: null,
 };
 
 const paused: Notice = {
-  title: 'Wizualizacje są dziś wstrzymane',
-  text: `Dzienny budżet na obrazy się skończył. Obrazy wrócą jutro. ${collageStays}`,
+  title: 'Try-on pictures are paused for today',
+  text: `We’ve used up today’s budget for pictures. They’ll be back tomorrow. ${collageStays}`,
   action: null,
 };
 
 /** The three cases of plan task 4.7, plus whatever else the server may answer with. */
 const byCode: Record<string, Notice> = {
   content_blocked: {
-    title: 'Nie udało się pokazać tego zestawu',
-    text: `Filtr bezpieczeństwa generatora nie przepuścił tych ubrań. Zwykle dotyczy to odsłoniętej skóry. ${refunded} ${collageStays}`,
+    title: 'We couldn’t make a picture of this outfit',
+    text: `The picture service’s safety filter didn’t accept these clothes, usually because of exposed skin. ${refunded} ${collageStays}`,
     action: null,
   },
   timeout: {
-    title: 'Obraz nie powstał na czas',
-    text: `Generator nie odpowiedział w ciągu trzech minut. ${refunded}`,
+    title: 'The picture took too long',
+    text: `The picture service didn’t answer within three minutes. ${refunded} Try again.`,
     action: retryAction,
   },
   budget_exhausted: paused,
@@ -71,25 +74,25 @@ const byCode: Record<string, Notice> = {
   consent_withdrawn: consent,
   consent_required: consent,
   limit_reached: {
-    title: 'Dzisiejszy limit wizualizacji jest wykorzystany',
-    text: `Obrazy wrócą jutro. ${collageStays}`,
+    title: 'You’ve used today’s try-on pictures',
+    text: `More tomorrow. ${collageStays}`,
     action: null,
   },
   not_found: {
-    title: 'Nie udało się odnaleźć zamówienia',
-    text: 'Obrazu już nie ma na serwerze. Zamów go jeszcze raz.',
+    title: 'We couldn’t find your picture',
+    text: 'It’s no longer saved. Make it again.',
     action: showAction,
   },
 };
 
 const pictureFailed: Notice = {
-  title: 'Obraz nie powstał',
-  text: `Generator obrazu zawiódł. ${refunded}`,
+  title: 'The picture didn’t work out',
+  text: `We ran into a problem while making it. ${refunded}`,
   action: retryAction,
 };
 
 const orderRefused: Notice = {
-  title: 'Nie udało się zamówić obrazu',
+  title: 'We couldn’t start your picture',
   text: '',
   action: retryAction,
 };
@@ -111,12 +114,12 @@ export function noticeFor(stage: OrderStage, errorCode: string | null): Notice |
   return stage === 'refused' ? { ...orderRefused, text: messageForCode(errorCode) } : pictureFailed;
 }
 
-/** "Zostały 4 z 5 wizualizacji na dziś." The counted noun stays in one form after "z 5"; the verb agrees with what is left. */
+/** "4 of 5 try-on pictures left today." */
 export function leftToday(usage: Usage['visualizations']): string {
   const left = Math.max(0, usage.limit - usage.used);
   if (left === 0) {
-    return 'Dzisiejszy limit wizualizacji jest wykorzystany. Wróć jutro.';
+    return 'You’ve used today’s try-on pictures. More tomorrow.';
   }
 
-  return `${plural(left, ['Została', 'Zostały', 'Zostało'])} ${left} z ${usage.limit} wizualizacji na dziś.`;
+  return `${left} of ${usage.limit} ${plural(usage.limit, ['try-on picture', 'try-on pictures'])} left today.`;
 }

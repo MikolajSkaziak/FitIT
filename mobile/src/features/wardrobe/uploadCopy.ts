@@ -3,19 +3,19 @@ import { messageForCode, rejectionFor } from '@/copy/errors';
 import type { UploadEntry } from './uploadQueue';
 
 const underWay: Partial<Record<UploadEntry['status'], string>> = {
-  waiting: 'Czeka w kolejce',
-  preparing: 'Przygotowujemy zdjęcie',
-  uploading: 'Wysyłanie',
-  processing: 'Opisujemy zdjęcie',
+  waiting: 'Waiting',
+  preparing: 'Preparing the photo',
+  uploading: 'Uploading',
+  processing: 'Describing your photo',
 };
 
 /** What a row of the upload list says about its photo, and whether that is a problem to draw attention to. */
 export function describeEntry(entry: Pick<UploadEntry, 'status' | 'rejectReason' | 'errorCode'>): { text: string; trouble: boolean } {
   switch (entry.status) {
     case 'ready':
-      return { text: 'Gotowe, opisane', trouble: false };
+      return { text: 'Ready', trouble: false };
     case 'needs_tags':
-      return { text: 'Dodane. Opis trzeba uzupełnić ręcznie.', trouble: false };
+      return { text: 'Added. Fill in the details to finish.', trouble: false };
     case 'rejected':
       return { text: rejectionFor(entry.rejectReason), trouble: true };
     case 'failed':

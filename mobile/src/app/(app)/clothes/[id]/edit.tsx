@@ -8,12 +8,13 @@ import {
   fetchClothing,
   updateClothing,
   wardrobeKeys,
-  type Category,
   type Clothing,
   type Color,
   type Dictionaries,
+  type GarmentGroup,
   type Material,
   type Pattern,
+  type Season,
   type Subcategory,
 } from '@/api/wardrobe';
 import { AppText } from '@/components/AppText';
@@ -27,7 +28,8 @@ import { Screen } from '@/components/Screen';
 import { ChoiceGrid, ToggleRow } from '@/components/toggles';
 import { messageFor } from '@/copy/errors';
 import { missingTags, toggleColor, type GarmentForm } from '@/features/wardrobe/garmentForm';
-import { useDictionaries } from '@/features/wardrobe/useDictionaries';
+import { seasonIcon } from '@/features/wardrobe/seasons';
+import { categoryOfType, useDictionaries } from '@/features/wardrobe/useDictionaries';
 import { space } from '@/theme';
 
 const levels = ['1', '2', '3', '4', '5'].map((value) => ({ value, label: value }));
@@ -43,14 +45,14 @@ export default function EditGarment() {
     return (
       <Screen testID="garment-edit-screen">
         <View style={styles.content}>
-          <BackHeader title="Opis ubrania" onBack={() => router.back()} />
+          <BackHeader title="Item details" onBack={() => router.back()} />
           {failed ? (
             <View style={styles.section}>
               <AppText color="textSecondary">{messageFor(failed)}</AppText>
-              <Button label="Spróbuj ponownie" kind="secondary" inline onPress={() => void Promise.all([garment.refetch(), dictionaries.refetch()])} />
+              <Button label="Try again" kind="secondary" inline onPress={() => void Promise.all([garment.refetch(), dictionaries.refetch()])} />
             </View>
           ) : (
-            <View style={styles.section} accessibilityRole="progressbar" accessibilityLabel="Wczytujemy opis">
+            <View style={styles.section} accessibilityRole="progressbar" accessibilityLabel="Loading details">
               <Skeleton height={48} />
               <Skeleton height={120} />
               <Skeleton height={120} />
@@ -69,7 +71,7 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
   const queryClient = useQueryClient();
   const [form, setForm] = useState<GarmentForm>({
     name: garment.name ?? '',
-    category: garment.category,
+    group: garment.group,
     subcategory: garment.subcategory,
     colors: garment.colors,
     pattern: garment.pattern,
@@ -78,6 +80,7 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
     warmth: garment.warmth,
     rainOk: garment.rainOk ?? false,
     styles: garment.styles,
+    seasons: garment.seasons,
   });
   const [checked, setChecked] = useState(false);
   const change = (part: Partial<GarmentForm>) => setForm((current) => ({ ...current, ...part }));
@@ -86,7 +89,7 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
     mutationFn: () =>
       updateClothing(garment.id, {
         name: form.name.trim(),
-        category: form.category,
+        category: categoryOfType(dictionaries, form.subcategory),
         subcategory: form.subcategory,
         colors: [...form.colors],
         pattern: form.pattern,
@@ -95,6 +98,7 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
         warmth: form.warmth,
         rainOk: form.rainOk,
         styles: [...form.styles],
+        seasons: [...form.seasons],
       }),
     onSuccess: (saved) => {
       queryClient.setQueryData(wardrobeKeys.one(garment.id), saved);
@@ -105,7 +109,7 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
   });
 
   const missing = missingTags(form);
-  const types = dictionaries.categories.find((entry) => entry.code === form.category)?.types ?? [];
+  const types = dictionaries.groups.find((entry) => entry.code === form.group)?.types ?? [];
   const label = (entries: readonly { value: number; label: string }[], value: number | null) => entries.find((entry) => entry.value === value)?.label;
 
   const submit = () => {
@@ -122,45 +126,45 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
         <>
           <FormError
             message={
-              checked && missing.length > 0 ? `Uzupełnij jeszcze: ${missing.join(', ')}.` : save.isError ? messageFor(save.error) : null
+              checked && missing.length > 0 ? `Still to fill in: ${missing.join(', ')}.` : save.isError ? messageFor(save.error) : null
             }
           />
-          <Button label="Zapisz opis" busy={save.isPending} onPress={submit} testID="garment-save" />
+          <Button label="Save details" busy={save.isPending} onPress={submit} testID="garment-save" />
         </>
       }>
       <View style={styles.content}>
-        <BackHeader title="Opis ubrania" onBack={() => router.back()} />
+        <BackHeader title="Item details" onBack={() => router.back()} />
         {garment.status === 'processing' ? (
-          <AppText color="textSecondary">To ubranie jest jeszcze opisywane. Opis zmienisz za chwilę.</AppText>
+          <AppText color="textSecondary">We’re still describing this item. You’ll be able to edit it in a moment.</AppText>
         ) : null}
         <Field
-          label="Nazwa"
+          label="Name"
           value={form.name}
           onChangeText={(name) => change({ name })}
-          placeholder="np. Granatowa koszula oxford"
+          placeholder="e.g. Navy oxford shirt"
           maxLength={60}
           autoCapitalize="sentences"
           returnKeyType="done"
           testID="garment-name-field"
         />
 
-        <Section title="Kategoria">
+        <Section title="Group">
           <ChoiceGrid
-            label="Kategoria"
-            options={dictionaries.categories.map((entry) => ({ value: entry.code as Category, label: entry.label }))}
-            value={form.category}
-            onChange={(category) =>
-              // A type belongs to one category, so it is kept only if it still fits.
-              change({ category, subcategory: dictionaries.categories.find((entry) => entry.code === category)?.types.some((type) => type.code === form.subcategory) ? form.subcategory : null })
+            label="Group"
+            options={dictionaries.groups.map((entry) => ({ value: entry.code as GarmentGroup, label: entry.label }))}
+            value={form.group}
+            onChange={(group) =>
+              // A type belongs to one group, so it is kept only if it still fits.
+              change({ group, subcategory: dictionaries.groups.find((entry) => entry.code === group)?.types.some((type) => type.code === form.subcategory) ? form.subcategory : null })
             }
-            testID="edit-category"
+            testID="edit-group"
           />
         </Section>
 
-        {form.category ? (
-          <Section title="Typ">
+        {form.group ? (
+          <Section title="Type">
             <ChoiceGrid
-              label="Typ"
+              label="Type"
               options={types.map((entry) => ({ value: entry.code as Subcategory, label: entry.label }))}
               value={form.subcategory}
               onChange={(subcategory) => change({ subcategory })}
@@ -169,9 +173,9 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
           </Section>
         ) : null}
 
-        <Section title="Kolor" helper="Jeden albo dwa. Pierwszy wybrany jest główny.">
+        <Section title="Color" helper="One or two. The first one you choose is the main color.">
           <ChoiceGrid
-            label="Kolor"
+            label="Color"
             columns={3}
             options={dictionaries.colors.map((entry) => ({ value: entry.code as Color, label: entry.label }))}
             value={form.colors}
@@ -180,9 +184,9 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
           />
         </Section>
 
-        <Section title="Wzór">
+        <Section title="Pattern">
           <ChoiceGrid
-            label="Wzór"
+            label="Pattern"
             columns={3}
             options={dictionaries.patterns.map((entry) => ({ value: entry.code as Pattern, label: entry.label }))}
             value={form.pattern}
@@ -191,9 +195,9 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
           />
         </Section>
 
-        <Section title="Materiał">
+        <Section title="Material">
           <ChoiceGrid
-            label="Materiał"
+            label="Material"
             columns={3}
             options={dictionaries.materials.map((entry) => ({ value: entry.code as Material, label: entry.label }))}
             value={form.material}
@@ -202,21 +206,31 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
           />
         </Section>
 
-        <Labeled label="Formalność" helper={label(dictionaries.formality, form.formality) ?? 'Od 1 (sportowe lub domowe) do 5 (formalne lub wieczorowe).'}>
-          <Segmented label="Formalność" options={levels} value={form.formality === null ? null : String(form.formality)} onChange={(value) => change({ formality: Number(value) })} />
+        <Labeled label="Formality" helper={label(dictionaries.formality, form.formality) ?? 'From 1 (sporty or loungewear) to 5 (formal or evening).'}>
+          <Segmented label="Formality" options={levels} value={form.formality === null ? null : String(form.formality)} onChange={(value) => change({ formality: Number(value) })} />
         </Labeled>
 
-        <Labeled label="Ciepło" helper={label(dictionaries.warmth, form.warmth) ?? 'Od 1 (na upał) do 5 (na mróz).'}>
-          <Segmented label="Ciepło" options={levels} value={form.warmth === null ? null : String(form.warmth)} onChange={(value) => change({ warmth: Number(value) })} />
+        <Labeled label="Warmth" helper={label(dictionaries.warmth, form.warmth) ?? 'From 1 (for hot weather) to 5 (for freezing weather).'}>
+          <Segmented label="Warmth" options={levels} value={form.warmth === null ? null : String(form.warmth)} onChange={(value) => change({ warmth: Number(value) })} />
         </Labeled>
 
         <Card>
-          <ToggleRow label="Nadaje się na deszcz" value={form.rainOk} onChange={(rainOk) => change({ rainOk })} last testID="edit-rain" />
+          <ToggleRow label="Good in rain" value={form.rainOk} onChange={(rainOk) => change({ rainOk })} last testID="edit-rain" />
         </Card>
 
-        <Section title="Styl" helper="Możesz wybrać kilka albo żaden.">
+        <Section title="Seasons" helper="Pick any that fit. Leave them all off and we’ll suggest seasons from the warmth.">
           <ChoiceGrid
-            label="Styl"
+            label="Seasons"
+            options={dictionaries.seasons.map((entry) => ({ value: entry.code as Season, label: entry.label, icon: seasonIcon[entry.code] }))}
+            value={form.seasons}
+            onChange={(season) => change({ seasons: form.seasons.includes(season) ? form.seasons.filter((chosen) => chosen !== season) : [...form.seasons, season] })}
+            testID="edit-season"
+          />
+        </Section>
+
+        <Section title="Style" helper="Pick as many as you like, or none.">
+          <ChoiceGrid
+            label="Style"
             options={dictionaries.styles.map((entry) => ({ value: entry.code as StyleTag, label: entry.label }))}
             value={form.styles}
             onChange={(style) => change({ styles: form.styles.includes(style) ? form.styles.filter((chosen) => chosen !== style) : [...form.styles, style] })}

@@ -15,18 +15,21 @@ public sealed record UsageSnapshot(IReadOnlyList<UsageLine> Lines, DateTimeOffse
     public UsageLine this[UsageKind kind] => Lines.First(line => line.Kind == kind);
 }
 
-/// <summary>Daily limits per person (product spec 11.1). A day is a calendar day in the configured zone.</summary>
-public sealed class UsageCounters(AppDbContext db, AppClock clock, IOptions<LimitOptions> options)
+/// <summary>Daily limits per person (product spec 11.1). A day is a calendar day where the person's weather place lies.</summary>
+public sealed class UsageCounters(AppDbContext db, PersonalCalendar calendar, IOptions<LimitOptions> options)
 {
     public int LimitFor(UsageKind kind) => kind switch
     {
         UsageKind.ItemAdded => options.Value.ItemsPerDay,
         UsageKind.Suggestion => options.Value.SuggestionsPerDay,
         UsageKind.Visualization => options.Value.VisualizationsPerDay,
+        UsageKind.ColorAnalysis => options.Value.ColorAnalysesPerDay,
+        UsageKind.Tips => options.Value.TipsPerDay,
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 
-    public DateOnly Today => clock.Today;
+    /// <summary>The day a count taken now for this person lands on; pass it to <see cref="RefundAsync"/>.</summary>
+    public async Task<DateOnly> TodayOfAsync(Guid userId, CancellationToken cancellationToken) => (await calendar.OfAsync(userId, cancellationToken)).Today;
 
     /// <summary>
     /// Takes one from today's allowance; false when it is used up. A single statement: the row lock makes parallel requests
@@ -40,7 +43,7 @@ public sealed class UsageCounters(AppDbContext db, AppClock clock, IOptions<Limi
             return false;
         }
 
-        var day = clock.Today;
+        var day = (await calendar.OfAsync(userId, cancellationToken)).Today;
         var code = EnumCodes.ToCode(kind);
         var taken = await db.Database.SqlQuery<int>($"""
             INSERT INTO usage_counters (user_id, day, kind, count) VALUES ({userId}, {day}, {code}, 1)
@@ -61,18 +64,19 @@ public sealed class UsageCounters(AppDbContext db, AppClock clock, IOptions<Limi
 
     public async Task<UsageSnapshot> ReadAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var day = clock.Today;
+        var today = await calendar.OfAsync(userId, cancellationToken);
+        var day = today.Today;
         var used = await db.UsageCounters.AsNoTracking()
             .Where(counter => counter.UserId == userId && counter.Day == day)
             .ToDictionaryAsync(counter => counter.Kind, counter => counter.Count, cancellationToken);
         return new UsageSnapshot(
             [.. Enum.GetValues<UsageKind>().Select(kind => new UsageLine(kind, used.GetValueOrDefault(kind), LimitFor(kind)))],
-            clock.StartOf(day.AddDays(1)));
+            today.StartOf(day.AddDays(1)));
     }
 
     public async Task<bool> HasRoomAsync(Guid userId, UsageKind kind, CancellationToken cancellationToken)
     {
-        var day = clock.Today;
+        var day = (await calendar.OfAsync(userId, cancellationToken)).Today;
         var used = await db.UsageCounters.AsNoTracking()
             .Where(counter => counter.UserId == userId && counter.Day == day && counter.Kind == kind)
             .Select(counter => (int?)counter.Count)
@@ -81,13 +85,17 @@ public sealed class UsageCounters(AppDbContext db, AppClock clock, IOptions<Limi
     }
 
     /// <summary>The refusal the app turns into "you can add more tomorrow".</summary>
-    public ApiError LimitReached(UsageKind kind) => ApiError.TooManyRequests("limit_reached", "Today's limit for this action is used up.") with
+    public async Task<ApiError> LimitReachedAsync(Guid userId, UsageKind kind, CancellationToken cancellationToken)
     {
-        Extensions = new Dictionary<string, object?>(StringComparer.Ordinal)
+        var today = await calendar.OfAsync(userId, cancellationToken);
+        return ApiError.TooManyRequests("limit_reached", "Today's limit for this action is used up.") with
         {
-            ["kind"] = EnumCodes.ToCode(kind),
-            ["limit"] = LimitFor(kind),
-            ["resetsAt"] = clock.StartOf(clock.Today.AddDays(1)),
-        },
-    };
+            Extensions = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["kind"] = EnumCodes.ToCode(kind),
+                ["limit"] = LimitFor(kind),
+                ["resetsAt"] = today.StartOf(today.Today.AddDays(1)),
+            },
+        };
+    }
 }

@@ -23,16 +23,35 @@ public sealed record ProfilePatch
 
     public ThermalPreference? ThermalPreference { get; init; }
 
+    public ClothingSize? ClothingSize { get; init; }
+
+    public LegLength? LegLength { get; init; }
+
+    /// <summary>True goes back to "not set".</summary>
+    public bool ClearClothingSize { get; init; }
+
+    /// <summary>True goes back to "not set".</summary>
+    public bool ClearLegLength { get; init; }
+
     public WeatherPlace? Place { get; init; }
 
     /// <summary>True removes the stored place; the weather then has nowhere to be checked until a new one is set.</summary>
     public bool ClearPlace { get; init; }
 
     public bool? AiConsent { get; init; }
+
+    /// <summary>The first unfinished step of the post-registration flow, 0 to 2. It never moves back.</summary>
+    public int? OnboardingStep { get; init; }
+
+    /// <summary>True marks the flow finished (or skipped) for good, on every phone.</summary>
+    public bool? OnboardingDone { get; init; }
 }
 
 public sealed class ProfileService(AppDbContext db, AppClock clock, IOptions<AccountOptions> accountOptions)
 {
+    /// <summary>The post-registration flow has three steps: colors, first pieces, recap.</summary>
+    public const int MaxOnboardingStep = 2;
+
     public Task<AppUser?> FindAsync(Guid userId, CancellationToken cancellationToken) =>
         db.Users.Include(u => u.Avatar).FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 
@@ -74,6 +93,24 @@ public sealed class ProfileService(AppDbContext db, AppClock clock, IOptions<Acc
             user.ThermalPreference = thermal;
         }
 
+        if (patch.ClearClothingSize)
+        {
+            user.ClothingSize = null;
+        }
+        else if (patch.ClothingSize is { } clothingSize)
+        {
+            user.ClothingSize = clothingSize;
+        }
+
+        if (patch.ClearLegLength)
+        {
+            user.LegLength = null;
+        }
+        else if (patch.LegLength is { } legLength)
+        {
+            user.LegLength = legLength;
+        }
+
         if (patch.ClearPlace)
         {
             ProfileRules.Apply(user, null);
@@ -88,7 +125,7 @@ public sealed class ProfileService(AppDbContext db, AppClock clock, IOptions<Acc
             ProfileRules.Apply(user, place);
         }
 
-        // The silhouette must always belong to the profile's gender, whichever of the two is being changed.
+        // The silhouette must always be one the profile's gender is offered, whichever of the two is being changed.
         if (patch.Gender is not null || patch.AvatarId is not null)
         {
             var gender = patch.Gender ?? user.Gender;
@@ -102,6 +139,21 @@ public sealed class ProfileService(AppDbContext db, AppClock clock, IOptions<Acc
             user.Gender = gender;
             user.AvatarId = avatar!.Id;
             user.Avatar = avatar;
+        }
+
+        if (patch.OnboardingStep is { } step)
+        {
+            if (step is < 0 or > MaxOnboardingStep)
+            {
+                return ApiError.BadRequest("onboarding_step_invalid", "The step is not one of the post-registration steps.");
+            }
+
+            user.OnboardingStep = Math.Max(user.OnboardingStep, step);
+        }
+
+        if (patch.OnboardingDone == true)
+        {
+            user.OnboardingDoneAt ??= clock.UtcNow;
         }
 
         if (patch.AiConsent is { } consent)

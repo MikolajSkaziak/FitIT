@@ -11,11 +11,13 @@ import { wardrobeKeys } from '@/api/wardrobe';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Collage } from '@/components/Collage';
+import { Icon } from '@/components/Icon';
+import { Fade, Pulse } from '@/components/motion';
 import { FormError } from '@/components/forms';
 import { BackHeader } from '@/components/headers';
 import { Skeleton } from '@/components/lists';
 import { messageFor } from '@/copy/errors';
-import { kindLabel, occasionLabel } from '@/copy/labels';
+import { kindLabel, occasionIcon, occasionLabel } from '@/copy/labels';
 import { missingNotice, noOutfits } from '@/features/styling/copy';
 import { OutfitNotes, RatingBar } from '@/features/styling/OutfitParts';
 import { rowHeightFor } from '@/features/styling/collage';
@@ -25,7 +27,7 @@ import { isOccasion } from '@/features/styling/request';
 import { useOutfitActions } from '@/features/styling/useOutfitActions';
 import { OutfitVisualization } from '@/features/visualization/OutfitVisualization';
 import { rangeOf } from '@/features/weather/copy';
-import { radius, size, space, useTheme } from '@/theme';
+import { motion, radius, size, space, travel, useTheme } from '@/theme';
 
 export default function Proposals() {
   const router = useRouter();
@@ -50,11 +52,12 @@ export default function Proposals() {
   const forecast = useQuery({ queryKey: weatherKeys.today, queryFn: fetchWeatherToday, staleTime: weatherStaleMs }).data;
   const weather = answer.data?.weather ?? forecast;
 
-  const day = weather?.forTomorrow ? 'jutro' : 'dziś';
+  const day = weather?.forTomorrow ? 'tomorrow' : 'today';
   const header = (
     <BackHeader
-      title={`Propozycje na ${day}`}
+      title={`Outfits for ${day}`}
       meta={weather ? `${occasionLabel(occasion)}, ${rangeOf(weather)}` : occasionLabel(occasion)}
+      metaIcon={occasionIcon(occasion)}
       onBack={() => router.back()}
     />
   );
@@ -71,16 +74,16 @@ export default function Proposals() {
     const code = codeOf(answer.error);
     return (
       <Frame header={header} testID="proposals-error">
-        <View style={styles.message}>
+        <Fade key="problem" style={styles.message}>
           <AppText color="textSecondary">{messageFor(answer.error)}</AppText>
           {code === 'location_missing' ? (
-            <Button label="Wybierz miejsce" inline onPress={() => router.push('/account/place')} testID="proposals-place" />
+            <Button label="Choose a city" inline onPress={() => router.push('/account/place')} testID="proposals-place" />
           ) : code === 'limit_reached' ? (
-            <Button label="Wróć do Dziś" inline onPress={() => router.back()} testID="proposals-back" />
+            <Button label="Back to Today" inline onPress={() => router.back()} testID="proposals-back" />
           ) : (
-            <Button label="Spróbuj ponownie" inline busy={answer.isFetching} onPress={() => void answer.refetch()} testID="proposals-retry" />
+            <Button label="Try again" inline busy={answer.isFetching} onPress={() => void answer.refetch()} testID="proposals-retry" />
           )}
-        </View>
+        </Fade>
       </Frame>
     );
   }
@@ -90,7 +93,7 @@ export default function Proposals() {
       <Frame
         header={header}
         testID="proposals-missing"
-        footer={<Button label="Dodaj ubrania" icon="plus" onPress={() => router.push('/add')} testID="proposals-add" />}>
+        footer={<Button label="Add clothes" icon="plus" onPress={() => router.push('/add')} testID="proposals-add" />}>
         <MissingPanel answer={answer.data} />
       </Frame>
     );
@@ -124,7 +127,7 @@ function Loading() {
   const { width } = useWindowDimensions();
   const tile = (width - 2 * size.gutter - space[2]) / 2;
   return (
-    <View style={[styles.gutter, styles.loading]} accessibilityRole="progressbar" accessibilityLabel="Układamy zestawy">
+    <View style={[styles.gutter, styles.loading]} accessibilityRole="progressbar" accessibilityLabel="Styling your outfits">
       <View style={styles.pills}>
         <Skeleton height={size.touch} width={88} radius={size.touch / 2} />
         <Skeleton height={size.touch} width={96} radius={size.touch / 2} />
@@ -140,9 +143,14 @@ function Loading() {
         <Skeleton height={16} width="86%" />
         <Skeleton height={16} width="56%" />
       </View>
-      <AppText variant="secondary" color="textSecondary" accessibilityRole="text" accessibilityLiveRegion="polite">
-        Układamy trzy zestawy z Twojej szafy.
-      </AppText>
+      <View style={styles.working}>
+        <Pulse active>
+          <Icon name="sparkle" size={20} color="action" />
+        </Pulse>
+        <AppText variant="secondary" color="textSecondary" accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.workingText}>
+          Styling three outfits from your wardrobe.
+        </AppText>
+      </View>
     </View>
   );
 }
@@ -153,12 +161,14 @@ function MissingPanel({ answer }: { answer: Suggestions }) {
   const notice = missingNotice(answer.missing, answer.missingEither, answer.weather.feelsMin);
   return (
     <View style={styles.gutter}>
-      <View style={[styles.panel, { backgroundColor: theme.sage }]} accessibilityRole="alert" testID="proposals-missing-panel">
-        <AppText variant="label" color="onSage">
-          {notice.title}
-        </AppText>
-        <AppText>{notice.text}</AppText>
-      </View>
+      <Fade>
+        <View style={[styles.panel, { backgroundColor: theme.sage }]} accessibilityRole="alert" testID="proposals-missing-panel">
+          <AppText variant="label" color="onSage">
+            {notice.title}
+          </AppText>
+          <AppText>{notice.text}</AppText>
+        </View>
+      </Fade>
     </View>
   );
 }
@@ -187,7 +197,7 @@ function Pager({ outfits, header }: PagerProps) {
     );
   }
 
-  const labels = outfits.map((outfit, position) => (outfit.kind ? kindLabel(outfit.kind) : `Zestaw ${position + 1}`));
+  const labels = outfits.map((outfit, position) => (outfit.kind ? kindLabel(outfit.kind) : `Outfit ${position + 1}`));
   const go = (to: number) => {
     setIndex(to);
     pages.current?.scrollTo({ x: to * width, animated: true });
@@ -201,45 +211,50 @@ function Pager({ outfits, header }: PagerProps) {
       footer={
         <>
           <FormError message={actions.error ? messageFor(actions.error) : null} />
-          <Button
-            label={wearing ? 'Założony' : 'Zakładam to'}
-            icon={wearing ? 'check' : undefined}
-            kind={wearing ? 'secondary' : 'primary'}
-            busy={actions.wearing}
-            onPress={() => actions.wear(current, () => setWorn((ids) => [...ids, current.id]))}
-            testID="proposals-wear"
-          />
+          <Fade key={wearing ? 'worn' : 'wear'} enter={wearing} exit duration={motion.exit}>
+            <Button
+              label={wearing ? 'Worn' : 'Wear this'}
+              icon={wearing ? 'check' : undefined}
+              kind={wearing ? 'secondary' : 'primary'}
+              busy={actions.wearing}
+              onPress={() => actions.wear(current, () => setWorn((ids) => [...ids, current.id]))}
+              testID="proposals-wear"
+            />
+          </Fade>
         </>
       }>
-      {outfits.length > 1 ? (
-        <View style={styles.gutter}>
-          <ProposalTabs labels={labels} selected={index} onSelect={go} />
-        </View>
-      ) : null}
-      <ScrollView
-        ref={pages}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) => setIndex(pageIndex(event.nativeEvent.contentOffset.x, width, outfits.length))}
-        testID="proposals-pages">
-        {outfits.map((outfit) => (
-          <ScrollView key={outfit.id} style={{ width }} contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
-            {outfits.length === 1 && outfit.kind ? (
-              <AppText variant="secondaryStrong" color="action">
-                {kindLabel(outfit.kind)}
-              </AppText>
-            ) : null}
-            <OutfitVisualization
-              outfit={outfit}
-              width={width - 2 * size.gutter}
-              collage={<Collage items={outfit.items} width={width - 2 * size.gutter} testID={`collage-${outfit.id}`} />}
-            />
-            <OutfitNotes outfit={outfit} />
-            <RatingBar outfit={outfit} onRate={(rating) => actions.rate(outfit, rating)} onKeep={() => actions.keep(outfit)} />
-          </ScrollView>
-        ))}
-      </ScrollView>
+      {/* The proposals arrive together: the tabs and the pages rise a few points and fade in once; paging after that is the scroll view's own. */}
+      <Fade rise={travel.rise} style={styles.arrival}>
+        {outfits.length > 1 ? (
+          <View style={styles.gutter}>
+            <ProposalTabs labels={labels} selected={index} onSelect={go} />
+          </View>
+        ) : null}
+        <ScrollView
+          ref={pages}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(event) => setIndex(pageIndex(event.nativeEvent.contentOffset.x, width, outfits.length))}
+          testID="proposals-pages">
+          {outfits.map((outfit) => (
+            <ScrollView key={outfit.id} style={{ width }} contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+              {outfits.length === 1 && outfit.kind ? (
+                <AppText variant="secondaryStrong" color="action">
+                  {kindLabel(outfit.kind)}
+                </AppText>
+              ) : null}
+              <OutfitVisualization
+                outfit={outfit}
+                width={width - 2 * size.gutter}
+                collage={<Collage items={outfit.items} width={width - 2 * size.gutter} testID={`collage-${outfit.id}`} />}
+              />
+              <OutfitNotes outfit={outfit} />
+              <RatingBar outfit={outfit} onRate={(rating) => actions.rate(outfit, rating)} onKeep={() => actions.keep(outfit)} />
+            </ScrollView>
+          ))}
+        </ScrollView>
+      </Fade>
     </Frame>
   );
 }
@@ -247,11 +262,14 @@ function Pager({ outfits, header }: PagerProps) {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   gutter: { paddingHorizontal: size.gutter },
+  arrival: { flex: 1, gap: space[4] },
   body: { flex: 1, gap: space[4], paddingTop: space[3] },
   footer: { paddingHorizontal: size.gutter, paddingTop: space[2], gap: space[1] },
   page: { paddingHorizontal: size.gutter, paddingBottom: space[4], gap: space[4] },
   message: { gap: space[3] },
   loading: { gap: space[4] },
+  working: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  workingText: { flexShrink: 1 },
   pills: { flexDirection: 'row', gap: space[2] },
   skeletonGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   panel: { borderRadius: radius.card, padding: space[4], gap: space[2] },

@@ -18,7 +18,7 @@ export default function EditThermalPreference() {
 
   return (
     <EditScreen
-      title="Odczuwanie temperatury"
+      title="How you feel the cold"
       busy={save.isPending}
       error={save.error}
       onAction={() => (value === user.thermalPreference ? router.back() : save.mutate({ thermalPreference: value }))}

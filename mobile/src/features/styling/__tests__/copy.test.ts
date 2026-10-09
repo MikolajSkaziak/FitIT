@@ -1,64 +1,64 @@
 import { joinWords, missingNotice, relaxationLine, relaxationLines } from '@/features/styling/copy';
 
 describe('joinWords', () => {
-  it('joins the last two with the word and the rest with commas', () => {
-    expect(joinWords([], 'i')).toBe('');
-    expect(joinWords(['a'], 'i')).toBe('a');
-    expect(joinWords(['a', 'b'], 'albo')).toBe('a albo b');
-    expect(joinWords(['a', 'b', 'c'], 'i')).toBe('a, b i c');
+  it('joins the last one with the word and the rest with commas', () => {
+    expect(joinWords([], 'and')).toBe('');
+    expect(joinWords(['a'], 'and')).toBe('a');
+    expect(joinWords(['a', 'b'], 'or')).toBe('a or b');
+    expect(joinWords(['a', 'b', 'c'], 'and')).toBe('a, b, and c');
   });
 });
 
 describe('missingNotice', () => {
   it('says what is missing and what to add, naming the temperature when the cold is the reason', () => {
     expect(missingNotice(['outerwear'], [], 1)).toEqual({
-      title: 'Brakuje okrycia wierzchniego',
-      text: 'Przy 1°C potrzebne jest okrycie wierzchnie. Dodaj kurtkę albo płaszcz, a ułożymy zestaw.',
+      title: 'You’re missing jackets and coats',
+      text: 'At 1°C, you need jackets and coats. Add a jacket or a coat and we’ll put an outfit together.',
     });
   });
 
   it('does not blame the weather for a missing pair of shoes', () => {
     expect(missingNotice(['shoes'], [], 21)).toEqual({
-      title: 'Brakuje butów',
-      text: 'Do zestawu potrzebne są buty. Dodaj buty, a ułożymy zestaw.',
+      title: 'You’re missing shoes',
+      text: 'To build an outfit, you need shoes. Add shoes and we’ll put an outfit together.',
     });
   });
 
   it('puts a sign on a temperature below zero', () => {
-    expect(missingNotice(['outerwear'], [], -3).text).toContain('Przy −3°C');
+    expect(missingNotice(['outerwear'], [], -3).text).toContain('At −3°C');
   });
 
-  it('lists several roles with the verb that agrees with the first', () => {
+  it('lists several roles', () => {
     const notice = missingNotice(['bottom', 'shoes'], [], 15);
 
-    expect(notice.title).toBe('Brakuje dołu i butów');
-    expect(notice.text).toBe('Do zestawu potrzebne jest co najmniej: dół i buty. Dodaj spodnie, spódnicę albo szorty oraz buty, a ułożymy zestaw.');
+    expect(notice.title).toBe('You’re missing bottoms and shoes');
+    expect(notice.text).toBe('To build an outfit, you need at least bottoms and shoes. Add pants, a skirt, or shorts plus shoes and we’ll put an outfit together.');
   });
 
   it('words "any one of these" as an alternative', () => {
     const notice = missingNotice([], ['mid_layer', 'outerwear'], 8);
 
-    expect(notice.title).toBe('Brakuje warstwy pośredniej albo okrycia wierzchniego');
-    expect(notice.text).toBe('Przy 8°C potrzebne jest co najmniej: warstwa pośrednia albo okrycie wierzchnie. Dodaj sweter, bluzę, kurtkę albo płaszcz, a ułożymy zestaw.');
+    expect(notice.title).toBe('You’re missing warm layers or jackets and coats');
+    expect(notice.text).toBe('At 8°C, you need at least warm layers or jackets and coats. Add a sweater, a hoodie, a jacket, or a coat and we’ll put an outfit together.');
   });
 
   it('keeps required roles and the alternative apart when both are missing', () => {
     const notice = missingNotice(['shoes'], ['mid_layer', 'outerwear'], 8);
 
-    expect(notice.title).toBe('Brakuje butów i warstwy pośredniej albo okrycia wierzchniego');
-    expect(notice.text).toContain('Dodaj buty oraz sweter, bluzę, kurtkę albo płaszcz');
+    expect(notice.title).toBe('You’re missing shoes and warm layers or jackets and coats');
+    expect(notice.text).toContain('Add shoes plus a sweater, a hoodie, a jacket, or a coat');
   });
 
   it('does not list a role twice when it is required and also an option', () => {
-    expect(missingNotice(['outerwear'], ['outerwear', 'mid_layer'], 5).title).toBe('Brakuje okrycia wierzchniego i warstwy pośredniej');
+    expect(missingNotice(['outerwear'], ['outerwear', 'mid_layer'], 5).title).toBe('You’re missing jackets and coats and warm layers');
   });
 });
 
 describe('relaxationLine', () => {
   it('says which rule gave way for which part of the outfit, in a sentence', () => {
-    expect(relaxationLine({ role: 'outerwear', rule: 'warmth' })).toBe('Nie masz okrycia wierzchniego na tę temperaturę, więc proponuję to, co jest najbliżej.');
-    expect(relaxationLine({ role: 'shoes', rule: 'formality' })).toBe('Nie masz butów na tę okazję, więc proponuję to, co jest najbliżej.');
-    expect(relaxationLine({ role: 'top', rule: 'style' })).toBe('Nie masz góry w pasującym stylu, więc proponuję to, co jest najbliżej.');
+    expect(relaxationLine({ role: 'outerwear', rule: 'warmth' })).toBe('You don’t have jackets and coats for this temperature, so this is the closest match.');
+    expect(relaxationLine({ role: 'shoes', rule: 'formality' })).toBe('You don’t have shoes for this occasion, so this is the closest match.');
+    expect(relaxationLine({ role: 'top', rule: 'style' })).toBe('You don’t have tops in a matching style, so this is the closest match.');
   });
 
   it('says each sentence once, however many outfits of the request carry it', () => {

@@ -1,4 +1,4 @@
-import { addYears, isAfter, parseDate, today as currentDay, type CalendarDate } from '@/lib/dates';
+import { addYears, isAfter, isBlankDate, readDateParts, today as currentDay, type CalendarDate, type DateParts } from '@/lib/dates';
 
 import type { RegistrationDraft } from './draft';
 
@@ -9,21 +9,21 @@ export const limits = { email: 254, passwordMin: 8, passwordMax: 128, name: 40, 
 export const minimumAge = 16;
 
 export const messages = {
-  emailMissing: 'Podaj adres e-mail.',
-  emailInvalid: 'Sprawdź adres e-mail. Powinien wyglądać jak ola@poczta.pl.',
-  emailTaken: 'Ten adres ma już konto. Zaloguj się albo podaj inny.',
-  passwordMissing: 'Podaj hasło.',
-  passwordShort: `Hasło musi mieć co najmniej ${limits.passwordMin} znaków.`,
-  passwordLong: `Hasło może mieć najwyżej ${limits.passwordMax} znaków.`,
-  codeMissing: 'Wpisz kod z wiadomości.',
-  codeInvalid: 'Kod ma sześć cyfr. Sprawdź, czy jest wpisany w całości.',
-  nameMissing: 'Podaj imię.',
-  birthDateMissing: 'Podaj datę urodzenia.',
-  birthDateInvalid: 'Wpisz datę jako dzień, miesiąc i rok, na przykład 14.03.1999.',
-  birthDateImplausible: 'Sprawdź rok urodzenia.',
-  underage: (age: number) => `Konto można założyć po ukończeniu ${age} lat.`,
-  genderMissing: 'Wybierz jedną z opcji.',
-  avatarMissing: 'Wybierz sylwetkę, żeby przejść dalej.',
+  emailMissing: 'Enter your email.',
+  emailInvalid: 'That email doesn’t look right. It should look like name@example.com.',
+  emailTaken: 'There’s already an account with this email. Log in, or use a different email.',
+  passwordMissing: 'Enter your password.',
+  passwordShort: `Use at least ${limits.passwordMin} characters for your password.`,
+  passwordLong: `Use ${limits.passwordMax} characters or fewer for your password.`,
+  codeMissing: 'Enter the code we sent you.',
+  codeInvalid: 'The code has six digits. Make sure you entered all of them.',
+  nameMissing: 'Enter your name.',
+  birthDateMissing: 'Enter your birth date.',
+  birthDateInvalid: 'That date doesn’t look right. Check the month, day and year.',
+  birthDateImplausible: 'Check the year you were born.',
+  underage: (age: number) => `You need to be ${age} to create an account.`,
+  genderMissing: 'Choose one to continue.',
+  avatarMissing: 'Choose a body shape to continue.',
 } as const;
 
 export function emailError(email: string): string | null {
@@ -47,7 +47,7 @@ export function passwordError(password: string): string | null {
   return password.length > limits.passwordMax ? messages.passwordLong : null;
 }
 
-/** What the e-mail's code field keeps: digits only, so a pasted "123 456" still works. */
+/** What the email's code field keeps: digits only, so a pasted "123 456" still works. */
 export const digitsOnly = (text: string): string => text.replace(/\D/g, '').slice(0, limits.resetCode);
 
 export function resetCodeError(code: string): string | null {
@@ -62,13 +62,13 @@ export const nameError = (name: string): string | null => (name.trim().length ==
 
 export type BirthDateCheck = { date: CalendarDate; error: null } | { date: null; error: string };
 
-/** Reads the typed birth date and applies the same rules as the server: a real day, not in the future, old enough. */
-export function checkBirthDate(text: string, today: CalendarDate = currentDay(), requiredAge: number = minimumAge): BirthDateCheck {
-  if (text.trim().length === 0) {
+/** Reads the entered birth date and applies the same rules as the server: a real day, not in the future, old enough. */
+export function checkBirthDate(parts: DateParts, today: CalendarDate = currentDay(), requiredAge: number = minimumAge): BirthDateCheck {
+  if (isBlankDate(parts)) {
     return { date: null, error: messages.birthDateMissing };
   }
 
-  const date = parseDate(text);
+  const date = readDateParts(parts);
   if (!date) {
     return { date: null, error: messages.birthDateInvalid };
   }

@@ -1,18 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchDictionaries, wardrobeKeys, type Category, type Clothing, type Dictionaries, type Subcategory } from '@/api/wardrobe';
+import { fetchDictionaries, wardrobeKeys, type Category, type Clothing, type Dictionaries, type GarmentGroup, type Subcategory } from '@/api/wardrobe';
 
 /** The closed lists a garment is described with, with their labels. They change only with a new version of the server. */
 export function useDictionaries() {
   return useQuery({ queryKey: wardrobeKeys.dictionaries, queryFn: fetchDictionaries, staleTime: Infinity, gcTime: Infinity });
 }
 
-export const categoryLabel = (dictionaries: Dictionaries | undefined, category: Category | null | undefined): string | null =>
-  dictionaries?.categories.find((entry) => entry.code === category)?.label ?? null;
+export const groupLabel = (dictionaries: Dictionaries | undefined, group: GarmentGroup | null | undefined): string | null =>
+  dictionaries?.groups.find((entry) => entry.code === group)?.label ?? null;
+
+/** The role a type plays in an outfit. A person never picks it: it follows from the type they chose. */
+export const categoryOfType = (dictionaries: Dictionaries, type: Subcategory | null | undefined): Category | null =>
+  dictionaries.categories.find((entry) => entry.types.some((candidate) => candidate.code === type))?.code ?? null;
 
 export const typeLabel = (dictionaries: Dictionaries | undefined, type: Subcategory | null | undefined): string | null => {
-  for (const category of dictionaries?.categories ?? []) {
-    const found = category.types.find((entry) => entry.code === type);
+  for (const group of dictionaries?.groups ?? []) {
+    const found = group.types.find((entry) => entry.code === type);
     if (found) {
       return found.label;
     }
@@ -21,9 +25,9 @@ export const typeLabel = (dictionaries: Dictionaries | undefined, type: Subcateg
   return null;
 };
 
-/** "Góra, koszula": where the garment belongs, for the line under its name. */
-export function kindLine(dictionaries: Dictionaries | undefined, item: Pick<Clothing, 'category' | 'subcategory'>): string | null {
-  const category = categoryLabel(dictionaries, item.category);
+/** "Sweaters and hoodies, hoodie": where the garment belongs, for the line under its name. */
+export function kindLine(dictionaries: Dictionaries | undefined, item: Pick<Clothing, 'group' | 'subcategory'>): string | null {
+  const group = groupLabel(dictionaries, item.group);
   const type = typeLabel(dictionaries, item.subcategory);
-  return category && type ? `${category}, ${type.toLowerCase()}` : (category ?? type);
+  return group && type ? `${group}, ${type.toLowerCase()}` : (group ?? type);
 }

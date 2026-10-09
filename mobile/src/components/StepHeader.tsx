@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { flow } from '@/features/flow';
 import { size, space, useTheme } from '@/theme';
 
 import { AppText } from './AppText';
@@ -8,17 +9,18 @@ import { IconButton } from './controls';
 interface StepHeaderProps {
   step: number;
   total?: number;
-  onBack: () => void;
+  /** Left out where there is nothing to go back to: the first screen of a flow that cannot be left half way. */
+  onBack?: () => void;
 }
 
-/** Top of a wizard step: a way back, "Krok 2 z 5", and a bar per step. */
-export function StepHeader({ step, total = 5, onBack }: StepHeaderProps) {
+/** Top of a wizard step: a way back, "Step 2 of 9", and a bar per step. */
+export function StepHeader({ step, total = flow.total, onBack }: StepHeaderProps) {
   const theme = useTheme();
-  const label = `Krok ${step} z ${total}`;
+  const label = `Step ${step} of ${total}`;
   return (
     <View style={styles.header}>
       <View style={styles.row}>
-        <IconButton icon="back" label="Wróć" onPress={onBack} />
+        {onBack ? <IconButton icon="back" label="Back" onPress={onBack} /> : <View style={styles.balance} />}
         <AppText variant="secondaryStrong" color="textSecondary">
           {label}
         </AppText>

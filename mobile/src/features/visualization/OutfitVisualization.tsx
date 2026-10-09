@@ -1,20 +1,22 @@
 import { Image } from 'expo-image';
 import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import type { Outfit } from '@/api/outfits';
+import type { Outfit, OutfitItem } from '@/api/outfits';
 import { visualizationOf } from '@/api/visualizations';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Segmented } from '@/components/controls';
-import { radius, size, space, useTheme } from '@/theme';
+import { FigureView } from '@/components/FigureView';
+import { Fade, PressScale, ProgressFill } from '@/components/motion';
+import { motion, radius, size, space, useTheme } from '@/theme';
 
-import { collageView, enlargeAction, pictureCaption, pictureLabel, showAction, silhouetteView, viewLabel, working, type Notice } from './copy';
+import { collageView, enlargeAction, figureView, pictureCaption, pictureLabel, showAction, tryOnView, viewLabel, working, type Notice } from './copy';
 import { ImageViewer } from './ImageViewer';
 import type { Picture } from './order';
 import { useVisualization } from './useVisualization';
 
-type Side = 'collage' | 'silhouette';
+type Side = 'figure' | 'collage' | 'tryOn';
 
 /** The picture keeps the 3:4 frame of the silhouettes (spec 7.3) and leaves the collage the wider shape. */
 const pictureShare = 0.7;
@@ -24,8 +26,16 @@ const frameOf = (width: number, share: number) => {
   return { width: pictureWidth, height: Math.round((pictureWidth * 4) / 3) };
 };
 
+/** An outfit still being put together: its garments, and how to store it once a picture of it is ordered (answers with its id). */
+export interface OutfitDraft {
+  items: readonly OutfitItem[];
+  prepare: () => Promise<string>;
+}
+
 interface OutfitVisualizationProps {
-  outfit: Outfit;
+  /** A stored outfit, or with `draft` none yet. */
+  outfit?: Outfit;
+  draft?: OutfitDraft;
   /** Width of the content column the picture is laid out inside. */
   width: number;
   /** The outfit as a grid of garment photos, as the screen around it lays it out. */
@@ -34,42 +44,49 @@ interface OutfitVisualizationProps {
 }
 
 /**
- * An outfit's two views: the collage of real photos, and the picture of it on the chosen silhouette. The collage is
- * the faithful one, so it stays one press away and is never replaced (spec 7.1).
+ * An outfit's three views: on a figure (drawn on the phone, instantly, and the way it opens), the collage of real
+ * photos, and the picture of it on the chosen silhouette once one was ordered. The collage is the faithful one, so it
+ * stays one press away and is never replaced (spec 7.1).
  */
-export function OutfitVisualization({ outfit, width, collage, testID }: OutfitVisualizationProps) {
-  const picture = useVisualization(outfit);
-  // An outfit that already has a picture opens on it; one without opens on the collage it does have.
-  const [side, setSide] = useState<Side>(() => (visualizationOf(outfit) ? 'silhouette' : 'collage'));
+export function OutfitVisualization({ outfit, draft, width, collage, testID }: OutfitVisualizationProps) {
+  const picture = useVisualization(outfit ?? null, draft?.prepare);
+  // An outfit that already has a picture opens on it; one without opens on the figure.
+  const [side, setSide] = useState<Side>(() => (outfit && visualizationOf(outfit) ? 'tryOn' : 'figure'));
 
   const order = () => {
-    setSide('silhouette');
+    setSide('tryOn');
     picture.start();
   };
 
   const ordered = picture.stage !== 'none';
+  const shown: Side = side === 'tryOn' && !ordered ? 'figure' : side;
+  const view = shown !== 'tryOn' ? shown : picture.stage === 'ready' && picture.picture ? 'ready' : picture.notice ? 'problem' : 'working';
   return (
     <View style={styles.block} testID={testID}>
-      {ordered ? (
-        <Segmented
-          label={viewLabel}
-          value={side}
-          onChange={setSide}
-          options={[
-            { value: 'collage', label: collageView },
-            { value: 'silhouette', label: silhouetteView },
-          ]}
-        />
-      ) : null}
-      {side === 'collage' || !ordered ? (
-        collage
-      ) : picture.stage === 'ready' && picture.picture ? (
-        <ReadyPicture picture={picture.picture} frame={frameOf(width, pictureShare)} />
-      ) : picture.notice ? (
-        <Problem notice={picture.notice} />
-      ) : (
-        <Working progress={picture.progress} frame={frameOf(width, pictureShare * 0.6)} />
-      )}
+      <Segmented<Side>
+        label={viewLabel}
+        value={shown}
+        onChange={setSide}
+        options={[
+          { value: 'figure', label: figureView },
+          { value: 'collage', label: collageView },
+          ...(ordered ? [{ value: 'tryOn' as const, label: tryOnView }] : []),
+        ]}
+      />
+      {/* Whichever view is shown changes by a cross-fade, not a snap. */}
+      <Fade key={view} exit duration={motion.enter}>
+        {shown === 'figure' ? (
+          <FigureView items={outfit?.items ?? draft?.items ?? []} width={width} testID={outfit ? `figure-${outfit.id}` : 'figure-draft'} />
+        ) : shown === 'collage' ? (
+          collage
+        ) : picture.stage === 'ready' && picture.picture ? (
+          <ReadyPicture picture={picture.picture} frame={frameOf(width, pictureShare)} />
+        ) : picture.notice ? (
+          <Problem notice={picture.notice} />
+        ) : (
+          <Working progress={picture.progress} frame={frameOf(width, pictureShare * 0.6)} />
+        )}
+      </Fade>
       {picture.stage === 'none' ? (
         <Button
           label={showAction}
@@ -102,14 +119,14 @@ function ReadyPicture({ picture, frame }: { picture: Picture; frame: Frame }) {
   const [large, setLarge] = useState(false);
   return (
     <View style={styles.result}>
-      <Pressable
+      <PressScale
         accessibilityRole="button"
         accessibilityLabel={`${pictureLabel}. ${enlargeAction}`}
         onPress={() => setLarge(true)}
         testID="visualization-picture"
-        style={({ pressed }) => [styles.picture, frame, { backgroundColor: theme.well }, pressed ? styles.pressed : null]}>
-        <Image source={{ uri: picture.url, cacheKey: picture.cacheKey ?? undefined }} contentFit="cover" transition={200} style={styles.fill} accessible={false} />
-      </Pressable>
+        style={[styles.picture, frame, { backgroundColor: theme.well }]}>
+        <Image source={{ uri: picture.url, cacheKey: picture.cacheKey ?? undefined }} contentFit="cover" transition={motion.enter} style={styles.fill} accessible={false} />
+      </PressScale>
       <AppText variant="meta" color="textSecondary" align="center">
         {pictureCaption}
       </AppText>
@@ -163,7 +180,7 @@ function Bar({ progress, label }: { progress: number; label: string }) {
       accessibilityLabel={label}
       accessibilityValue={{ min: 0, max: 100, now: Math.round(part * 100) }}
       style={[styles.track, { backgroundColor: theme.surface }]}>
-      <View style={[styles.fillBar, { backgroundColor: theme.action, width: `${part * 100}%` }]} />
+      <ProgressFill progress={part} style={{ backgroundColor: theme.action }} />
     </View>
   );
 }
@@ -178,6 +195,4 @@ const styles = StyleSheet.create({
   placeholder: { borderRadius: radius.well },
   words: { gap: space[1] },
   track: { width: '100%', height: size.bar, borderRadius: size.bar / 2, overflow: 'hidden' },
-  fillBar: { height: size.bar, borderRadius: size.bar / 2 },
-  pressed: { opacity: 0.88, transform: [{ scale: 0.97 }] },
 });

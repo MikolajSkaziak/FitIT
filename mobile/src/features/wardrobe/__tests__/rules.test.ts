@@ -10,7 +10,7 @@ const ready = (category: string) => ({ status: 'ready', category }) as never;
 describe('what the first outfit still needs', () => {
   it('is a top, a bottom and shoes for an empty wardrobe', () => {
     expect(missingForFirstOutfit([])).toEqual(['top', 'bottom', 'shoes']);
-    expect(firstOutfitHint(['top', 'bottom', 'shoes'])).toBe('Do pierwszego zestawu brakuje jeszcze góry, dołu i butów.');
+    expect(firstOutfitHint(['top', 'bottom', 'shoes'])).toBe('Add tops, bottoms, and shoes to get your first outfit.');
   });
 
   it('is nothing once there is one of each', () => {
@@ -21,8 +21,8 @@ describe('what the first outfit still needs', () => {
   it('lets a sweater stand in for a top and a dress for top and bottom', () => {
     expect(missingForFirstOutfit([ready('mid_layer'), ready('bottom')])).toEqual(['shoes']);
     expect(missingForFirstOutfit([ready('one_piece')])).toEqual(['shoes']);
-    expect(firstOutfitHint(['shoes'])).toBe('Do pierwszego zestawu brakuje jeszcze butów.');
-    expect(firstOutfitHint(['bottom', 'shoes'])).toBe('Do pierwszego zestawu brakuje jeszcze dołu i butów.');
+    expect(firstOutfitHint(['shoes'])).toBe('Add shoes to get your first outfit.');
+    expect(firstOutfitHint(['bottom', 'shoes'])).toBe('Add bottoms and shoes to get your first outfit.');
   });
 
   it('counts only garments that are ready', () => {
@@ -44,42 +44,38 @@ describe('fitting a photo into 1280', () => {
   });
 });
 
-describe('Polish plurals', () => {
+describe('plurals', () => {
   it.each([
-    [0, '0 ubrań'],
-    [1, '1 ubranie'],
-    [2, '2 ubrania'],
-    [4, '4 ubrania'],
-    [5, '5 ubrań'],
-    [12, '12 ubrań'],
-    [14, '14 ubrań'],
-    [22, '22 ubrania'],
-    [25, '25 ubrań'],
-    [62, '62 ubrania'],
-    [112, '112 ubrań'],
-    [124, '124 ubrania'],
+    [0, '0 items'],
+    [1, '1 item'],
+    [2, '2 items'],
+    [5, '5 items'],
+    [12, '12 items'],
+    [21, '21 items'],
+    [112, '112 items'],
   ])('%i reads %s', (count, text) => {
     expect(garments(count)).toBe(text);
   });
 
   it('works for other nouns', () => {
-    expect(plural(3, ['zestaw', 'zestawy', 'zestawów'])).toBe('zestawy');
+    expect(plural(3, ['outfit', 'outfits'])).toBe('outfits');
+    expect(plural(1, ['outfit', 'outfits'])).toBe('outfit');
   });
 });
 
 describe('the garment form', () => {
   const { missingTags, toggleColor } = jest.requireActual<typeof import('@/features/wardrobe/garmentForm')>('@/features/wardrobe/garmentForm');
   const { describeEntry } = jest.requireActual<typeof import('@/features/wardrobe/uploadCopy')>('@/features/wardrobe/uploadCopy');
-  const empty = { name: ' ', category: null, subcategory: null, colors: [], pattern: null, material: null, formality: null, warmth: null, rainOk: false, styles: [] };
+  const empty = { name: ' ', group: null, subcategory: null, colors: [], pattern: null, material: null, formality: null, warmth: null, rainOk: false, styles: [], seasons: [] };
 
   it('names everything that is still missing, in the order of the form', () => {
-    expect(missingTags(empty)).toEqual(['nazwa', 'kategoria', 'typ', 'kolor', 'wzór', 'materiał', 'formalność', 'ciepło']);
+    expect(missingTags(empty)).toEqual(['name', 'group', 'type', 'color', 'pattern', 'material', 'formality', 'warmth']);
     expect(
-      missingTags({ ...empty, name: 'Jeansy', category: 'bottom', subcategory: 'jeans', colors: ['blue'], pattern: 'plain', material: 'denim', formality: 2, warmth: 3 }),
+      missingTags({ ...empty, name: 'Jeans', group: 'jeans', subcategory: 'jeans', colors: ['blue'], pattern: 'plain', material: 'denim', formality: 2, warmth: 3 }),
     ).toEqual([]);
   });
 
-  it('keeps one or two colours with the main one first', () => {
+  it('keeps one or two colors with the main one first', () => {
     expect(toggleColor([], 'navy')).toEqual(['navy']);
     expect(toggleColor(['navy'], 'white')).toEqual(['navy', 'white']);
     expect(toggleColor(['navy', 'white'], 'red')).toEqual(['navy', 'red']);
@@ -88,13 +84,13 @@ describe('the garment form', () => {
 
   it('has words for every state of an upload', () => {
     const say = (status: string, extra = {}) => describeEntry({ status, rejectReason: null, errorCode: null, ...extra } as never);
-    expect(say('waiting')).toEqual({ text: 'Czeka w kolejce', trouble: false });
-    expect(say('uploading').text).toBe('Wysyłanie');
-    expect(say('processing').text).toBe('Opisujemy zdjęcie');
-    expect(say('ready').text).toBe('Gotowe, opisane');
+    expect(say('waiting')).toEqual({ text: 'Waiting', trouble: false });
+    expect(say('uploading').text).toBe('Uploading');
+    expect(say('processing').text).toBe('Describing your photo');
+    expect(say('ready').text).toBe('Ready');
     expect(say('needs_tags').trouble).toBe(false);
-    expect(say('rejected', { rejectReason: 'several_garments' })).toEqual({ text: 'Na zdjęciu jest kilka ubrań. Sfotografuj je osobno.', trouble: true });
-    expect(say('failed', { errorCode: 'network' })).toEqual({ text: 'Nie udało się połączyć. Sprawdź internet i spróbuj ponownie.', trouble: true });
-    expect(say('failed', { errorCode: 'limit_reached' }).text).toBe('Dzisiejszy limit jest wykorzystany. Wróć jutro.');
+    expect(say('rejected', { rejectReason: 'several_garments' })).toEqual({ text: 'This photo has several items. Take one photo per item.', trouble: true });
+    expect(say('failed', { errorCode: 'network' })).toEqual({ text: 'Can’t connect right now. Check your internet connection and try again.', trouble: true });
+    expect(say('failed', { errorCode: 'limit_reached' }).text).toBe('You’ve hit today’s limit. More tomorrow.');
   });
 });

@@ -48,15 +48,15 @@ export default function ResetCode() {
       footer={
         <>
           <FormError message={confirm.isError ? resetMessageFor(confirm.error) : null} />
-          <Button label="Ustaw nowe hasło" busy={confirm.isPending} onPress={submit} testID="reset-confirm" />
-          <LinkText label="Poproś o nowy kod" center onPress={() => router.back()} testID="reset-again" />
+          <Button label="Set new password" busy={confirm.isPending} onPress={submit} testID="reset-confirm" />
+          <LinkText label="Request a new code" center onPress={() => router.back()} testID="reset-again" />
         </>
       }>
       <View style={styles.content}>
-        <BackHeader title="Wpisz kod" onBack={() => router.back()} />
-        <AppText color="textSecondary">{`Jeśli konto ${email.trim()} istnieje, kod jest już w drodze. Sprawdź też folder ze spamem.`}</AppText>
+        <BackHeader title="Enter the code" onBack={() => router.back()} />
+        <AppText color="textSecondary">{`If there’s an account for ${email.trim()}, a code is on its way. Check your spam folder too.`}</AppText>
         <Field
-          label="Kod z wiadomości"
+          label="Six-digit code"
           value={code}
           onChangeText={(text) => {
             setCode(digitsOnly(text));
@@ -73,8 +73,8 @@ export default function ResetCode() {
         />
         <PasswordField
           isNew
-          label="Nowe hasło"
-          helper={`Co najmniej ${limits.passwordMin} znaków.`}
+          label="New password"
+          helper={`At least ${limits.passwordMin} characters.`}
           value={password}
           onChangeText={(text) => {
             setPassword(text);

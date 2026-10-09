@@ -1,16 +1,15 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { AppText } from '@/components/AppText';
-import { Brandmark, GarmentMosaic } from '@/components/brand';
-import { Button } from '@/components/Button';
-import { Screen } from '@/components/Screen';
 import { useRegistrationDraft } from '@/features/registration/draft';
-import { space } from '@/theme';
+import { StoryPager } from '@/features/story/StoryPager';
+import { useTheme } from '@/theme';
 
+/** The first thing a new person sees: the story in four pages, with the two ways in always at hand. */
 export default function Welcome() {
   const router = useRouter();
+  const theme = useTheme();
 
   // Coming back here means the registration was abandoned: nothing typed there (a password included) is kept.
   useFocusEffect(
@@ -20,33 +19,8 @@ export default function Welcome() {
   );
 
   return (
-    <Screen
-      testID="welcome-screen"
-      footer={
-        <View style={styles.actions}>
-          <Button label="Załóż konto" onPress={() => router.push('/register')} testID="welcome-register" />
-          <Button label="Mam już konto" kind="secondary" onPress={() => router.push('/login')} testID="welcome-login" />
-        </View>
-      }>
-      <View style={styles.top}>
-        <GarmentMosaic />
-        <Brandmark />
-        <View style={styles.pitch}>
-          <AppText variant="display" accessibilityRole="header">
-            Pełna szafa, a nie masz się{' '}
-            <AppText variant="display" color="action">
-              w co ubrać?
-            </AppText>
-          </AppText>
-          <AppText color="textSecondary">Ułożymy zestawy z tego, co już masz. Na pogodę i na okazję.</AppText>
-        </View>
-      </View>
-    </Screen>
+    <View style={{ flex: 1, backgroundColor: theme.canvas }} testID="welcome-screen">
+      <StoryPager onCreate={() => router.push('/register')} onLogin={() => router.push('/login')} />
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  top: { gap: space[6] },
-  pitch: { gap: space[2] },
-  actions: { gap: space[2] },
-});

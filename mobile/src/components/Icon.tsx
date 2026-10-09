@@ -1,6 +1,9 @@
+import { BarbellIcon } from 'phosphor-react-native/src/icons/Barbell';
 import { BookmarkSimpleIcon } from 'phosphor-react-native/src/icons/BookmarkSimple';
+import { BriefcaseIcon } from 'phosphor-react-native/src/icons/Briefcase';
 import { CalendarBlankIcon } from 'phosphor-react-native/src/icons/CalendarBlank';
 import { CameraIcon } from 'phosphor-react-native/src/icons/Camera';
+import { CaretDownIcon } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretLeftIcon } from 'phosphor-react-native/src/icons/CaretLeft';
 import { CaretRightIcon } from 'phosphor-react-native/src/icons/CaretRight';
 import { CheckIcon } from 'phosphor-react-native/src/icons/Check';
@@ -9,18 +12,36 @@ import { CloudRainIcon } from 'phosphor-react-native/src/icons/CloudRain';
 import { CloudSnowIcon } from 'phosphor-react-native/src/icons/CloudSnow';
 import { CloudSunIcon } from 'phosphor-react-native/src/icons/CloudSun';
 import { CoatHangerIcon } from 'phosphor-react-native/src/icons/CoatHanger';
-import { DotsThreeIcon } from 'phosphor-react-native/src/icons/DotsThree';
+import { CoffeeIcon } from 'phosphor-react-native/src/icons/Coffee';
+import { EnvelopeIcon } from 'phosphor-react-native/src/icons/Envelope';
 import { EyeIcon } from 'phosphor-react-native/src/icons/Eye';
 import { EyeSlashIcon } from 'phosphor-react-native/src/icons/EyeSlash';
+import { FileTextIcon } from 'phosphor-react-native/src/icons/FileText';
+import { FlowerIcon } from 'phosphor-react-native/src/icons/Flower';
+import { GenderIntersexIcon } from 'phosphor-react-native/src/icons/GenderIntersex';
+import { HandshakeIcon } from 'phosphor-react-native/src/icons/Handshake';
 import { ImageIcon } from 'phosphor-react-native/src/icons/Image';
+import { LeafIcon } from 'phosphor-react-native/src/icons/Leaf';
 import { MagnifyingGlassIcon } from 'phosphor-react-native/src/icons/MagnifyingGlass';
+import { MapPinIcon } from 'phosphor-react-native/src/icons/MapPin';
 import { NavigationArrowIcon } from 'phosphor-react-native/src/icons/NavigationArrow';
+import { PersonSimpleIcon } from 'phosphor-react-native/src/icons/PersonSimple';
 import { PlusIcon } from 'phosphor-react-native/src/icons/Plus';
+import { ShieldCheckIcon } from 'phosphor-react-native/src/icons/ShieldCheck';
 import { SlidersHorizontalIcon } from 'phosphor-react-native/src/icons/SlidersHorizontal';
+import { SnowflakeIcon } from 'phosphor-react-native/src/icons/Snowflake';
+import { SparkleIcon } from 'phosphor-react-native/src/icons/Sparkle';
 import { SunIcon } from 'phosphor-react-native/src/icons/Sun';
+import { ArrowsClockwiseIcon } from 'phosphor-react-native/src/icons/ArrowsClockwise';
+import { ArrowsVerticalIcon } from 'phosphor-react-native/src/icons/ArrowsVertical';
+import { RulerIcon } from 'phosphor-react-native/src/icons/Ruler';
+import { TShirtIcon } from 'phosphor-react-native/src/icons/TShirt';
+import { ThermometerIcon } from 'phosphor-react-native/src/icons/Thermometer';
 import { ThumbsDownIcon } from 'phosphor-react-native/src/icons/ThumbsDown';
 import { ThumbsUpIcon } from 'phosphor-react-native/src/icons/ThumbsUp';
 import { UserIcon } from 'phosphor-react-native/src/icons/User';
+import { UsersThreeIcon } from 'phosphor-react-native/src/icons/UsersThree';
+import { WineIcon } from 'phosphor-react-native/src/icons/Wine';
 import { XIcon } from 'phosphor-react-native/src/icons/X';
 import { View } from 'react-native';
 
@@ -32,10 +53,10 @@ const icons = {
   calendar: CalendarBlankIcon,
   camera: CameraIcon,
   back: CaretLeftIcon,
+  down: CaretDownIcon,
   forward: CaretRightIcon,
   check: CheckIcon,
   hanger: CoatHangerIcon,
-  more: DotsThreeIcon,
   eye: EyeIcon,
   eyeOff: EyeSlashIcon,
   image: ImageIcon,
@@ -44,10 +65,31 @@ const icons = {
   plus: PlusIcon,
   filters: SlidersHorizontalIcon,
   sun: SunIcon,
+  flower: FlowerIcon,
+  leaf: LeafIcon,
+  snowflake: SnowflakeIcon,
   thumbsDown: ThumbsDownIcon,
   thumbsUp: ThumbsUpIcon,
   user: UserIcon,
   close: XIcon,
+  sparkle: SparkleIcon,
+  coffee: CoffeeIcon,
+  briefcase: BriefcaseIcon,
+  handshake: HandshakeIcon,
+  wine: WineIcon,
+  friends: UsersThreeIcon,
+  barbell: BarbellIcon,
+  thermometer: ThermometerIcon,
+  pin: MapPinIcon,
+  person: PersonSimpleIcon,
+  gender: GenderIntersexIcon,
+  mail: EnvelopeIcon,
+  style: TShirtIcon,
+  ruler: RulerIcon,
+  height: ArrowsVerticalIcon,
+  shield: ShieldCheckIcon,
+  document: FileTextIcon,
+  refresh: ArrowsClockwiseIcon,
 } as const;
 
 export type IconName = keyof typeof icons;
@@ -63,7 +105,11 @@ interface IconProps {
 export function Icon({ name, size = 24, color = 'text' }: IconProps) {
   const theme = useTheme();
   const Glyph = icons[name];
-  return <Glyph size={size} color={theme[color]} weight="bold" />;
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Glyph size={size} color={theme[color]} weight="bold" />
+    </View>
+  );
 }
 
 interface BackdropIconProps {
@@ -97,6 +143,23 @@ interface SkyGlyphProps {
   /** Outline only, for "we do not know the weather". */
   muted?: boolean;
   label: string;
+}
+
+interface SkyBackdropProps {
+  sky: Sky;
+  size?: number;
+  color?: ColorToken;
+}
+
+/** The sky, large and faint, behind the words of the weather card. Decorative: the card says the same in words. */
+export function SkyBackdrop({ sky, size = 150, color = 'onAction' }: SkyBackdropProps) {
+  const theme = useTheme();
+  const Glyph = skies[sky];
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Glyph size={size} color={theme[color]} weight="regular" />
+    </View>
+  );
 }
 
 /** Weather glyph: a line in the text colour with a sage fill. The only place the duotone weight is used. */

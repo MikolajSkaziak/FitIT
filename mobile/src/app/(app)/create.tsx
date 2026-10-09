@@ -1,0 +1,67 @@
+import { useRouter, type Href } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { AppText } from '@/components/AppText';
+import { IconButton } from '@/components/controls';
+import { Icon, type IconName } from '@/components/Icon';
+import { Fade, PressScale, staggerOf } from '@/components/motion';
+import { create } from '@/features/onboarding/copy';
+import { radius, size, space, travel, useTheme } from '@/theme';
+
+/** What the raised plus in the tab bar opens: the two ways to put something into the app. A short sheet. */
+export default function Create() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  // The menu is gone before the target slides up, so one sheet is replaced by the other and nothing flashes in between.
+  const go = (href: Href) => () => router.replace(href);
+
+  // The root stays a real native view and is not stretched, so the sheet can be fitted to what is in it.
+  return (
+    <View collapsable={false} style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space[4]) }]} testID="create-sheet">
+      <View style={styles.head}>
+        <AppText variant="heading" accessibilityRole="header" accessibilityLabel={create.title}>
+          Add to fit
+          <AppText variant="heading" color="action">
+            it.
+          </AppText>
+        </AppText>
+        <IconButton icon="close" label="Close" onPress={() => router.back()} />
+      </View>
+      <View style={styles.rows}>
+        <Fade rise={travel.rise} {...staggerOf(0, true)}>
+          <Choice icon="camera" label={create.clothes} onPress={go('/add')} testID="create-clothes" />
+        </Fade>
+        <Fade rise={travel.rise} {...staggerOf(1, true)}>
+          <Choice icon="hanger" label={create.build} onPress={go('/builder')} testID="create-build" />
+        </Fade>
+      </View>
+    </View>
+  );
+}
+
+function Choice({ icon, label, onPress, testID }: { icon: IconName; label: string; onPress: () => void; testID: string }) {
+  const theme = useTheme();
+  return (
+    <PressScale
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      testID={testID}
+      style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <Icon name={icon} color="action" />
+      <AppText variant="label" style={styles.label}>
+        {label}
+      </AppText>
+      <Icon name="forward" size={20} color="textSecondary" />
+    </PressScale>
+  );
+}
+
+const styles = StyleSheet.create({
+  sheet: { paddingHorizontal: size.gutter, paddingTop: space[6], gap: space[4] },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rows: { gap: space[2] },
+  row: { minHeight: size.option + space[2], flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], borderWidth: 1, borderRadius: radius.card },
+  label: { flex: 1 },
+});

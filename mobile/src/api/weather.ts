@@ -3,7 +3,6 @@ import { unwrap } from './problem';
 
 export type Weather = Schemas['WeatherResponse'];
 export type Sky = Schemas['Sky'];
-export type TemperatureBand = Schemas['TemperatureBand'];
 
 /** The weather the next outfit is chosen for: the hours until the evening, or tomorrow once it is late. */
 export const fetchWeatherToday = (): Promise<Weather> => unwrap(api.GET('/api/weather/today'));

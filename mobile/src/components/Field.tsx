@@ -5,6 +5,7 @@ import { fonts, radius, size, space, useTheme } from '@/theme';
 
 import { AppText } from './AppText';
 import { Icon, type IconName } from './Icon';
+import { Fade } from './motion';
 
 export interface FieldProps extends Omit<TextInputProps, 'style'> {
   /** Shown above the input. Leave out only for a search box, and then pass `accessibilityLabel`. */
@@ -13,6 +14,8 @@ export interface FieldProps extends Omit<TextInputProps, 'style'> {
   helper?: string;
   /** What is wrong and how to fix it. Shown under the input and read out by screen readers. */
   error?: string | null;
+  /** Outlines the box as wrong while the explanation is given elsewhere (one message for several boxes). */
+  invalid?: boolean;
   /** Functional icon inside the input on the left (search only). */
   leadingIcon?: IconName;
   /** A control inside the input on the right, such as "show password". */
@@ -20,11 +23,12 @@ export interface FieldProps extends Omit<TextInputProps, 'style'> {
 }
 
 /** Text input with its label above, at control height, and help or an error below. */
-export function Field({ label, helper, error, leadingIcon, trailing, onFocus, onBlur, ...input }: FieldProps) {
+export function Field({ label, helper, error, invalid = false, leadingIcon, trailing, onFocus, onBlur, ...input }: FieldProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
   const labelId = useId();
-  const line = error ? theme.danger : focused ? theme.action : theme.borderControl;
+  const wrong = Boolean(error) || invalid;
+  const line = wrong ? theme.danger : focused ? theme.action : theme.borderControl;
   return (
     <View style={styles.field}>
       {label ? (
@@ -32,7 +36,7 @@ export function Field({ label, helper, error, leadingIcon, trailing, onFocus, on
           {label}
         </AppText>
       ) : null}
-      <View style={[styles.box, { backgroundColor: theme.surface, borderColor: line, borderWidth: error || focused ? 2 : 1 }]}>
+      <View style={[styles.box, { backgroundColor: theme.surface, borderColor: line, borderWidth: wrong || focused ? 2 : 1 }]}>
         {leadingIcon ? (
           <View style={styles.leading}>
             <Icon name={leadingIcon} color="textSecondary" />
@@ -52,14 +56,16 @@ export function Field({ label, helper, error, leadingIcon, trailing, onFocus, on
             setFocused(false);
             onBlur?.(event);
           }}
-          style={[styles.input, { color: theme.text, paddingLeft: leadingIcon ? 0 : 16 - (error || focused ? 1 : 0), paddingRight: trailing ? 0 : 16 }]}
+          style={[styles.input, { color: theme.text, paddingLeft: leadingIcon ? 0 : 16 - (wrong || focused ? 1 : 0), paddingRight: trailing ? 0 : 16 }]}
         />
         {trailing}
       </View>
       {error ? (
-        <AppText variant="meta" color="danger" accessibilityLiveRegion="polite" accessibilityRole="alert">
-          {error}
-        </AppText>
+        <Fade key={error}>
+          <AppText variant="meta" color="danger" accessibilityLiveRegion="polite" accessibilityRole="alert">
+            {error}
+          </AppText>
+        </Fade>
       ) : helper ? (
         <AppText variant="meta" color="textSecondary">
           {helper}

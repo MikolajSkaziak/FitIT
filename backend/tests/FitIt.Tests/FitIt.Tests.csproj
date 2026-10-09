@@ -8,6 +8,7 @@
     <ProjectReference Include="..\..\src\FitIt.Api\FitIt.Api.csproj" />
     <ProjectReference Include="..\..\src\FitIt.Core\FitIt.Core.csproj" />
     <ProjectReference Include="..\..\src\FitIt.Infrastructure\FitIt.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\tools\FitIt.Eval\FitIt.Eval.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -16,12 +17,23 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The queries for the beta's metrics are run against the real schema by a test, so a renamed column breaks the build. -->
+    <None Include="..\..\sql\beta-metrics.sql" Link="sql\beta-metrics.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Answers recorded from real providers, read by tests from the output folder. -->
+    <None Update="**\Recorded\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -1,11 +1,15 @@
 import type { RegistrationDraft } from '@/features/registration/draft';
 import { useRegistrationDraft } from '@/features/registration/draft';
+import { emptyDateParts } from '@/lib/dates';
 import { checkBirthDate, emailError, firstIncompleteStep, messages, nameError, passwordError } from '@/features/registration/validation';
 
 const today = { day: 6, month: 10, year: 2026 };
 
+/** What the three boxes of the birth date hold: a chosen month, a typed day and a typed year. */
+const born = (month: number, day: number, year: number) => ({ month, day: String(day), year: String(year) });
+
 describe('emailError', () => {
-  it.each(['ola@poczta.pl', ' ola@poczta.pl ', 'o.l+a@sub.domena.com'])('accepts %p', (email) => {
+  it.each(['ola@example.com', ' ola@example.com ', 'o.l+a@sub.domain.com'])('accepts %p', (email) => {
     expect(emailError(email)).toBeNull();
   });
 
@@ -13,7 +17,7 @@ describe('emailError', () => {
     expect(emailError('  ')).toBe(messages.emailMissing);
   });
 
-  it.each(['ola', 'ola@', 'ola@poczta', '@poczta.pl', 'ola @poczta.pl', `${'a'.repeat(250)}@b.pl`])('refuses %p', (email) => {
+  it.each(['ola', 'ola@', 'ola@example', '@example.com', 'ola @example.com', `${'a'.repeat(250)}@b.pl`])('refuses %p', (email) => {
     expect(emailError(email)).toBe(messages.emailInvalid);
   });
 });
@@ -37,42 +41,45 @@ describe('nameError', () => {
 
 describe('checkBirthDate', () => {
   it('accepts somebody who turns sixteen today', () => {
-    expect(checkBirthDate('06.10.2010', today)).toEqual({ date: { day: 6, month: 10, year: 2010 }, error: null });
+    expect(checkBirthDate(born(10, 6, 2010), today)).toEqual({ date: { day: 6, month: 10, year: 2010 }, error: null });
   });
 
   it('refuses somebody who turns sixteen tomorrow', () => {
-    expect(checkBirthDate('07.10.2010', today)).toEqual({ date: null, error: 'Konto można założyć po ukończeniu 16 lat.' });
+    expect(checkBirthDate(born(10, 7, 2010), today)).toEqual({ date: null, error: 'You need to be 16 to create an account.' });
   });
 
   it('counts a 29 February birthday the way the server does', () => {
     // Born on a leap day, sixteen on 29 February 2024; seventeen on 28 February 2025 because there is no 29th.
-    expect(checkBirthDate('29.02.2008', { day: 28, month: 2, year: 2024 }).error).toBe(messages.underage(16));
-    expect(checkBirthDate('29.02.2008', { day: 29, month: 2, year: 2024 }).error).toBeNull();
-    expect(checkBirthDate('29.02.2008', { day: 28, month: 2, year: 2025 }, 17).error).toBeNull();
+    expect(checkBirthDate(born(2, 29, 2008), { day: 28, month: 2, year: 2024 }).error).toBe(messages.underage(16));
+    expect(checkBirthDate(born(2, 29, 2008), { day: 29, month: 2, year: 2024 }).error).toBeNull();
+    expect(checkBirthDate(born(2, 29, 2008), { day: 28, month: 2, year: 2025 }, 17).error).toBeNull();
   });
 
   it('uses the age limit it is given', () => {
-    expect(checkBirthDate('06.10.2010', today, 18).error).toBe('Konto można założyć po ukończeniu 18 lat.');
+    expect(checkBirthDate(born(10, 6, 2010), today, 18).error).toBe('You need to be 18 to create an account.');
   });
 
   it('tells apart nothing typed, something unreadable and an impossible year', () => {
-    expect(checkBirthDate('', today).error).toBe(messages.birthDateMissing);
-    expect(checkBirthDate('14.03', today).error).toBe(messages.birthDateInvalid);
-    expect(checkBirthDate('31.02.1999', today).error).toBe(messages.birthDateInvalid);
-    expect(checkBirthDate('07.10.2026', today).error).toBe(messages.birthDateImplausible);
-    expect(checkBirthDate('05.10.1906', today).error).toBe(messages.birthDateImplausible);
-    expect(checkBirthDate('06.10.1906', today).error).toBeNull();
+    expect(checkBirthDate(emptyDateParts, today).error).toBe(messages.birthDateMissing);
+    expect(checkBirthDate({ month: 3, day: '14', year: '' }, today).error).toBe(messages.birthDateInvalid);
+    expect(checkBirthDate(born(2, 31, 1999), today).error).toBe(messages.birthDateInvalid);
+    expect(checkBirthDate(born(10, 7, 2026), today).error).toBe(messages.birthDateImplausible);
+    expect(checkBirthDate(born(10, 5, 1906), today).error).toBe(messages.birthDateImplausible);
+    expect(checkBirthDate(born(10, 6, 1906), today).error).toBeNull();
   });
 });
 
 describe('firstIncompleteStep', () => {
   const complete: RegistrationDraft = {
-    email: 'ola@poczta.pl',
-    password: 'tajnehaslo1',
+    email: 'ola@example.com',
+    password: 'secretpass1',
     displayName: 'Ola',
-    birthDate: '14.03.1999',
+    birthDate: born(3, 14, 1999),
     gender: 'female',
     avatarId: 'a1',
+    avatarGender: 'female',
+    clothingSize: null,
+    legLength: null,
     styles: [],
     thermalPreference: 'normal',
   };
@@ -85,7 +92,8 @@ describe('firstIncompleteStep', () => {
     [{ email: 'ola' }, '/register'],
     [{ password: 'krotkie' }, '/register'],
     [{ displayName: ' ' }, '/register/about'],
-    [{ birthDate: '14.03.2020' }, '/register/about'],
+    [{ birthDate: born(3, 14, 2020) }, '/register/about'],
+    [{ birthDate: emptyDateParts }, '/register/about'],
     [{ gender: null }, '/register/about'],
     [{ avatarId: null }, '/register/silhouette'],
     [{ email: '', avatarId: null }, '/register'],
@@ -110,8 +118,37 @@ describe('the registration draft', () => {
     expect(useRegistrationDraft.getState()).toMatchObject({ gender: 'male', avatarId: null });
   });
 
+  it.each([
+    ['female', 'female', 'non_binary'],
+    ['male', 'male', 'unspecified'],
+    ['non_binary', 'male', 'unspecified'],
+    ['non_binary', 'female', 'female'],
+  ] as const)('keeps the chosen silhouette while it is still offered: %#', (from, shape, to) => {
+    const draft = useRegistrationDraft.getState();
+    draft.set({ gender: from });
+    draft.set({ avatarId: 'shape', avatarGender: shape });
+
+    draft.set({ gender: to });
+
+    expect(useRegistrationDraft.getState()).toMatchObject({ gender: to, avatarId: 'shape', avatarGender: shape });
+  });
+
+  it.each([
+    ['non_binary', 'male', 'female'],
+    ['non_binary', 'female', 'male'],
+    ['unspecified', 'male', 'female'],
+  ] as const)('drops a silhouette of the other set when the gender narrows down: %#', (from, shape, to) => {
+    const draft = useRegistrationDraft.getState();
+    draft.set({ gender: from });
+    draft.set({ avatarId: 'shape', avatarGender: shape });
+
+    draft.set({ gender: to });
+
+    expect(useRegistrationDraft.getState()).toMatchObject({ gender: to, avatarId: null, avatarGender: null });
+  });
+
   it('forgets everything on reset, the password included', () => {
-    useRegistrationDraft.getState().set({ email: 'ola@poczta.pl', password: 'tajnehaslo1', styles: ['casual'], thermalPreference: 'runs_cold' });
+    useRegistrationDraft.getState().set({ email: 'ola@example.com', password: 'secretpass1', styles: ['casual'], thermalPreference: 'runs_cold' });
 
     useRegistrationDraft.getState().reset();
 

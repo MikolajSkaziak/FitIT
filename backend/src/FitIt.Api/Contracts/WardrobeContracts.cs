@@ -41,6 +41,10 @@ public sealed class UpdateClothingRequest
     [MaxLength(5)]
     public StyleTag[]? Styles { get; init; }
 
+    /// <summary>Zero to four different seasons; none (an empty list) means the ones the warmth suggests.</summary>
+    [MaxLength(GarmentTags.MaxSeasons)]
+    public Season[]? Seasons { get; init; }
+
     public bool? InLaundry { get; init; }
 
     public bool? RarelyWorn { get; init; }
@@ -55,6 +59,7 @@ public sealed record ClothingResponse(
     ClothingStatus Status,
     string? Name,
     Category? Category,
+    GarmentGroup? Group,
     Subcategory? Subcategory,
     IReadOnlyList<Color> Colors,
     Pattern? Pattern,
@@ -63,6 +68,7 @@ public sealed record ClothingResponse(
     int? Warmth,
     bool? RainOk,
     IReadOnlyList<StyleTag> Styles,
+    IReadOnlyList<Season> Seasons,
     bool InLaundry,
     bool RarelyWorn,
     bool IsForgotten,
@@ -84,22 +90,47 @@ public sealed record TypeEntry(Subcategory Code, string Label);
 
 public sealed record CategoryEntry(Category Code, string Label, IReadOnlyList<TypeEntry> Types);
 
-public sealed record ColorEntry(Color Code, string Label, bool Neutral);
+/// <summary>What a person picks a garment by: a shop-style group of types, which may play different roles in an outfit.</summary>
+public sealed record GroupEntry(GarmentGroup Code, string Label, IReadOnlyList<TypeEntry> Types);
+
+/// <summary><c>Hex</c> is the colour of a swatch for this garment colour (<c>#RRGGBB</c>).</summary>
+public sealed record ColorEntry(Color Code, string Label, bool Neutral, string Hex);
 
 public sealed record PatternEntry(Pattern Code, string Label);
 
 public sealed record MaterialEntry(Material Code, string Label);
 
-public sealed record StyleEntry(StyleTag Code, string Label);
+/// <summary><c>WomanImageUrl</c> and <c>ManImageUrl</c> are reference photos of the style (3:4, absolute links), one worn by a woman and one by a man.</summary>
+public sealed record StyleEntry(StyleTag Code, string Label, string WomanImageUrl, string ManImageUrl);
+
+public sealed record SeasonEntry(Season Code, string Label);
 
 public sealed record ScaleEntry(int Value, string Label);
 
 /// <summary>The closed lists a garment is described with, in display order, with the labels a person reads.</summary>
 public sealed record DictionariesResponse(
     IReadOnlyList<CategoryEntry> Categories,
+    IReadOnlyList<GroupEntry> Groups,
     IReadOnlyList<ColorEntry> Colors,
     IReadOnlyList<PatternEntry> Patterns,
     IReadOnlyList<MaterialEntry> Materials,
     IReadOnlyList<StyleEntry> Styles,
+    IReadOnlyList<SeasonEntry> Seasons,
     IReadOnlyList<ScaleEntry> Formality,
     IReadOnlyList<ScaleEntry> Warmth);
+
+/// <summary>One of the common pieces a person can add without a photo. <c>ImageUrl</c> is a public, square picture with a transparent background.</summary>
+public sealed record StarterPieceResponse(string Code, string Name, Category Category, Subcategory Type, IReadOnlyList<Color> Colors, string ImageUrl);
+
+/// <summary>A starter piece as the signed-in person sees it: <c>Added</c> is true while a garment made from it is in the wardrobe, and turns false again when that garment is deleted.</summary>
+public sealed record MyStarterPieceResponse(string Code, string Name, Category Category, Subcategory Type, IReadOnlyList<Color> Colors, string ImageUrl, bool Added);
+
+public sealed class AddStarterPiecesRequest
+{
+    /// <summary>Codes from <c>GET /api/starter-pieces</c>. Codes the wardrobe already has are skipped.</summary>
+    [Required, MaxLength(40)]
+    public string[] Codes { get; init; } = [];
+}
+
+/// <summary><c>Added</c> garments were created; <c>AlreadyThere</c> of the asked-for codes were in the wardrobe before.</summary>
+public sealed record StarterAdditionResponse(int Added, int AlreadyThere);

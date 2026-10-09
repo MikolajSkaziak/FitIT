@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { FormError } from '@/components/forms';
 import { SilhouettePicker } from '@/components/SilhouettePicker';
+import { flow } from '@/features/flow';
 import { useRegistrationDraft } from '@/features/registration/draft';
 import { messages } from '@/features/registration/validation';
 import { WizardStep } from '@/features/registration/WizardStep';
@@ -22,18 +23,18 @@ export default function RegisterSilhouette() {
 
   return (
     <WizardStep
-      step={3}
-      title="Wybierz typ sylwetki"
-      lead="Pokażemy na niej Twoje zestawy. Wybierz najbliższą swojej, zmienisz ją w profilu."
+      step={flow.silhouette}
+      title="Pick a body shape"
+      lead="It’s only used for the try-on picture, so outfits look right on you. Choose the closest match. You can change it any time in Profile."
       testID="register-silhouette"
       footer={
         <>
           <FormError message={missing && !avatarId ? messages.avatarMissing : null} />
           <Button
-            label="Dalej"
+            label="Next"
             onPress={() => {
               if (avatarId) {
-                router.push('/register/style');
+                router.push('/register/fit');
               } else {
                 setMissing(true);
               }
@@ -42,7 +43,7 @@ export default function RegisterSilhouette() {
           />
         </>
       }>
-      <SilhouettePicker gender={gender} value={avatarId} onChange={(avatar) => setDraft({ avatarId: avatar.id })} />
+      <SilhouettePicker gender={gender} value={avatarId} onChange={(avatar) => setDraft({ avatarId: avatar.id, avatarGender: avatar.gender })} />
     </WizardStep>
   );
 }

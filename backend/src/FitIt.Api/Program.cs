@@ -13,6 +13,7 @@ using FitIt.Infrastructure.Persistence;
 using FitIt.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -27,8 +28,10 @@ CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, logger) => logger
+builder.Host.UseSerilog((context, services, logger) => logger
     .ReadFrom.Configuration(context.Configuration)
+    // Sinks registered in the container take part too: a test hangs its own on the real logger and reads what the application writes.
+    .ReadFrom.Services(services)
     .Enrich.FromLogContext()
     .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture));
 
@@ -47,6 +50,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<LinkBuilder>();
 builder.Services.AddScoped<ResponseMapper>();
 builder.Services.AddScoped<ClothingMapper>();
+builder.Services.AddScoped<OutfitMapper>();
+builder.Services.AddScoped<VisualizationMapper>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -87,6 +92,22 @@ builder.Services.AddValidation();
 builder.Services.AddOpenApi();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+// Behind the reverse proxy every request arrives from the proxy's address; the person's own address is in X-Forwarded-For.
+// The header is believed only when the request comes from a trusted network, otherwise anybody could claim any address
+// and escape the rate limit. Without configuration only loopback and private networks (the container network) are trusted.
+var trustedNetworks = builder.Configuration.GetSection("Proxy:TrustedNetworks").Get<string[]>() is { Length: > 0 } configured ? configured : DefaultTrustedNetworks;
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = builder.Configuration.GetValue("Proxy:ForwardLimit", 1);
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+    foreach (var network in trustedNetworks)
+    {
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+    }
+});
+
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
     .Configure<IOptions<JwtOptions>, TimeProvider>((bearer, jwtOptions, timeProvider) =>
     {
@@ -109,10 +130,25 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
                 return (notBefore is null || notBefore <= now + skew) && expires is not null && expires > now - skew;
             },
         };
+        bearer.Events = new JwtBearerEvents
+        {
+            // An access token outlives the account it was issued for by its whole lifetime. The account is looked up on every
+            // request (one lookup by primary key), so a deleted account stops working at once and not a quarter of an hour later.
+            OnTokenValidated = async context =>
+            {
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                if (!Guid.TryParse(context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var userId)
+                    || !await db.Users.AnyAsync(user => user.Id == userId, context.HttpContext.RequestAborted))
+                {
+                    context.Fail("The account no longer exists.");
+                }
+            },
+        };
     });
 builder.Services.AddAuthorization();
 
 var authPerMinute = builder.Configuration.GetValue("RateLimits:AuthPerMinute", 10);
+var passwordResetPer15Minutes = builder.Configuration.GetValue("RateLimits:PasswordResetPer15Minutes", 10);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -133,6 +169,10 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(AccountEndpoints.AuthRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = authPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    // Each policy has partitions of its own: a person who mistyped a password a few times is not thereby shut out of resetting it.
+    options.AddPolicy(AccountEndpoints.PasswordResetRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        "reset:" + (http.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = passwordResetPer15Minutes, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
 });
 
 var app = builder.Build();
@@ -156,9 +196,23 @@ await using (var scope = app.Services.CreateAsyncScope())
 // Local development: the storage server starts empty, so the bucket is made here. In production it is created by hand, once.
 if (app.Configuration.GetValue("Storage:CreateBucket", false) && app.Services.GetService<S3ImageStorage>() is { } s3)
 {
-    await s3.EnsureBucketAsync(app.Lifetime.ApplicationStopping);
+    // Started together by Docker Compose, the storage server may need a moment longer than the API.
+    for (var attempt = 1; ; attempt++)
+    {
+        try
+        {
+            await s3.EnsureBucketAsync(app.Lifetime.ApplicationStopping);
+            break;
+        }
+        catch (Exception exception) when (attempt < 10 && exception is HttpRequestException or Amazon.Runtime.AmazonServiceException)
+        {
+            app.Logger.LogWarning("File storage is not answering yet (attempt {Attempt} of 10): {Reason}", attempt, exception.Message);
+            await Task.Delay(TimeSpan.FromSeconds(1), app.Lifetime.ApplicationStopping);
+        }
+    }
 }
 
+app.UseForwardedHeaders();
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -167,9 +221,10 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapOpenApi();
-if (app.Environment.IsDevelopment())
+// The description of the whole API and its test page are for developers and for generating the app's client, not for the public.
+if (!app.Environment.IsProduction())
 {
+    app.MapOpenApi();
     app.MapScalarApiReference();
 }
 
@@ -177,11 +232,16 @@ app.MapGet("/health", async (AppDbContext db, CancellationToken cancellationToke
         await db.Database.CanConnectAsync(cancellationToken)
             ? Results.Ok(new HealthResponse("ok"))
             : Results.Json(new HealthResponse("database_unreachable"), statusCode: StatusCodes.Status503ServiceUnavailable))
-    .WithTags("Stan").WithName("health")
+    .WithTags("Health").WithName("health")
     .Produces<HealthResponse>().Produces<HealthResponse>(StatusCodes.Status503ServiceUnavailable);
 
 app.MapAccountEndpoints();
 app.MapWardrobeEndpoints();
+app.MapColorEndpoints();
+app.MapStarterEndpoints();
+app.MapWeatherEndpoints();
+app.MapOutfitEndpoints();
+app.MapVisualizationEndpoints();
 
 if (backgroundWorker)
 {
@@ -195,4 +255,8 @@ else
 await app.RunAsync();
 
 /// <summary>Exposed so the test host can start the application.</summary>
-public partial class Program;
+public partial class Program
+{
+    /// <summary>Loopback and the private ranges of IPv4 and IPv6: where a reverse proxy in the same Compose network or on the same machine sits.</summary>
+    internal static readonly string[] DefaultTrustedNetworks = ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"];
+}

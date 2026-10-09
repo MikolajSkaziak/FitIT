@@ -31,6 +31,9 @@ public sealed class FoundationTests(ApiFactory factory)
         Assert.Contains("/api/me", paths.Select(p => p.Key));
         var thermal = document["components"]!["schemas"]!["ThermalPreference"]!["enum"]!.AsArray().Select(v => v!.GetValue<string>());
         Assert.Equal(["runs_cold", "normal", "runs_warm"], thermal);
+        var schemas = document["components"]!["schemas"]!;
+        Assert.Equal(["xs", "s", "m", "l", "xl", "xxl"], schemas["ClothingSize"]!["enum"]!.AsArray().Where(v => v is not null).Select(v => v!.GetValue<string>()));
+        Assert.Equal(["shorter", "average", "longer"], schemas["LegLength"]!["enum"]!.AsArray().Where(v => v is not null).Select(v => v!.GetValue<string>()));
     }
 
     [Fact]

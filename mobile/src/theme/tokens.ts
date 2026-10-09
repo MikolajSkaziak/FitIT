@@ -18,6 +18,27 @@ export const palettes = {
     /** Backdrop of every garment and silhouette photo. */
     well: '#DCE7DA',
     wellLine: 'rgba(31,42,37,0.05)',
+    /** The bottle-green rail and its stitching that a garment label hangs from; fixed, because the well stays light. */
+    wellRail: '#2F5D4C',
+    wellStitch: 'rgba(47,93,76,0.35)',
+    /** Small labels laid over a garment photo, light and dark; fixed for the same reason. */
+    wellChip: '#FFFFFF',
+    onWellChip: '#2B5846',
+    wellBadge: 'rgba(31,42,37,0.72)',
+    onWellBadge: '#FFFFFF',
+    /** The idle dots of a pager. */
+    dot: '#B9C4BA',
+    /** A tailor's tape: light paper in both schemes, with its ticks, hairline and marker. */
+    paper: '#F3EFE2',
+    paperInk: '#57625C',
+    paperLine: 'rgba(31,42,37,0.12)',
+    paperMark: '#2F5D4C',
+    /** Schematic figures on the well, idle and chosen (the chosen one sits on a surface card). */
+    figureTorso: '#B9CBB8',
+    figureLegs: '#9DB5A3',
+    figureLine: 'rgba(31,42,37,0.3)',
+    figureTorsoOn: '#9DB5A3',
+    figureLegsOn: '#2F5D4C',
     skeleton: '#E7ECE5',
     disabledFill: '#E1E6DF',
     disabledText: '#57625C',
@@ -39,6 +60,22 @@ export const palettes = {
     /** Stays light in dark mode so dark clothes remain visible. */
     well: '#C3D1C4',
     wellLine: 'rgba(0,0,0,0)',
+    wellRail: '#2F5D4C',
+    wellStitch: 'rgba(47,93,76,0.35)',
+    wellChip: '#FFFFFF',
+    onWellChip: '#2B5846',
+    wellBadge: 'rgba(31,42,37,0.72)',
+    onWellBadge: '#FFFFFF',
+    dot: '#3A4740',
+    paper: '#F3EFE2',
+    paperInk: '#57625C',
+    paperLine: 'rgba(31,42,37,0.12)',
+    paperMark: '#2F5D4C',
+    figureTorso: '#AFC2B1',
+    figureLegs: '#8FA894',
+    figureLine: 'rgba(31,42,37,0.3)',
+    figureTorsoOn: '#4F6B5C',
+    figureLegsOn: '#A8D2BD',
     skeleton: '#252E29',
     disabledFill: '#2A342F',
     disabledText: '#A5AFA8',
@@ -68,6 +105,8 @@ export const typography = {
   subheading: { fontFamily: fonts.display, fontSize: 19, lineHeight: 24, letterSpacing: -0.19 },
   heading: { fontFamily: fonts.display, fontSize: 23, lineHeight: 28, letterSpacing: -0.23 },
   display: { fontFamily: fonts.display, fontSize: 33, lineHeight: 38, letterSpacing: -0.66 },
+  /** The one large number of the app: the temperature on the weather card. */
+  figure: { fontFamily: fonts.display, fontSize: 64, lineHeight: 64, letterSpacing: -2 },
   logo: { fontFamily: fonts.display, fontSize: 48, lineHeight: 52, letterSpacing: -0.96 },
   logoSmall: { fontFamily: fonts.display, fontSize: 28, lineHeight: 34, letterSpacing: -0.56 },
 } as const;
@@ -92,3 +131,12 @@ export const size = {
 } as const;
 
 export const motion = { press: 100, exit: 150, enter: 200, sheet: 300 } as const;
+
+/** Control points of the two cubic-bezier curves: enter decelerates, exit accelerates. No springs, no overshoot. */
+export const easing = { enter: [0.16, 1, 0.3, 1], exit: [0.7, 0, 0.84, 0] } as const;
+
+/** How far content travels while it appears: 4 to 8 points, never more. */
+export const travel = { rise: 6 } as const;
+
+/** What a pressed surface looks like, how small a confirming check starts, and how small a peek starts before it settles at full size, and how far a card that is not the chosen one steps back. */
+export const feel = { pressScale: 0.97, pressOpacity: 0.85, popScale: 0.9, pulseOpacity: 0.5, peekScale: 0.94, restOpacity: 0.72 } as const;

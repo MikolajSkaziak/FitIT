@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FitIt.Infrastructure.Common;
 using FitIt.Infrastructure.Jobs;
+using FitIt.Infrastructure.Visualizations;
 using FitIt.Infrastructure.Wardrobe;
 using Hangfire;
 using Hangfire.Dashboard;
@@ -35,7 +36,13 @@ internal static class HangfireSetup
             .UsePostgreSqlStorage(
                 storage => storage.UseNpgsqlConnection(provider.GetRequiredService<IConfiguration>().GetConnectionString("Database")),
                 new PostgreSqlStorageOptions { SchemaName = "hangfire" }));
-        builder.Services.AddHangfireServer(options => options.WorkerCount = builder.Configuration.GetValue("Hangfire:Workers", 4));
+        builder.Services.AddHangfireServer(options =>
+        {
+            options.WorkerCount = builder.Configuration.GetValue("Hangfire:Workers", 4);
+            // A visualization asks the provider again every few seconds by scheduling its own next run; the default of looking
+            // for scheduled work every fifteen seconds would be the longest wait of the whole order.
+            options.SchedulePollingInterval = TimeSpan.FromSeconds(1);
+        });
         builder.Services.AddSingleton<IBackgroundJobs, HangfireBackgroundJobs>();
         return true;
     }
@@ -57,6 +64,9 @@ internal static class HangfireSetup
         var zone = new RecurringJobOptions { TimeZone = app.Services.GetRequiredService<AppClock>().Zone };
         recurring.AddOrUpdate<MaintenanceJobs>("heartbeat", job => job.HeartbeatAsync(), Cron.Hourly());
         recurring.AddOrUpdate<WardrobeMaintenance>("wardrobe-requeue", job => job.RequeueWaitingAsync(), "*/5 * * * *");
+        recurring.AddOrUpdate<VisualizationMaintenance>("visualization-requeue", job => job.RequeueStuckAsync(), "* * * * *");
+        // Once per start: garments stored before cutouts were cropped get cropped ones. A start with none to do costs one query.
+        app.Services.GetRequiredService<IBackgroundJobs>().Enqueue<WardrobeMaintenance>(job => job.TightenCutoutsAsync());
         recurring.AddOrUpdate<WardrobeMaintenance>("wardrobe-orphans", job => job.RemoveOrphansAsync(), "30 3 * * *", zone);
     }
 }

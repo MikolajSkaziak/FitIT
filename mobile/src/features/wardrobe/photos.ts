@@ -31,14 +31,19 @@ export async function pickFromGallery(limit: number): Promise<LocalPhoto[]> {
 
 export type CameraShot = { kind: 'taken'; photo: LocalPhoto } | { kind: 'cancelled' } | { kind: 'denied' };
 
-/** Opens the camera, asking for permission the first time. */
-export async function takePhoto(): Promise<CameraShot> {
+/** Opens the camera, asking for permission the first time. `front` opens the selfie camera. */
+export async function takePhoto({ front = false }: { front?: boolean } = {}): Promise<CameraShot> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
   if (!permission.granted) {
     return { kind: 'denied' };
   }
 
-  const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1, exif: false });
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['images'],
+    quality: 1,
+    exif: false,
+    ...(front ? { cameraType: ImagePicker.CameraType.front } : {}),
+  });
   const asset = result.canceled ? undefined : result.assets[0];
   return asset ? { kind: 'taken', photo: toPhoto(asset) } : { kind: 'cancelled' };
 }

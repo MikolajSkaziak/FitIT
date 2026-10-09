@@ -20,25 +20,25 @@ describe('the password reset calls', () => {
     useSession.setState({ status: 'signedOut', accessToken: null, refreshToken: null });
     const seen = serveWith(noContent);
 
-    await requestPasswordReset('ola@poczta.pl');
+    await requestPasswordReset('ola@example.com');
 
-    expect(seen).toEqual([{ method: 'POST', path: '/api/auth/password-reset/request', authorization: null, body: { email: 'ola@poczta.pl' } }]);
+    expect(seen).toEqual([{ method: 'POST', path: '/api/auth/password-reset/request', authorization: null, body: { email: 'ola@example.com' } }]);
   });
 
   it('sends the address, the code and the new password to confirm', async () => {
     const seen = serveWith(noContent);
 
-    await confirmPasswordReset({ email: 'ola@poczta.pl', code: '123456', newPassword: 'nowehaslo1' });
+    await confirmPasswordReset({ email: 'ola@example.com', code: '123456', newPassword: 'newpass123' });
 
     expect(seen).toEqual([
-      expect.objectContaining({ method: 'POST', path: '/api/auth/password-reset/confirm', body: { email: 'ola@poczta.pl', code: '123456', newPassword: 'nowehaslo1' } }),
+      expect.objectContaining({ method: 'POST', path: '/api/auth/password-reset/confirm', body: { email: 'ola@example.com', code: '123456', newPassword: 'newpass123' } }),
     ]);
   });
 
   it('hands the server\'s code for a bad reset code to the caller', async () => {
     serveWith(() => json(400, { status: 400, code: 'invalid_reset_code' }));
 
-    await expect(confirmPasswordReset({ email: 'ola@poczta.pl', code: '000000', newPassword: 'nowehaslo1' })).rejects.toMatchObject(
+    await expect(confirmPasswordReset({ email: 'ola@example.com', code: '000000', newPassword: 'newpass123' })).rejects.toMatchObject(
       expect.objectContaining({ code: 'invalid_reset_code' }),
     );
   });
@@ -48,9 +48,9 @@ describe('deleting the account', () => {
   it('sends the password as a signed-in request to DELETE /api/me', async () => {
     const seen = serveWith(noContent);
 
-    await deleteAccount('tajnehaslo1');
+    await deleteAccount('secretpass1');
 
-    expect(seen).toEqual([{ method: 'DELETE', path: '/api/me', authorization: 'Bearer token', body: { password: 'tajnehaslo1' } }]);
+    expect(seen).toEqual([{ method: 'DELETE', path: '/api/me', authorization: 'Bearer token', body: { password: 'secretpass1' } }]);
   });
 
   it('fails with the server\'s code when the password is wrong', async () => {

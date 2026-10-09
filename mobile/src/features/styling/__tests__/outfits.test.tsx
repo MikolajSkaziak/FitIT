@@ -11,6 +11,7 @@ import OutfitDetail from '@/app/(app)/outfit/[id]';
 import Outfits from '@/app/(app)/(tabs)/outfits';
 import Profile from '@/app/(app)/(tabs)/profile';
 import { useSession } from '@/auth/session';
+import { useOutfitBuilder } from '@/features/builder/useOutfitBuilder';
 import { clothing, outfit, user } from '@/test/fixtures';
 import { renderScreen, router } from '@/test/screen';
 
@@ -47,10 +48,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   useSession.setState({ status: 'signedIn', user: user(), accessToken: 'a', refreshToken: 'r' });
   garments.fetchUsage.mockResolvedValue(usage(3));
-  garments.fetchDictionaries.mockResolvedValue({ categories: [], colors: [], patterns: [], materials: [], formality: [], warmth: [], styles: [] } as never);
+  garments.fetchDictionaries.mockResolvedValue({ categories: [], groups: [], colors: [], patterns: [], materials: [], formality: [], warmth: [], styles: [], seasons: [] } as never);
 });
 
-describe('the Outfity tab', () => {
+describe('the Outfits tab', () => {
   const saved = [
     outfit('s1', { isSaved: true, occasion: 'everyday', createdAt: '2026-10-03T09:00:00Z', wornOn: '2026-10-03' }),
     outfit('s2', { isSaved: true, occasion: 'work', createdAt: '2026-09-28T09:00:00Z', items: outfit('x').items.slice(0, 3) }),
@@ -61,12 +62,12 @@ describe('the Outfity tab', () => {
 
     await renderScreen(<Outfits />);
 
-    expect(await screen.findByText('Na co dzień')).toBeOnTheScreen();
-    expect(screen.getByText('Praca lub uczelnia')).toBeOnTheScreen();
-    expect(screen.getByText('Założony 3 października')).toBeOnTheScreen();
-    expect(screen.getByText('Zapisany 28 września')).toBeOnTheScreen();
+    expect(await screen.findByText('Everyday')).toBeOnTheScreen();
+    expect(screen.getByText('Work or school')).toBeOnTheScreen();
+    expect(screen.getByText('Worn on October 3')).toBeOnTheScreen();
+    expect(screen.getByText('Saved September 28')).toBeOnTheScreen();
     expect(screen.getAllByText('7-18°C')).toHaveLength(2);
-    expect(screen.getByTestId('outfits-count')).toHaveTextContent('2 zapisane zestawy');
+    expect(screen.getByTestId('outfits-count')).toHaveTextContent('2 saved outfits');
   });
 
   it('opens an outfit', async () => {
@@ -83,14 +84,14 @@ describe('the Outfity tab', () => {
     await renderScreen(<Outfits />);
     await screen.findByTestId('outfit-s1');
 
-    await fireEvent.changeText(screen.getByTestId('outfits-search'), 'praca');
+    await fireEvent.changeText(screen.getByTestId('outfits-search'), 'school');
     expect(screen.queryByTestId('outfit-s1')).toBeNull();
     expect(screen.getByTestId('outfit-s2')).toBeOnTheScreen();
 
-    await fireEvent.changeText(screen.getByTestId('outfits-search'), 'trening');
+    await fireEvent.changeText(screen.getByTestId('outfits-search'), 'workout');
     expect(await screen.findByTestId('outfits-no-match')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Wyczyść wyszukiwanie' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
     expect(screen.getByTestId('outfit-s1')).toBeOnTheScreen();
   });
 
@@ -102,7 +103,7 @@ describe('the Outfity tab', () => {
     expect(await screen.findByTestId('outfits-empty')).toBeOnTheScreen();
     expect(screen.queryByTestId('outfits-search')).toBeNull();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Otwórz Dziś' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Open Today' }));
     expect(router.navigate).toHaveBeenCalledWith('/');
   });
 
@@ -111,8 +112,8 @@ describe('the Outfity tab', () => {
 
     await renderScreen(<Outfits />);
 
-    expect(await screen.findByText('Nie udało się połączyć. Sprawdź internet i spróbuj ponownie.')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Spróbuj ponownie' }));
+    expect(await screen.findByText('Can’t connect right now. Check your internet connection and try again.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
 
     expect(await screen.findByTestId('outfit-s1')).toBeOnTheScreen();
   });
@@ -127,11 +128,21 @@ describe('a saved outfit', () => {
   it('shows the garments, what was said about them and the note the person wrote', async () => {
     await renderScreen(<OutfitDetail />);
 
-    expect(await screen.findByText('Uzasadnienie zestawu s1.')).toBeOnTheScreen();
-    expect(screen.getByText('Praca lub uczelnia')).toBeOnTheScreen();
-    expect(screen.getByText('28 września, 7-18°C')).toBeOnTheScreen();
-    expect(screen.getByText('Notatka: prezentacja')).toBeOnTheScreen();
-    expect(screen.getByRole('image', { name: /Zestaw: Granatowa koszula/ })).toBeOnTheScreen();
+    expect(await screen.findByText('Reasoning for outfit s1.')).toBeOnTheScreen();
+    expect(screen.getByText('Work or school')).toBeOnTheScreen();
+    expect(screen.getByText('September 28, 7-18°C')).toBeOnTheScreen();
+    expect(screen.getByText('Note: prezentacja')).toBeOnTheScreen();
+    expect(screen.getByRole('image', { name: /Outfit on a figure: Navy shirt/ })).toBeOnTheScreen();
+  });
+
+  it('opens on the figure and switches to the collage of real photos', async () => {
+    await renderScreen(<OutfitDetail />);
+
+    expect(await screen.findByRole('radio', { name: 'On figure', checked: true })).toBeOnTheScreen();
+    expect(screen.queryByRole('radio', { name: 'Try-on' })).toBeNull();
+    await fireEvent.press(screen.getByRole('radio', { name: 'Collage' }));
+
+    expect(await screen.findByRole('image', { name: /^Outfit: Navy shirt/ })).toBeOnTheScreen();
   });
 
   it('wears it, and the wardrobe is asked again how much of it is used', async () => {
@@ -143,7 +154,7 @@ describe('a saved outfit', () => {
     await fireEvent.press(await screen.findByTestId('outfit-wear'));
 
     await waitFor(() => expect(api.updateOutfit).toHaveBeenCalledWith('s1', { worn: true }));
-    expect(await screen.findByRole('button', { name: 'Założony' })).toBeOnTheScreen();
+    expect(await screen.findByRole('button', { name: 'Worn' })).toBeOnTheScreen();
     expect(invalidate).toHaveBeenCalledWith({ queryKey: wardrobe.wardrobeKeys.stats });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: [...wardrobe.wardrobeKeys.all, 'list'] });
     invalidate.mockRestore();
@@ -156,7 +167,7 @@ describe('a saved outfit', () => {
     await fireEvent.press(await screen.findByTestId('outfit-like'));
     await waitFor(() => expect(api.updateOutfit).toHaveBeenLastCalledWith('s1', { rating: 'like' }));
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Usuń z zapisanych' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove from saved' }));
     await waitFor(() => expect(api.updateOutfit).toHaveBeenLastCalledWith('s1', { saved: false }));
   });
 
@@ -167,9 +178,9 @@ describe('a saved outfit', () => {
     await fireEvent.press(await screen.findByTestId('outfit-delete'));
 
     expect(ask).toHaveBeenCalledWith(
-      'Usunąć zestaw „Praca lub uczelnia, 28 września”?',
-      'Usuniemy go z zapisanych. Tego nie da się cofnąć.',
-      expect.arrayContaining([expect.objectContaining({ text: 'Zostaw', style: 'cancel' }), expect.objectContaining({ text: 'Usuń zestaw', style: 'destructive' })]),
+      'Delete outfit “Work or school, September 28”?',
+      'We’ll remove it from your saved outfits. This can’t be undone.',
+      expect.arrayContaining([expect.objectContaining({ text: 'Keep', style: 'cancel' }), expect.objectContaining({ text: 'Delete outfit', style: 'destructive' })]),
     );
     expect(api.deleteOutfit).not.toHaveBeenCalled();
     ask.mockRestore();
@@ -182,7 +193,7 @@ describe('a saved outfit', () => {
     await fireEvent.press(await screen.findByTestId('outfit-delete'));
 
     const buttons = ask.mock.calls[0]?.[2] ?? [];
-    buttons.find((button) => button.text === 'Usuń zestaw')?.onPress?.();
+    buttons.find((button) => button.text === 'Delete outfit')?.onPress?.();
 
     await waitFor(() => expect(api.deleteOutfit).toHaveBeenCalledWith('s1'));
     await waitFor(() => expect(router.back).toHaveBeenCalled());
@@ -194,39 +205,39 @@ describe('a saved outfit', () => {
 
     await renderScreen(<OutfitDetail />);
 
-    expect(await screen.findByText('Tego zestawu już nie ma.')).toBeOnTheScreen();
+    expect(await screen.findByText('This outfit isn’t here anymore.')).toBeOnTheScreen();
   });
 });
 
-describe('"Dobierz do tego"', () => {
+describe('"Style this"', () => {
   it('is offered for a described garment and opens the choice of occasion', async () => {
     jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'g1' });
-    garments.fetchClothing.mockResolvedValue(clothing('g1', 'Granatowa koszula oxford', 'top'));
+    garments.fetchClothing.mockResolvedValue(clothing('g1', 'Navy oxford shirt', 'top'));
     await renderScreen(<GarmentDetail />);
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Dobierz do tego' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Style this' }));
 
     expect(router.push).toHaveBeenCalledWith({ pathname: '/occasion', params: { base: 'g1' } });
   });
 
   it('is not offered while the garment is still being described', async () => {
     jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'g2' });
-    garments.fetchClothing.mockResolvedValue(clothing('g2', 'Ubranie', 'top', { status: 'processing' }));
+    garments.fetchClothing.mockResolvedValue(clothing('g2', 'Item', 'top', { status: 'processing' }));
     await renderScreen(<GarmentDetail />);
 
-    expect(await screen.findByText('Opisujemy zdjęcie')).toBeOnTheScreen();
-    expect(screen.queryByRole('button', { name: 'Dobierz do tego' })).toBeNull();
+    expect(await screen.findByText('Describing your photo')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Style this' })).toBeNull();
   });
 
   it('asks for the occasion and sends the garment along to the proposals', async () => {
     jest.mocked(useLocalSearchParams).mockReturnValue({ base: 'g1' });
-    garments.fetchClothing.mockResolvedValue(clothing('g1', 'Granatowa koszula oxford', 'top'));
+    garments.fetchClothing.mockResolvedValue(clothing('g1', 'Navy oxford shirt', 'top'));
     await renderScreen(<ChooseOccasion />);
 
-    expect(await screen.findByText('Ułożymy zestaw z: Granatowa koszula oxford')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('radio', { name: 'Randka lub wieczór' }));
+    expect(await screen.findByText('Outfits built around Navy oxford shirt')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('radio', { name: 'Date or night out' }));
     await fireEvent.changeText(screen.getByTestId('occasion-note'), 'kolacja');
-    await fireEvent.press(screen.getByRole('button', { name: 'Zaproponuj zestawy' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Suggest outfits' }));
 
     expect(router.replace).toHaveBeenCalledWith({
       pathname: '/proposals',
@@ -234,14 +245,51 @@ describe('"Dobierz do tego"', () => {
     });
   });
 
+  it('shows the garment it is about, starts on Everyday, and suggests at once', async () => {
+    jest.mocked(useLocalSearchParams).mockReturnValue({ base: 'g1' });
+    garments.fetchClothing.mockResolvedValue(clothing('g1', 'Navy oxford shirt', 'top'));
+    await renderScreen(<ChooseOccasion />);
+
+    expect(await screen.findByTestId('occasion-garment')).toBeOnTheScreen();
+    expect(screen.getByText('Outfits built around Navy oxford shirt')).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Everyday' }).props.accessibilityState.checked).toBe(true);
+    expect(screen.getByRole('button', { name: 'Suggest outfits' }).props.accessibilityState.disabled).toBeFalsy();
+    expect(screen.getByPlaceholderText('Anything we should know?')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Suggest outfits' }));
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/proposals', params: { request: expect.any(String), occasion: 'everyday', base: 'g1' } });
+  });
+
+  it('opens the builder with the garment already chosen, replacing what was chosen before', async () => {
+    jest.mocked(useLocalSearchParams).mockReturnValue({ base: 'g1' });
+    const shirt = clothing('g1', 'Navy oxford shirt', 'top');
+    garments.fetchClothing.mockResolvedValue(shirt);
+    useOutfitBuilder.setState({ items: [clothing('old', 'Old jeans', 'bottom')], note: null, bodyNoteSeen: false });
+    await renderScreen(<ChooseOccasion />);
+
+    await waitFor(() => expect(screen.getByTestId('occasion-build').props.accessibilityState.disabled).toBeFalsy());
+    await fireEvent.press(screen.getByRole('button', { name: 'Build an outfit myself around this garment' }));
+
+    expect(useOutfitBuilder.getState().items.map((item) => item.id)).toEqual(['g1']);
+    expect(router.replace).toHaveBeenCalledWith('/builder');
+  });
+
+  it('offers no way to build by hand when it was not opened for a garment', async () => {
+    jest.mocked(useLocalSearchParams).mockReturnValue({});
+    await renderScreen(<ChooseOccasion />);
+
+    expect(screen.queryByTestId('occasion-build')).toBeNull();
+    expect(screen.queryByTestId('occasion-garment')).toBeNull();
+  });
+
   it('says the limit is used up instead of sending a request that would be refused', async () => {
     jest.mocked(useLocalSearchParams).mockReturnValue({ base: 'g1' });
-    garments.fetchClothing.mockResolvedValue(clothing('g1', 'Granatowa koszula oxford', 'top'));
+    garments.fetchClothing.mockResolvedValue(clothing('g1', 'Navy oxford shirt', 'top'));
     garments.fetchUsage.mockResolvedValue(usage(20));
     await renderScreen(<ChooseOccasion />);
 
     expect(await screen.findByTestId('occasion-limit')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Zaproponuj zestawy' }).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Suggest outfits' }).props.accessibilityState.disabled).toBe(true);
   });
 });
 
@@ -249,23 +297,23 @@ describe('the profile', () => {
   it('shows where the weather comes from, the thermal preference and what is left of today\'s limits', async () => {
     await renderScreen(<Profile />);
 
-    expect(screen.getByRole('button', { name: 'Pogoda według, Lokalizacji telefonu' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Weather for, Phone location' })).toBeOnTheScreen();
     expect(screen.getByText('Gliwice')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Odczuwanie temperatury, Normalnie' })).toBeOnTheScreen();
-    expect(await screen.findByText('3 z 20')).toBeOnTheScreen();
-    expect(screen.getByText('12 z 50')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Feel the cold, About average' })).toBeOnTheScreen();
+    expect(await screen.findByText('3 of 20')).toBeOnTheScreen();
+    expect(screen.getByText('12 of 50')).toBeOnTheScreen();
   });
 
   it('names a city typed in by hand, and says so when there is no place', async () => {
     useSession.setState({ user: user({ location: { source: 'manual', name: 'Osaka', lat: 34.7, lon: 135.5 } }) });
     const { unmount } = await renderScreen(<Profile />);
-    expect(screen.getByRole('button', { name: 'Pogoda według, Wybranego miasta' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Weather for, City you chose' })).toBeOnTheScreen();
     expect(screen.getByText('Osaka')).toBeOnTheScreen();
     await unmount();
 
     useSession.setState({ user: user({ location: null }) });
     await renderScreen(<Profile />);
-    expect(screen.getByRole('button', { name: 'Pogoda według, Nie ustawiono' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Weather for, Not set' })).toBeOnTheScreen();
   });
 
   it('opens the screens that change them', async () => {

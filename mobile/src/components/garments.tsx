@@ -1,11 +1,12 @@
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { Clothing } from '@/api/wardrobe';
-import { radius, space, useTheme } from '@/theme';
+import { motion, radius, space, useTheme } from '@/theme';
 
 import { AppText } from './AppText';
 import { Skeleton } from './lists';
+import { Fade, PressScale, useChanged } from './motion';
 
 interface GarmentImageProps {
   /** Signed address of the picture; it changes every hour. */
@@ -29,7 +30,7 @@ export function GarmentImage({ url, cacheKey, height, inset = 12, corner = radiu
       accessibilityRole={label ? 'image' : undefined}
       accessibilityLabel={label}
       style={[styles.well, { height, padding: inset, borderRadius: corner, backgroundColor: theme.well, borderColor: theme.wellLine }, style]}>
-      {url ? <Image source={{ uri: url, cacheKey: cacheKey ?? undefined }} contentFit="contain" transition={150} style={styles.image} accessible={false} /> : null}
+      {url ? <Image source={{ uri: url, cacheKey: cacheKey ?? undefined }} contentFit="contain" transition={motion.exit} style={styles.image} accessible={false} /> : null}
     </View>
   );
 }
@@ -37,14 +38,14 @@ export function GarmentImage({ url, cacheKey, height, inset = 12, corner = radiu
 /** What the tile says under the name: the one thing worth knowing at a glance. */
 export function captionOf(item: Pick<Clothing, 'status' | 'inLaundry' | 'rarelyWorn'>): string | null {
   if (item.status === 'failed') {
-    return 'Uzupełnij opis';
+    return 'Add details';
   }
 
   if (item.inLaundry) {
-    return 'W praniu';
+    return 'In the laundry';
   }
 
-  return item.rarelyWorn ? 'Rzadko noszę' : null;
+  return item.rarelyWorn ? 'Rarely worn' : null;
 }
 
 interface GarmentTileProps {
@@ -57,39 +58,45 @@ export const tileImageHeight = 148;
 
 /** One garment in the wardrobe grid. While the server is still describing it, the tile says so. */
 export function GarmentTile({ item, width, onPress }: GarmentTileProps) {
+  // A tile that was already ready when it appeared does not animate; one that becomes ready while it is on screen does.
+  const changed = useChanged(item.status === 'processing');
   if (item.status === 'processing') {
     return (
-      <View style={[styles.tile, { width }]} accessible accessibilityRole="progressbar" accessibilityLabel="Opisujemy zdjęcie" testID={`garment-${item.id}`}>
-        <Skeleton height={tileImageHeight} radius={radius.well} />
-        <View style={styles.words}>
-          <AppText variant="secondaryStrong" color="textSecondary" numberOfLines={1}>
-            Opisujemy zdjęcie
-          </AppText>
-          <AppText variant="meta"> </AppText>
+      <Fade key="processing" enter={false} exit duration={motion.exit}>
+        <View style={[styles.tile, { width }]} accessible accessibilityRole="progressbar" accessibilityLabel="Describing the photo" testID={`garment-${item.id}`}>
+          <Skeleton height={tileImageHeight} radius={radius.well} />
+          <View style={styles.words}>
+            <AppText variant="secondaryStrong" color="textSecondary" numberOfLines={1}>
+              Describing the photo
+            </AppText>
+            <AppText variant="meta"> </AppText>
+          </View>
         </View>
-      </View>
+      </Fade>
     );
   }
 
   const caption = captionOf(item);
-  const name = item.name ?? 'Ubranie bez opisu';
+  const name = item.name ?? 'Item without details';
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={caption ? `${name}, ${caption}` : name}
-      onPress={onPress}
-      testID={`garment-${item.id}`}
-      style={({ pressed }) => [styles.tile, { width }, pressed ? styles.pressed : null]}>
-      <GarmentImage url={item.imageUrl} cacheKey={item.imageKey} height={tileImageHeight} />
-      <View style={styles.words}>
-        <AppText variant="secondaryStrong" numberOfLines={1}>
-          {name}
-        </AppText>
-        <AppText variant="meta" color="textSecondary" numberOfLines={1}>
-          {caption ?? ' '}
-        </AppText>
-      </View>
-    </Pressable>
+    <Fade key="ready" enter={changed} exit duration={motion.enter}>
+      <PressScale
+        accessibilityRole="button"
+        accessibilityLabel={caption ? `${name}, ${caption}` : name}
+        onPress={onPress}
+        testID={`garment-${item.id}`}
+        style={[styles.tile, { width }]}>
+        <GarmentImage url={item.imageUrl} cacheKey={item.imageKey} height={tileImageHeight} />
+        <View style={styles.words}>
+          <AppText variant="secondaryStrong" numberOfLines={1}>
+            {name}
+          </AppText>
+          <AppText variant="meta" color="textSecondary" numberOfLines={1}>
+            {caption ?? ' '}
+          </AppText>
+        </View>
+      </PressScale>
+    </Fade>
   );
 }
 
@@ -111,5 +118,4 @@ const styles = StyleSheet.create({
   image: { flex: 1 },
   tile: { gap: space[2] },
   words: { gap: 2, paddingHorizontal: space[1] },
-  pressed: { opacity: 0.85 },
 });

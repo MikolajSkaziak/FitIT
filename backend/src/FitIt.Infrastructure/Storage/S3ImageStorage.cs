@@ -26,15 +26,20 @@ public sealed class S3ImageStorage : IImageStorage, IDisposable
     public S3ImageStorage(IOptions<StorageOptions> options, TimeProvider time)
     {
         var settings = options.Value;
-        if (string.IsNullOrWhiteSpace(settings.Endpoint) || string.IsNullOrEmpty(settings.AccessKey) || string.IsNullOrEmpty(settings.SecretKey))
+        var endpoint = settings.ResolvedEndpoint;
+        if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrEmpty(settings.AccessKey) || string.IsNullOrEmpty(settings.SecretKey))
         {
-            throw new InvalidOperationException("Storage:Endpoint, Storage:AccessKey and Storage:SecretKey must be set (user-secrets or the environment).");
+            throw new InvalidOperationException(
+                "File storage is not configured. Set Storage:AccountId (Cloudflare R2) or Storage:Endpoint (a local server), "
+                + "together with Storage:AccessKey and Storage:SecretKey, through user-secrets or the environment.");
         }
 
         var credentials = new BasicAWSCredentials(settings.AccessKey, settings.SecretKey);
-        var publicEndpoint = string.IsNullOrWhiteSpace(settings.PublicEndpoint) ? settings.Endpoint : settings.PublicEndpoint;
-        _client = new AmazonS3Client(credentials, Configure(settings.Endpoint, settings.Region));
-        _signer = string.Equals(publicEndpoint, settings.Endpoint, StringComparison.OrdinalIgnoreCase)
+        // R2 signs for its own S3 host, and a presigned address cannot be moved to another domain, so a separate public
+        // address exists only for local development, where the API and the phone reach the server by different names.
+        var publicEndpoint = string.IsNullOrWhiteSpace(settings.PublicEndpoint) ? endpoint : settings.PublicEndpoint;
+        _client = new AmazonS3Client(credentials, Configure(endpoint, settings.Region));
+        _signer = string.Equals(publicEndpoint, endpoint, StringComparison.OrdinalIgnoreCase)
             ? _client
             : new AmazonS3Client(credentials, Configure(publicEndpoint, settings.Region));
         _publicProtocol = publicEndpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ? Protocol.HTTP : Protocol.HTTPS;

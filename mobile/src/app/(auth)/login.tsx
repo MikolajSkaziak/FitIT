@@ -49,21 +49,21 @@ export default function Login() {
       footer={
         <>
           <FormError message={signIn.isError ? messageFor(signIn.error) : null} />
-          <Button label="Zaloguj się" busy={signIn.isPending} onPress={submit} testID="login-submit" />
+          <Button label="Log in" busy={signIn.isPending} onPress={submit} testID="login-submit" />
           <View style={styles.other}>
             <AppText variant="secondary" color="textSecondary">
-              Nie masz konta?
+              Don’t have an account?
             </AppText>
-            <LinkText label="Załóż konto" onPress={() => router.replace('/register')} testID="login-register" />
+            <LinkText label="Create account" onPress={() => router.replace('/register')} testID="login-register" />
           </View>
         </>
       }>
       <View style={styles.top}>
         <Brandmark small />
-        <TitleBlock title="Dobrze Cię widzieć" lead={justReset ? 'Hasło zostało zmienione. Zaloguj się nowym hasłem.' : 'Zaloguj się, żeby zobaczyć zestawy na dziś.'} />
+        <TitleBlock title="Good to see you" lead={justReset ? 'Your password is updated. Log in with the new one.' : 'Log in to see today’s outfits.'} />
         <View style={styles.form}>
           <Field
-            label="E-mail"
+            label="Email"
             value={email}
             onChangeText={(text) => {
               setEmail(text);
@@ -81,7 +81,7 @@ export default function Login() {
           />
           <View>
             <PasswordField
-              label="Hasło"
+              label="Password"
               value={password}
               onChangeText={(text) => {
                 setPassword(text);
@@ -92,7 +92,7 @@ export default function Login() {
               onSubmitEditing={submit}
               testID="login-password"
             />
-            <LinkText label="Nie pamiętasz hasła?" onPress={() => router.push('/reset')} testID="login-forgot" />
+            <LinkText label="Forgot your password?" onPress={() => router.push('/reset')} testID="login-forgot" />
           </View>
         </View>
       </View>

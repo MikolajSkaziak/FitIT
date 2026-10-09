@@ -40,14 +40,14 @@ export default function ResetRequest() {
       footer={
         <>
           <FormError message={send.isError ? resetMessageFor(send.error) : null} />
-          <Button label="Wyślij kod" busy={send.isPending} onPress={submit} testID="reset-send" />
+          <Button label="Send code" busy={send.isPending} onPress={submit} testID="reset-send" />
         </>
       }>
       <View style={styles.content}>
-        <BackHeader title="Nie pamiętasz hasła?" onBack={() => router.back()} />
-        <AppText color="textSecondary">Podaj adres e-mail konta. Jeśli takie konto istnieje, wyślemy na niego kod z sześciu cyfr.</AppText>
+        <BackHeader title="Forgot your password?" onBack={() => router.back()} />
+        <AppText color="textSecondary">Enter the email you signed up with. If there’s an account, we’ll send it a six-digit code.</AppText>
         <Field
-          label="E-mail"
+          label="Email"
           value={email}
           onChangeText={(text) => {
             setEmail(text);

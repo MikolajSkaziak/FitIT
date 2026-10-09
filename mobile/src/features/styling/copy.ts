@@ -4,36 +4,36 @@ import { formatRange } from '@/features/weather/copy';
 
 /** How each role of an outfit reads in a sentence about what the wardrobe lacks. */
 interface RoleWords {
-  /** "Brakuje ...". */
-  genitive: string;
-  /** "Potrzebne jest ...", with the verb, because it has to agree with the noun. */
-  need: string;
-  /** The same without the verb, for a list of several. */
-  nominative: string;
-  /** What to add, ready after "Dodaj". */
+  /** The role as the app names it to a person, in lower case: "tops", "jackets and coats". */
+  noun: string;
+  /** What to add, ready after "Add". */
   add: readonly string[];
 }
 
 const roles: Record<Category, RoleWords> = {
-  top: { genitive: 'góry', need: 'potrzebna jest góra', nominative: 'góra', add: ['koszulkę', 'koszulę', 'bluzkę'] },
-  mid_layer: { genitive: 'warstwy pośredniej', need: 'potrzebna jest warstwa pośrednia', nominative: 'warstwa pośrednia', add: ['sweter', 'bluzę'] },
-  bottom: { genitive: 'dołu', need: 'potrzebny jest dół', nominative: 'dół', add: ['spodnie', 'spódnicę', 'szorty'] },
-  one_piece: { genitive: 'sukienki albo kombinezonu', need: 'potrzebna jest sukienka albo kombinezon', nominative: 'sukienka albo kombinezon', add: ['sukienkę', 'kombinezon'] },
-  outerwear: { genitive: 'okrycia wierzchniego', need: 'potrzebne jest okrycie wierzchnie', nominative: 'okrycie wierzchnie', add: ['kurtkę', 'płaszcz'] },
-  shoes: { genitive: 'butów', need: 'potrzebne są buty', nominative: 'buty', add: ['buty'] },
-  accessory: { genitive: 'dodatku', need: 'potrzebny jest dodatek', nominative: 'dodatek', add: ['szalik', 'czapkę', 'rękawiczki'] },
+  top: { noun: 'tops', add: ['a T-shirt', 'a shirt', 'a blouse'] },
+  mid_layer: { noun: 'warm layers', add: ['a sweater', 'a hoodie'] },
+  bottom: { noun: 'bottoms', add: ['pants', 'a skirt', 'shorts'] },
+  one_piece: { noun: 'dresses and jumpsuits', add: ['a dress', 'a jumpsuit'] },
+  outerwear: { noun: 'jackets and coats', add: ['a jacket', 'a coat'] },
+  shoes: { noun: 'shoes', add: ['shoes'] },
+  accessory: { noun: 'accessories', add: ['a scarf', 'a hat', 'gloves'] },
 };
 
 /** The cold decides these two; the others are missing whatever the weather is. */
 const weatherDriven: readonly Category[] = ['mid_layer', 'outerwear'];
 
-/** "a, b i c": the last two joined by the word, the rest by commas. */
-export function joinWords(parts: readonly string[], word: 'i' | 'albo'): string {
+/** "a, b, and c": the last one joined by the word, the rest by commas. */
+export function joinWords(parts: readonly string[], word: 'and' | 'or'): string {
   if (parts.length <= 1) {
     return parts[0] ?? '';
   }
 
-  return `${parts.slice(0, -1).join(', ')} ${word} ${parts[parts.length - 1]}`;
+  if (parts.length === 2) {
+    return `${parts[0]} ${word} ${parts[1]}`;
+  }
+
+  return `${parts.slice(0, -1).join(', ')}, ${word} ${parts[parts.length - 1]}`;
 }
 
 export interface MissingNotice {
@@ -51,36 +51,31 @@ export function missingNotice(all: readonly Category[], either: readonly Categor
   const required = unique(all);
   const options = unique(either).filter((role) => !required.includes(role));
 
-  const needed = required.map((role) => roles[role].genitive);
-  const alternative = options.length > 0 ? joinWords(options.map((role) => roles[role].genitive), 'albo') : null;
-  const title = `Brakuje ${joinWords(alternative ? [...needed, alternative] : needed, 'i')}`;
+  const needed = required.map((role) => roles[role].noun);
+  const alternative = options.length > 0 ? joinWords(options.map((role) => roles[role].noun), 'or') : null;
+  const list = joinWords(alternative ? [...needed, alternative] : needed, 'and');
+  const title = `You’re missing ${list}`;
 
   const everything = [...required, ...options];
-  // Each missing role has several things that would fill it ("kurtkę albo płaszcz"); a role of its own is one more thing to add ("oraz").
-  const adds = [...required.map((role) => joinWords(roles[role].add, 'albo')), ...(options.length > 0 ? [joinWords(options.flatMap((role) => roles[role].add), 'albo')] : [])].join(' oraz ');
+  // Each missing role has several things that would fill it ("a jacket or a coat"); a role of its own is one more thing to add ("plus").
+  const adds = [...required.map((role) => joinWords(roles[role].add, 'or')), ...(options.length > 0 ? [joinWords(options.flatMap((role) => roles[role].add), 'or')] : [])].join(' plus ');
 
   const cold = everything.length > 0 && everything.every((role) => weatherDriven.includes(role));
-  const lead = cold ? `Przy ${formatRange(feelsMin, feelsMin)}` : 'Do zestawu';
-  const need =
-    options.length > 0 || required.length > 1
-      ? `potrzebne jest co najmniej: ${joinWords(
-          [...required.map((role) => roles[role].nominative), ...(options.length > 0 ? [joinWords(options.map((role) => roles[role].nominative), 'albo')] : [])],
-          'i',
-        )}`
-      : roles[required[0] ?? 'top'].need;
+  const lead = cold ? `At ${formatRange(feelsMin, feelsMin)}, you need` : 'To build an outfit, you need';
+  const atLeast = options.length > 0 || required.length > 1 ? 'at least ' : '';
 
-  return { title, text: `${lead} ${need}. Dodaj ${adds}, a ułożymy zestaw.` };
+  return { title, text: `${lead} ${atLeast}${list}. Add ${adds} and we’ll put an outfit together.` };
 }
 
-const criteria = { formality: 'na tę okazję', style: 'w pasującym stylu', warmth: 'na tę temperaturę' } as const;
+const criteria = { formality: 'for this occasion', style: 'in a matching style', warmth: 'for this temperature' } as const;
 
 /** A rule that gave way, as a sentence a person can read. Same wording for every outfit of the request. */
-export const relaxationLine = ({ role, rule }: Relaxation): string => `Nie masz ${roles[role].genitive} ${criteria[rule]}, więc proponuję to, co jest najbliżej.`;
+export const relaxationLine = ({ role, rule }: Relaxation): string => `You don’t have ${roles[role].noun} ${criteria[rule]}, so this is the closest match.`;
 
 export const relaxationLines = (relaxations: readonly Relaxation[]): string[] => unique(relaxations.map(relaxationLine));
 
-export const umbrellaLine = 'Może padać, a w szafie nie ma okrycia na deszcz, więc weź parasol.';
+export const umbrellaLine = 'Rain is possible and you don’t have a rainproof jacket, so bring an umbrella.';
 
-export const rulesNote = 'Ten zestaw ułożyliśmy według prostych reguł, bo stylista AI jest teraz niedostępny.';
+export const rulesNote = 'Our AI stylist isn’t available right now, so we put this outfit together with simple style rules.';
 
-export const noOutfits = 'Nie udało się ułożyć zestawów z tego, co jest w szafie. Spróbuj z inną okazją albo dodaj ubrania.';
+export const noOutfits = 'We couldn’t put together an outfit from what you have. Try another occasion, or add more clothes.';

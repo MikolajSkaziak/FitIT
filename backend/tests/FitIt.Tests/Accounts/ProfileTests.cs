@@ -49,6 +49,47 @@ public sealed class ProfileTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Size_and_leg_length_are_optional_and_set_through_a_patch()
+    {
+        var (client, auth) = await factory.SignedInAsync();
+        Assert.Null(auth.User.ClothingSize);
+        Assert.Null(auth.User.LegLength);
+
+        var set = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["clothingSize"] = "xxl", ["legLength"] = "longer" })).ReadAsync<UserResponse>();
+        var other = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["displayName"] = "Ola" })).ReadAsync<UserResponse>();
+
+        Assert.Equal((ClothingSize.Xxl, LegLength.Longer), (set.ClothingSize, set.LegLength));
+        Assert.Equal((ClothingSize.Xxl, LegLength.Longer), (other.ClothingSize, other.LegLength));
+        var reloaded = await (await client.GetAsync("/api/me")).ReadAsync<UserResponse>();
+        Assert.Equal((ClothingSize.Xxl, LegLength.Longer), (reloaded.ClothingSize, reloaded.LegLength));
+    }
+
+    [Fact]
+    public async Task Size_and_leg_length_can_be_taken_back_to_not_set_one_at_a_time()
+    {
+        var (client, _) = await factory.SignedInAsync();
+        await client.PatchJsonAsync("/api/me", new JsonObject { ["clothingSize"] = "m", ["legLength"] = "shorter" });
+
+        var cleared = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["clearClothingSize"] = true })).ReadAsync<UserResponse>();
+
+        Assert.Equal((null, LegLength.Shorter), (cleared.ClothingSize, cleared.LegLength));
+        var both = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["clearLegLength"] = true })).ReadAsync<UserResponse>();
+        Assert.Equal((null, null), (both.ClothingSize, both.LegLength));
+    }
+
+    [Theory]
+    [InlineData("clothingSize", "xxxl")]
+    [InlineData("legLength", "tall")]
+    public async Task An_unknown_size_or_leg_length_code_is_refused(string field, string code)
+    {
+        var (client, _) = await factory.SignedInAsync();
+
+        var response = await client.PatchJsonAsync("/api/me", new JsonObject { [field] = code });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task The_silhouette_can_be_changed_within_the_same_gender_only()
     {
         var (client, _) = await factory.SignedInAsync();
@@ -62,6 +103,22 @@ public sealed class ProfileTests(ApiFactory factory)
         Assert.Equal("avatar_gender_mismatch", await wrongGender.ProblemCodeAsync());
         Assert.Equal("avatar_invalid", await unknown.ProblemCodeAsync());
         Assert.Equal(otherFemale, (await (await client.GetAsync("/api/me")).ReadAsync<UserResponse>()).Avatar.Id);
+    }
+
+    [Fact]
+    public async Task Moving_to_an_open_gender_keeps_the_silhouette_and_lets_any_other_be_chosen()
+    {
+        var (client, _) = await factory.SignedInAsync();
+
+        var same = await client.PatchJsonAsync("/api/me", new JsonObject { ["gender"] = "non_binary" });
+        var other = await client.PatchJsonAsync("/api/me", new JsonObject { ["avatarId"] = TestApi.MaleAvatar.ToString() });
+        var back = await client.PatchJsonAsync("/api/me", new JsonObject { ["gender"] = "female" });
+
+        var kept = await same.ReadAsync<UserResponse>();
+        Assert.Equal(Gender.NonBinary, kept.Gender);
+        Assert.Equal(TestApi.FemaleAvatar, kept.Avatar.Id);
+        Assert.Equal(TestApi.MaleAvatar, (await other.ReadAsync<UserResponse>()).Avatar.Id);
+        Assert.Equal("avatar_gender_mismatch", await back.ProblemCodeAsync());
     }
 
     [Fact]

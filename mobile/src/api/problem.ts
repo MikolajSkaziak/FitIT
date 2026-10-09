@@ -1,6 +1,6 @@
 /**
  * Errors as the API sends them: ProblemDetails with a stable machine `code`.
- * The app never shows the server's English text; it maps `code` to its own Polish copy (see copy/errors).
+ * The app never shows the server's English text; it maps `code` to its own copy (see copy/errors).
  */
 export interface Problem {
   status: number;

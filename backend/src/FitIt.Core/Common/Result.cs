@@ -10,7 +10,6 @@ public sealed record ApiError(int Status, string Code, string Title, string? Det
     public static ApiError Forbidden(string code, string title) => new(403, code, title);
     public static ApiError NotFound(string code = "not_found", string title = "The resource does not exist.") => new(404, code, title);
     public static ApiError Conflict(string code, string title) => new(409, code, title);
-    public static ApiError Unprocessable(string code, string title, string? detail = null) => new(422, code, title, detail);
     public static ApiError TooManyRequests(string code, string title) => new(429, code, title);
 }
 

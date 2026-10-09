@@ -59,7 +59,10 @@ public interface IGarmentTagger
     Task<TaggingOutcome> TagAsync(ImageSource cutout, CancellationToken cancellationToken);
 }
 
-/// <summary>An outside service did not do its job. Carries what the failed call cost, if anything.</summary>
+/// <summary>
+/// An outside service did not do its job. Carries what the failed call cost, if anything. The message and the stack are
+/// written to the log, so an adapter must never put a signed address, a key, a token or a person's text into them.
+/// </summary>
 public sealed class ProviderException : Exception
 {
     public ProviderException()

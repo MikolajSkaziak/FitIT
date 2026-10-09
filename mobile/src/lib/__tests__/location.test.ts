@@ -57,23 +57,23 @@ describe('findDevicePlace', () => {
   it('asks for a fresh position, at low accuracy, when there is no recent one', async () => {
     allow(true);
     location.getCurrentPositionAsync.mockResolvedValue(at(52.2297, 21.0122));
-    location.reverseGeocodeAsync.mockResolvedValue([{ city: 'Warszawa' } as Location.LocationGeocodedAddress]);
+    location.reverseGeocodeAsync.mockResolvedValue([{ city: 'Warsaw' } as Location.LocationGeocodedAddress]);
 
-    await expect(findDevicePlace()).resolves.toEqual({ kind: 'found', place: { name: 'Warszawa', lat: 52.2, lon: 21 } });
+    await expect(findDevicePlace()).resolves.toEqual({ kind: 'found', place: { name: 'Warsaw', lat: 52.2, lon: 21 } });
     expect(location.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: Location.Accuracy.Low });
   });
 
   it('falls back to wider names, then to a neutral one, when the place has no city', async () => {
     allow(true);
     location.getLastKnownPositionAsync.mockResolvedValue(at(49.3, 19.9));
-    location.reverseGeocodeAsync.mockResolvedValueOnce([{ city: null, district: null, subregion: 'powiat tatrzański' } as Location.LocationGeocodedAddress]);
-    await expect(findDevicePlace()).resolves.toMatchObject({ place: { name: 'powiat tatrzański' } });
+    location.reverseGeocodeAsync.mockResolvedValueOnce([{ city: null, district: null, subregion: 'Tatra County' } as Location.LocationGeocodedAddress]);
+    await expect(findDevicePlace()).resolves.toMatchObject({ place: { name: 'Tatra County' } });
 
     location.reverseGeocodeAsync.mockResolvedValueOnce([]);
-    await expect(findDevicePlace()).resolves.toMatchObject({ place: { name: 'Twoja okolica' } });
+    await expect(findDevicePlace()).resolves.toMatchObject({ place: { name: 'Your area' } });
 
     location.reverseGeocodeAsync.mockRejectedValueOnce(new Error('no geocoder'));
-    await expect(findDevicePlace()).resolves.toMatchObject({ kind: 'found', place: { name: 'Twoja okolica', lat: 49.3, lon: 19.9 } });
+    await expect(findDevicePlace()).resolves.toMatchObject({ kind: 'found', place: { name: 'Your area', lat: 49.3, lon: 19.9 } });
   });
 
   it('keeps the name within what the server stores', async () => {

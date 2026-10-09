@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
 
 import { radius, space, useTheme } from '@/theme';
 
 import { AppText } from './AppText';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
+import { PressScale } from './motion';
 
 /** The quiet frame of a list: surface, hairline border, card radius. */
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -14,6 +15,8 @@ export function Card({ children, style }: { children: ReactNode; style?: StylePr
 
 interface RowProps {
   label: string;
+  /** A quiet icon before the label. Rows of one list that have one all start their text at the same place. */
+  icon?: IconName;
   /** Shown on the right in the secondary colour. */
   value?: string;
   /** A second, smaller line under the label. */
@@ -29,19 +32,22 @@ interface RowProps {
 }
 
 /** One line of a settings list. */
-export function Row({ label, value, meta, right, onPress, accent = false, last = false, testID }: RowProps) {
+export function Row({ label, icon, value, meta, right, onPress, accent = false, last = false, testID }: RowProps) {
   const theme = useTheme();
   const content = (
     <>
-      <View style={styles.rowText}>
-        <AppText variant={accent ? 'label' : 'body'} color={accent ? 'action' : 'text'}>
-          {label}
-        </AppText>
-        {meta ? (
-          <AppText variant="meta" color="textSecondary">
-            {meta}
+      <View style={styles.rowLead}>
+        {icon ? <Icon name={icon} size={20} color="textSecondary" /> : null}
+        <View style={styles.rowText}>
+          <AppText variant={accent ? 'label' : 'body'} color={accent ? 'action' : 'text'}>
+            {label}
           </AppText>
-        ) : null}
+          {meta ? (
+            <AppText variant="meta" color="textSecondary">
+              {meta}
+            </AppText>
+          ) : null}
+        </View>
       </View>
       {value || right || onPress ? (
         <View style={styles.rowRight}>
@@ -66,14 +72,9 @@ export function Row({ label, value, meta, right, onPress, accent = false, last =
   }
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={value ? `${label}, ${value}` : label}
-      onPress={onPress}
-      testID={testID}
-      style={({ pressed }) => [frame, pressed ? { backgroundColor: theme.canvas } : null]}>
+    <PressScale accessibilityRole="button" accessibilityLabel={value ? `${label}, ${value}` : label} onPress={onPress} testID={testID} style={frame}>
       {content}
-    </Pressable>
+    </PressScale>
   );
 }
 
@@ -105,6 +106,7 @@ export function Skeleton({ width = '100%', height, radius: corner = radius.thumb
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: radius.card, overflow: 'hidden' },
   row: { minHeight: 56, paddingVertical: space[2], paddingHorizontal: space[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[4] },
+  rowLead: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: space[3] },
   rowText: { flexShrink: 1, gap: 2 },
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: space[2], flexShrink: 1 },
   value: { flexShrink: 1 },

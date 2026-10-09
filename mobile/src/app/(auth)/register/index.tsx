@@ -9,6 +9,7 @@ import { LinkText } from '@/components/controls';
 import { Field } from '@/components/Field';
 import { FormError, PasswordField } from '@/components/forms';
 import { messageFor } from '@/copy/errors';
+import { flow } from '@/features/flow';
 import { useRegistrationDraft } from '@/features/registration/draft';
 import { emailError, messages, passwordError } from '@/features/registration/validation';
 import { WizardStep } from '@/features/registration/WizardStep';
@@ -43,20 +44,20 @@ export default function RegisterAccount() {
 
   return (
     <WizardStep
-      step={1}
-      title="Załóż konto"
-      lead="Zaczniemy od adresu e-mail i hasła."
+      step={flow.account}
+      title="Create your account"
+      lead="Start with your email and a password."
       testID="register-account"
       footer={
         <>
           <FormError message={check.isError ? messageFor(check.error) : null} />
-          <Button label="Dalej" busy={check.isPending} onPress={next} testID="register-next" />
-          <LinkText label="Mam już konto" center onPress={() => router.replace('/login')} />
+          <Button label="Next" busy={check.isPending} onPress={next} testID="register-next" />
+          <LinkText label="I already have an account" center onPress={() => router.replace('/login')} />
         </>
       }>
       <View style={styles.form}>
         <Field
-          label="E-mail"
+          label="Email"
           value={email}
           onChangeText={(text) => {
             setDraft({ email: text });
@@ -64,7 +65,7 @@ export default function RegisterAccount() {
             check.reset();
           }}
           error={errors.email}
-          placeholder="np. ola@poczta.pl"
+          placeholder="name@example.com"
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
@@ -76,14 +77,14 @@ export default function RegisterAccount() {
         />
         <PasswordField
           isNew
-          label="Hasło"
+          label="Password"
           value={password}
           onChangeText={(text) => {
             setDraft({ password: text });
             setErrors((current) => ({ ...current, password: null }));
           }}
           error={errors.password}
-          helper="Co najmniej 8 znaków."
+          helper="At least 8 characters."
           returnKeyType="go"
           onSubmitEditing={next}
           testID="register-password"

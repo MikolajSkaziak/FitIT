@@ -176,6 +176,23 @@ describe('one outfit on the silhouette', () => {
     expect(deps.request).toHaveBeenLastCalledWith('o1', 'key-2');
   });
 
+  it('stores an outfit that has no id yet before ordering its picture, and reads a refusal to store it as a refused order', async () => {
+    const { order, deps, state } = setup();
+    const prepare = jest.fn<Promise<string>, []>().mockRejectedValueOnce(new ApiError({ status: 400, code: 'outfit_size_invalid' })).mockResolvedValue('draft-1');
+
+    order.start(prepare);
+    await settle();
+
+    expect(state()).toMatchObject({ stage: 'refused', errorCode: 'outfit_size_invalid' });
+    expect(deps.request).not.toHaveBeenCalled();
+
+    order.start(prepare);
+    await settle();
+
+    expect(deps.request).toHaveBeenCalledWith('draft-1', 'key-1');
+    expect(state().stage).toBe('working');
+  });
+
   it('ignores a second press while the picture is being made', async () => {
     const { order, deps } = setup();
 

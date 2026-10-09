@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { CrossFade, PressScale } from '@/components/motion';
 import { size, space, useTheme } from '@/theme';
 
 interface ProposalTabsProps {
@@ -17,18 +18,23 @@ export function ProposalTabs({ labels, selected, onSelect }: ProposalTabsProps) 
       {labels.map((label, index) => {
         const on = index === selected;
         return (
-          <Pressable
+          <PressScale
             key={index}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
-            accessibilityLabel={`${label}, ${index + 1} z ${labels.length}`}
+            accessibilityLabel={`${label}, ${index + 1} of ${labels.length}`}
             onPress={() => onSelect(index)}
-            testID={`proposal-tab-${index}`}
-            style={({ pressed }) => [styles.pill, { backgroundColor: on ? theme.sage : 'transparent' }, pressed ? styles.pressed : null]}>
-            <AppText variant="secondaryStrong" color={on ? 'onSage' : 'textSecondary'} numberOfLines={1}>
-              {label}
-            </AppText>
-          </Pressable>
+            testID={`proposal-tab-${index}`}>
+            <CrossFade on={on}>
+              {(lit) => (
+                <View style={[styles.pill, { backgroundColor: lit ? theme.sage : 'transparent' }]}>
+                  <AppText variant="secondaryStrong" color={lit ? 'onSage' : 'textSecondary'} numberOfLines={1}>
+                    {label}
+                  </AppText>
+                </View>
+              )}
+            </CrossFade>
+          </PressScale>
         );
       })}
     </View>
@@ -38,5 +44,4 @@ export function ProposalTabs({ labels, selected, onSelect }: ProposalTabsProps) 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   pill: { height: size.touch, borderRadius: size.touch / 2, paddingHorizontal: space[4], alignItems: 'center', justifyContent: 'center' },
-  pressed: { opacity: 0.85 },
 });

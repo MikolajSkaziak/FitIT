@@ -42,19 +42,19 @@ export default function DeleteAccount() {
       footer={
         <>
           <FormError message={remove.isError ? messageFor(remove.error) : null} />
-          <Button label="Usuń konto" kind="danger" disabled={!ready} busy={remove.isPending} onPress={submit} testID="delete-confirm" />
-          <Button label="Zostaw konto" kind="secondary" onPress={() => router.back()} testID="delete-cancel" />
+          <Button label="Delete account" kind="danger" disabled={!ready} busy={remove.isPending} onPress={submit} testID="delete-confirm" />
+          <Button label="Keep account" kind="secondary" onPress={() => router.back()} testID="delete-cancel" />
         </>
       }>
       <View style={styles.content}>
         <View style={styles.text}>
           <AppText variant="heading" accessibilityRole="header">
-            Usunąć konto?
+            Delete account?
           </AppText>
           <AppText testID="delete-summary">{deletionSummary(stats.data?.total)}</AppText>
         </View>
         <Field
-          label={`Wpisz ${confirmationWord}, aby potwierdzić`}
+          label={`Type ${confirmationWord} to confirm`}
           value={word}
           onChangeText={(text) => {
             setWord(text);
@@ -67,8 +67,8 @@ export default function DeleteAccount() {
           testID="delete-word"
         />
         <PasswordField
-          label="Hasło"
-          helper="Podaj hasło do konta, żeby potwierdzić usunięcie."
+          label="Password"
+          helper="Enter your password to confirm."
           value={password}
           onChangeText={(text) => {
             setPassword(text);

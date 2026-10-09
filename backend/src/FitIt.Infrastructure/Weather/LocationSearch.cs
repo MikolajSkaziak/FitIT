@@ -22,7 +22,7 @@ public sealed class OpenMeteoLocationSearch(HttpClient http, ILogger<OpenMeteoLo
 
     public async Task<Result<IReadOnlyList<PlaceMatch>>> SearchAsync(string query, CancellationToken cancellationToken)
     {
-        var url = string.Create(CultureInfo.InvariantCulture, $"v1/search?name={Uri.EscapeDataString(query.Trim())}&count={Asked}&language=pl&format=json");
+        var url = string.Create(CultureInfo.InvariantCulture, $"v1/search?name={Uri.EscapeDataString(query.Trim())}&count={Asked}&language=en&format=json");
         try
         {
             var response = await http.GetFromJsonAsync<Response>(url, cancellationToken);
@@ -64,20 +64,20 @@ public sealed class OpenMeteoLocationSearch(HttpClient http, ILogger<OpenMeteoLo
         [property: JsonPropertyName("longitude")] double Longitude);
 }
 
-/// <summary>A fixed list of Polish cities for tests and for work without a network. Matching ignores case and diacritics.</summary>
+/// <summary>A fixed list of Polish cities, named in English as the geocoder names them, for tests and for work without a network. Matching ignores case and diacritics.</summary>
 public sealed class FakeLocationSearch : ILocationSearch
 {
     private static readonly PlaceMatch[] Places =
     [
-        new("Gliwice", "Śląskie", "Polska", 50.29, 18.67),
-        new("Gdańsk", "Pomorskie", "Polska", 54.35, 18.65),
-        new("Gdynia", "Pomorskie", "Polska", 54.52, 18.53),
-        new("Katowice", "Śląskie", "Polska", 50.26, 19.02),
-        new("Kraków", "Małopolskie", "Polska", 50.06, 19.94),
-        new("Łódź", "Łódzkie", "Polska", 51.77, 19.46),
-        new("Poznań", "Wielkopolskie", "Polska", 52.41, 16.93),
-        new("Warszawa", "Mazowieckie", "Polska", 52.23, 21.01),
-        new("Wrocław", "Dolnośląskie", "Polska", 51.11, 17.03),
+        new("Gliwice", "Silesia", "Poland", 50.29, 18.67),
+        new("Gdańsk", "Pomerania", "Poland", 54.35, 18.65),
+        new("Gdynia", "Pomerania", "Poland", 54.52, 18.53),
+        new("Katowice", "Silesia", "Poland", 50.26, 19.02),
+        new("Kraków", "Lesser Poland", "Poland", 50.06, 19.94),
+        new("Łódź", "Łódź Voivodeship", "Poland", 51.77, 19.46),
+        new("Poznań", "Greater Poland", "Poland", 52.41, 16.93),
+        new("Warsaw", "Masovia", "Poland", 52.23, 21.01),
+        new("Wrocław", "Lower Silesia", "Poland", 51.11, 17.03),
     ];
 
     public Task<Result<IReadOnlyList<PlaceMatch>>> SearchAsync(string query, CancellationToken cancellationToken)

@@ -19,7 +19,7 @@ jest.mock('@/auth/tokenStorage', () => {
   };
 });
 
-const ola = { id: 'u1', displayName: 'Ola', email: 'ola@poczta.pl' } as User;
+const ola = { id: 'u1', displayName: 'Ola', email: 'ola@example.com' } as User;
 const pair = { accessToken: 'access-2', refreshToken: 'refresh-2', expiresIn: 900 };
 const onEnd = jest.fn();
 onSessionEnd(onEnd);

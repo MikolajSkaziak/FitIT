@@ -17,7 +17,10 @@ public sealed class ClothingItem
     public ClothingStatus Status { get; private set; } = ClothingStatus.Processing;
 
     /// <summary>Storage key of the photo as the phone sent it. Unique: sending the same key twice is the same garment.</summary>
-    public required string OriginalKey { get; init; }
+    public required string OriginalKey { get; set; }
+
+    /// <summary>The <see cref="StarterCatalog"/> piece this garment was created from, or null for a photographed one. Lets a repeated request be recognized.</summary>
+    public string? StarterCode { get; init; }
 
     /// <summary>Storage key of the picture without background. Equals <see cref="OriginalKey"/> when removal did not work.</summary>
     public string? CutoutKey { get; private set; }
@@ -47,6 +50,9 @@ public sealed class ClothingItem
     /// <summary>Style codes.</summary>
     public string[] Styles { get; private set; } = [];
 
+    /// <summary>Season codes in the order of the season list; never empty once the garment is tagged.</summary>
+    public string[] Seasons { get; private set; } = [];
+
     /// <summary>Left out of proposals until switched off.</summary>
     public bool InLaundry { get; private set; }
 
@@ -65,8 +71,18 @@ public sealed class ClothingItem
     /// <summary>Set while the day's AI budget is used up: processing continues after this moment.</summary>
     public DateTimeOffset? DeferredUntil { get; private set; }
 
-    public DateTimeOffset CreatedAt { get; init; }
+    /// <summary>Setting it also starts <see cref="UpdatedAt"/>: a garment that was just added has just been touched.</summary>
+    public DateTimeOffset CreatedAt
+    {
+        get;
+        init
+        {
+            field = value;
+            UpdatedAt = value;
+        }
+    }
 
+    /// <summary>When the garment last changed. The sweep for stuck garments looks at this.</summary>
     public DateTimeOffset UpdatedAt { get; private set; }
 
     /// <summary>The picture to show: the cutout when there is one.</summary>
@@ -76,7 +92,7 @@ public sealed class ClothingItem
         Category is { } category && Subcategory is { } type && Name is { } name && Pattern is { } pattern && Material is { } material
         && Formality is { } formality && Warmth is { } warmth && RainOk is { } rainOk && Colors.Length > 0
             ? new GarmentTags(category, type, name, [.. Colors.Select(EnumCodes.Parse<Color>)], pattern, material, formality, warmth, rainOk,
-                [.. Styles.Select(EnumCodes.Parse<StyleTag>)])
+                [.. Styles.Select(EnumCodes.Parse<StyleTag>)], [.. Seasons.Select(EnumCodes.Parse<Season>)])
             : null;
 
     /// <summary>Flagged as rarely worn, or not worn for thirty days (counted from the day it was added if never worn).</summary>
@@ -99,6 +115,17 @@ public sealed class ClothingItem
         CutoutKey = key;
         Attempts = 0;
         UpdatedAt = now;
+    }
+
+    /// <summary>The same picture under a new name. A starter piece has one file for both keys, and keeps having one.</summary>
+    public void MoveCutout(string key)
+    {
+        if (OriginalKey == CutoutKey)
+        {
+            OriginalKey = key;
+        }
+
+        CutoutKey = key;
     }
 
     public void Defer(DateTimeOffset until, DateTimeOffset now)
@@ -190,5 +217,6 @@ public sealed class ClothingItem
         Warmth = tags.Warmth;
         RainOk = tags.RainOk;
         Styles = [.. tags.Styles.Select(EnumCodes.ToCode)];
+        Seasons = [.. (tags.Seasons is { Count: > 0 } given ? given : GarmentCatalog.SeasonsFor(tags.Warmth)).Order().Select(EnumCodes.ToCode)];
     }
 }

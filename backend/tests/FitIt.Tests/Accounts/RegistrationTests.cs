@@ -24,13 +24,39 @@ public sealed class RegistrationTests(ApiFactory factory)
         var men = await (await _client.GetAsync("/api/avatars?gender=male")).ReadAsync<List<AvatarResponse>>();
 
         Assert.Equal(10, all.Count);
-        Assert.Equal(["Klepsydra", "Gruszka", "Jabłko", "Kolumna", "Kielich"], women.Select(a => a.Label));
-        Assert.Equal(["Trójkąt", "Odwrócony trójkąt", "Prostokąt", "Owal", "Trapez"], men.Select(a => a.Label));
+        Assert.Equal(["Hourglass", "Pear", "Apple", "Column", "Goblet"], women.Select(a => a.Label));
+        Assert.Equal(["Triangle", "Inverted triangle", "Rectangle", "Oval", "Trapezoid"], men.Select(a => a.Label));
         Assert.All(women, a => Assert.Equal(Gender.Female, a.Gender));
 
         var picture = await _client.GetAsync(new Uri(women[0].ThumbUrl).PathAndQuery);
         Assert.Equal(HttpStatusCode.OK, picture.StatusCode);
         Assert.Equal("image/jpeg", picture.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Every_avatar_comes_with_its_figure_to_draw_outfits_on()
+    {
+        var all = await (await _client.GetAsync("/api/avatars")).ReadAsync<List<AvatarResponse>>();
+
+        Assert.Equal(10, all.Select(avatar => avatar.FigureUrl).Distinct().Count());
+        foreach (var avatar in all)
+        {
+            Assert.Contains("/avatars/figure/", avatar.FigureUrl, StringComparison.Ordinal);
+            var figure = await _client.GetAsync(new Uri(avatar.FigureUrl).PathAndQuery);
+            Assert.Equal(HttpStatusCode.OK, figure.StatusCode);
+            Assert.Equal("image/png", figure.Content.Headers.ContentType?.MediaType);
+        }
+    }
+
+    [Theory]
+    [InlineData("non_binary")]
+    [InlineData("unspecified")]
+    public async Task Avatars_for_the_open_genders_are_all_ten(string gender)
+    {
+        var listed = await (await _client.GetAsync($"/api/avatars?gender={gender}")).ReadAsync<List<AvatarResponse>>();
+
+        Assert.Equal(10, listed.Count);
+        Assert.Equal(AvatarCatalog.All.Select(a => a.Id).Order(), listed.Select(a => a.Id).Order());
     }
 
     [Fact]
@@ -70,7 +96,11 @@ public sealed class RegistrationTests(ApiFactory factory)
         Assert.Equal(TestApi.FemaleAvatar, auth.User.Avatar.Id);
         Assert.Equal([StyleTag.Casual, StyleTag.Smart], auth.User.Styles);
         Assert.Equal(ThermalPreference.Normal, auth.User.ThermalPreference);
-        Assert.Null(auth.User.AiConsentAt);
+        // Creating the account is the agreement to AI processing; the flow after it starts from the first step.
+        Assert.NotNull(auth.User.AiConsentAt);
+        Assert.Equal(0, auth.User.OnboardingStep);
+        Assert.Null(auth.User.OnboardingDoneAt);
+        Assert.Null(auth.User.ColorAnalysis);
         Assert.Equal(900, auth.ExpiresIn);
         Assert.NotEmpty(auth.AccessToken);
         Assert.NotEmpty(auth.RefreshToken);
@@ -104,6 +134,20 @@ public sealed class RegistrationTests(ApiFactory factory)
         Assert.Empty(auth.User.Styles);
         Assert.Equal(ThermalPreference.Normal, auth.User.ThermalPreference);
         Assert.Null(auth.User.Location);
+    }
+
+    [Fact]
+    public async Task Registration_takes_size_and_leg_length_when_given_and_works_without_them()
+    {
+        var given = await _client.RegisterAsync(change: body =>
+        {
+            body["clothingSize"] = "l";
+            body["legLength"] = "average";
+        });
+        var without = await _client.RegisterAsync();
+
+        Assert.Equal((ClothingSize.L, LegLength.Average), (given.User.ClothingSize, given.User.LegLength));
+        Assert.Equal((null, null), (without.User.ClothingSize, without.User.LegLength));
     }
 
     [Theory]
@@ -174,6 +218,48 @@ public sealed class RegistrationTests(ApiFactory factory)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("avatar_gender_mismatch", await response.ProblemCodeAsync());
+    }
+
+    [Theory]
+    [InlineData("non_binary", true)]
+    [InlineData("non_binary", false)]
+    [InlineData("unspecified", true)]
+    [InlineData("unspecified", false)]
+    public async Task Registration_with_an_open_gender_accepts_a_silhouette_of_either_set(string gender, bool male)
+    {
+        var auth = await _client.RegisterAsync(change: body =>
+        {
+            body["gender"] = gender;
+            body["avatarId"] = (male ? TestApi.MaleAvatar : TestApi.FemaleAvatar).ToString();
+        });
+
+        Assert.Equal(gender == "non_binary" ? Gender.NonBinary : Gender.Unspecified, auth.User.Gender);
+        Assert.Equal(male ? TestApi.MaleAvatar : TestApi.FemaleAvatar, auth.User.Avatar.Id);
+    }
+
+    [Fact]
+    public async Task The_post_registration_flow_is_remembered_on_the_account_and_only_moves_forward()
+    {
+        var auth = await _client.RegisterAsync();
+        var client = factory.Authorized(auth.AccessToken);
+        Assert.Equal((0, null), (auth.User.OnboardingStep, auth.User.OnboardingDoneAt));
+
+        var second = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["onboardingStep"] = 2 })).ReadAsync<UserResponse>();
+        var back = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["onboardingStep"] = 1 })).ReadAsync<UserResponse>();
+        var tooFar = await client.PatchJsonAsync("/api/me", new JsonObject { ["onboardingStep"] = 3 });
+        Assert.Equal((2, 2), (second.OnboardingStep, back.OnboardingStep));
+        Assert.Equal(HttpStatusCode.BadRequest, tooFar.StatusCode);
+        Assert.Null(back.OnboardingDoneAt);
+
+        var done = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["onboardingDone"] = true })).ReadAsync<UserResponse>();
+        Assert.NotNull(done.OnboardingDoneAt);
+
+        // A second phone signing in sees the same, and the mark does not move once set.
+        factory.Clock.Advance(TimeSpan.FromHours(1));
+        var login = await (await _client.PostJsonAsync("/api/auth/login", new JsonObject { ["email"] = auth.User.Email, ["password"] = TestApi.Password })).ReadAsync<AuthResponse>();
+        var again = await (await factory.Authorized(login.AccessToken).PatchJsonAsync("/api/me", new JsonObject { ["onboardingDone"] = true })).ReadAsync<UserResponse>();
+        Assert.Equal(done.OnboardingDoneAt, login.User.OnboardingDoneAt);
+        Assert.Equal(done.OnboardingDoneAt, again.OnboardingDoneAt);
     }
 
     [Fact]

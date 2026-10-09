@@ -19,7 +19,9 @@ public sealed record RegisterCommand(
     Guid AvatarId,
     IReadOnlyList<string> Styles,
     ThermalPreference ThermalPreference,
-    WeatherPlace? Place);
+    WeatherPlace? Place,
+    ClothingSize? ClothingSize = null,
+    LegLength? LegLength = null);
 
 public sealed record AuthOutcome(AppUser User, AuthTokens Tokens);
 
@@ -79,7 +81,11 @@ public sealed class AuthService(
             AvatarId = avatar!.Id,
             StylePreferences = [.. command.Styles.Distinct(StringComparer.Ordinal)],
             ThermalPreference = command.ThermalPreference,
+            ClothingSize = command.ClothingSize,
+            LegLength = command.LegLength,
             CreatedAt = clock.UtcNow,
+            // Creating an account is the agreement to AI processing; the sign-up screen says so right under the button.
+            AiConsentAt = clock.UtcNow,
         };
         ProfileRules.Apply(user, command.Place);
 
@@ -188,8 +194,6 @@ public sealed class AuthService(
 /// <summary>Checks shared by registration and profile edits.</summary>
 internal static class ProfileRules
 {
-    public const int MaxStyles = 5;
-
     public static ApiError? CheckBirthDate(DateOnly birthDate, DateOnly today, int minimumAge)
     {
         if (!AgeRule.IsPlausible(birthDate, today))
@@ -206,7 +210,7 @@ internal static class ProfileRules
     }
 
     public static ApiError? CheckStyles(IReadOnlyList<string> styles) =>
-        styles.Count <= MaxStyles && styles.All(s => EnumCodes.TryParse<StyleTag>(s, out _))
+        styles.Count <= GarmentCatalog.MaxPreferredStyles && styles.All(s => EnumCodes.TryParse<StyleTag>(s, out _))
             ? null
             : ApiError.BadRequest("styles_invalid", "A style is not on the list.");
 
@@ -222,7 +226,7 @@ internal static class ProfileRules
             return ApiError.BadRequest("avatar_invalid", "The silhouette does not exist.");
         }
 
-        return avatar.Gender == gender
+        return gender.OffersAllSilhouettes() || avatar.Gender == gender
             ? null
             : ApiError.BadRequest("avatar_gender_mismatch", "The silhouette belongs to the other gender.");
     }

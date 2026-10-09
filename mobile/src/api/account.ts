@@ -7,6 +7,8 @@ import type { paths } from './schema';
 export type Gender = Schemas['Gender'];
 export type StyleTag = Schemas['StyleTag'];
 export type ThermalPreference = Schemas['ThermalPreference'];
+export type ClothingSize = NonNullable<Schemas['ClothingSize']>;
+export type LegLength = NonNullable<Schemas['LegLength']>;
 export type Avatar = Schemas['AvatarResponse'];
 export type PlaceMatch = Schemas['PlaceResponse'];
 export type User = Schemas['UserResponse'];

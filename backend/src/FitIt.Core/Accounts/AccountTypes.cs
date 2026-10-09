@@ -1,10 +1,21 @@
 namespace FitIt.Core.Accounts;
 
-/// <summary>Decides which silhouette types are offered. Two values, as in the accepted designs.</summary>
+/// <summary>
+/// What the person says about themselves. Women are offered the five female silhouettes and men the five male ones;
+/// <see cref="NonBinary"/> and <see cref="Unspecified"/> are offered all ten.
+/// </summary>
 public enum Gender
 {
     Female,
     Male,
+    NonBinary,
+    Unspecified,
+}
+
+public static class GenderRules
+{
+    /// <summary>True for the values that are not tied to one set of silhouettes.</summary>
+    public static bool OffersAllSilhouettes(this Gender gender) => gender is Gender.NonBinary or Gender.Unspecified;
 }
 
 /// <summary>Shifts the weather thresholds by three degrees either way (product spec 6.2).</summary>
@@ -13,6 +24,25 @@ public enum ThermalPreference
     RunsCold,
     Normal,
     RunsWarm,
+}
+
+/// <summary>The person's usual clothing size. Optional; it only helps outfits look right on the figure and in try-on pictures.</summary>
+public enum ClothingSize
+{
+    Xs,
+    S,
+    M,
+    L,
+    Xl,
+    Xxl,
+}
+
+/// <summary>How the person's legs compare with average. Optional; used the same way as <see cref="ClothingSize"/>.</summary>
+public enum LegLength
+{
+    Shorter,
+    Average,
+    Longer,
 }
 
 /// <summary>Where the weather place in the profile came from.</summary>

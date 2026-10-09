@@ -1,4 +1,5 @@
 import type { Category, Clothing } from '@/api/wardrobe';
+import { joinWords } from '@/features/styling/copy';
 
 /** What an outfit cannot do without: something on top, something below (unless it is one piece) and shoes. */
 export type MissingPart = 'top' | 'bottom' | 'shoes';
@@ -32,15 +33,14 @@ export function missingForFirstOutfit(clothes: readonly Pick<Clothing, 'status' 
   return missing;
 }
 
-const names: Record<MissingPart, string> = { top: 'góry', bottom: 'dołu', shoes: 'butów' };
+const names: Record<MissingPart, string> = { top: 'tops', bottom: 'bottoms', shoes: 'shoes' };
 
-/** "Do pierwszego zestawu brakuje jeszcze dołu i butów." or null when nothing is missing. */
+/** "Add a bottom and shoes to get your first outfit." or null when nothing is missing. */
 export function firstOutfitHint(missing: readonly MissingPart[]): string | null {
   if (missing.length === 0) {
     return null;
   }
 
   const parts = missing.map((part) => names[part]);
-  const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} i ${parts[parts.length - 1]}`;
-  return `Do pierwszego zestawu brakuje jeszcze ${list}.`;
+  return `Add ${joinWords(parts, 'and')} to get your first outfit.`;
 }

@@ -41,7 +41,7 @@ let request = 0;
 beforeEach(() => {
   jest.clearAllMocks();
   request += 1;
-  // Each test is its own request, as each press of the button on Dziś is.
+  // Each test is its own request, as each press of the button on Today is.
   jest.mocked(useLocalSearchParams).mockReturnValue({ request: `r${request}`, occasion: 'everyday' });
   jest.mocked(weatherApi.fetchWeatherToday).mockResolvedValue(weather);
 });
@@ -62,9 +62,9 @@ describe('while the stylist works', () => {
 
     await renderScreen(<Proposals />);
 
-    expect(screen.getByLabelText('Układamy zestawy')).toBeOnTheScreen();
-    expect(screen.getByText('Układamy trzy zestawy z Twojej szafy.')).toBeOnTheScreen();
-    expect(screen.getByText('Propozycje na dziś')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Styling your outfits')).toBeOnTheScreen();
+    expect(screen.getByText('Styling three outfits from your wardrobe.')).toBeOnTheScreen();
+    expect(screen.getByText('Outfits for today')).toBeOnTheScreen();
     expect(suggest).toHaveBeenCalledTimes(1);
     expect(suggest).toHaveBeenCalledWith({ occasion: 'everyday', note: undefined, baseItemId: undefined });
 
@@ -90,12 +90,12 @@ describe('three proposals', () => {
     await renderScreen(<Proposals />);
 
     expect(await screen.findByTestId('proposals-screen')).toBeOnTheScreen();
-    expect(screen.getByText('Na co dzień, 7-18°C')).toBeOnTheScreen();
-    expect(screen.getByRole('tab', { name: 'Pewniak, 1 z 3' })).toBeOnTheScreen();
-    expect(screen.getByRole('tab', { name: 'Odkrycie, 2 z 3' })).toBeOnTheScreen();
-    expect(screen.getByRole('tab', { name: 'Nowe połączenie, 3 z 3' })).toBeOnTheScreen();
-    expect(screen.getByRole('tab', { name: 'Pewniak, 1 z 3' }).props.accessibilityState.selected).toBe(true);
-    expect(screen.getByText('Uzasadnienie zestawu o1.')).toBeOnTheScreen();
+    expect(screen.getByText('Everyday, 7-18°C')).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'Sure bet, 1 of 3' })).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'Discovery, 2 of 3' })).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'New pairing, 3 of 3' })).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'Sure bet, 1 of 3' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByText('Reasoning for outfit o1.')).toBeOnTheScreen();
   });
 
   it('labels a proposal that earned no kind by its place, never with a made-up one', async () => {
@@ -103,8 +103,8 @@ describe('three proposals', () => {
 
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByRole('tab', { name: 'Zestaw 1, 1 z 2' })).toBeOnTheScreen();
-    expect(screen.getByRole('tab', { name: 'Zestaw 2, 2 z 2' })).toBeOnTheScreen();
+    expect(await screen.findByRole('tab', { name: 'Outfit 1, 1 of 2' })).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'Outfit 2, 2 of 2' })).toBeOnTheScreen();
   });
 
   it('shows no pills for a single proposal, only the kind it earned', async () => {
@@ -112,7 +112,7 @@ describe('three proposals', () => {
 
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByText('Pewniak')).toBeOnTheScreen();
+    expect(await screen.findByText('Sure bet')).toBeOnTheScreen();
     expect(screen.queryByRole('tablist')).toBeNull();
   });
 
@@ -121,10 +121,10 @@ describe('three proposals', () => {
     update.mockResolvedValue(outfit('o2', { kind: 'discovery', wornOn: '2026-10-05' }));
     await renderScreen(<Proposals />);
 
-    await fireEvent.press(await screen.findByRole('tab', { name: 'Odkrycie, 2 z 3' }));
+    await fireEvent.press(await screen.findByRole('tab', { name: 'Discovery, 2 of 3' }));
     await fireEvent.press(screen.getByTestId('proposals-wear'));
 
-    expect(screen.getByRole('tab', { name: 'Odkrycie, 2 z 3' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByRole('tab', { name: 'Discovery, 2 of 3' }).props.accessibilityState.selected).toBe(true);
     await waitFor(() => expect(update).toHaveBeenCalledWith('o2', { worn: true }));
   });
 
@@ -136,7 +136,7 @@ describe('three proposals', () => {
     // The screen is 750 wide in the test renderer; a swipe that ends on the second page.
     await fireEvent(pages, 'momentumScrollEnd', { nativeEvent: { contentOffset: { x: 750 } } });
 
-    expect(screen.getByRole('tab', { name: 'Odkrycie, 2 z 3' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByRole('tab', { name: 'Discovery, 2 of 3' }).props.accessibilityState.selected).toBe(true);
   });
 
   it('puts the umbrella, the relaxed rules and the note about the rules in words a person can read', async () => {
@@ -148,10 +148,10 @@ describe('three proposals', () => {
 
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByText('Nie masz okrycia wierzchniego na tę temperaturę, więc proponuję to, co jest najbliżej.')).toBeOnTheScreen();
-    expect(screen.getByText('Może padać, a w szafie nie ma okrycia na deszcz, więc weź parasol.')).toBeOnTheScreen();
-    expect(screen.getByText('Ten zestaw ułożyliśmy według prostych reguł, bo stylista AI jest teraz niedostępny.')).toBeOnTheScreen();
-    expect(screen.getByText('Rano 7°C, po południu 18°C.')).toBeOnTheScreen();
+    expect(await screen.findByText('You don’t have jackets and coats for this temperature, so this is the closest match.')).toBeOnTheScreen();
+    expect(screen.getByText('Rain is possible and you don’t have a rainproof jacket, so bring an umbrella.')).toBeOnTheScreen();
+    expect(screen.getByText('Our AI stylist isn’t available right now, so we put this outfit together with simple style rules.')).toBeOnTheScreen();
+    expect(screen.getByText('Morning 7°C, afternoon 18°C.')).toBeOnTheScreen();
   });
 
   it('says nothing about rules, umbrellas or relaxed rules when there is nothing to say', async () => {
@@ -161,8 +161,8 @@ describe('three proposals', () => {
 
     await screen.findByTestId('proposals-screen');
     expect(screen.queryByText(/parasol/)).toBeNull();
-    expect(screen.queryByText(/proste reguły|prostych reguł/)).toBeNull();
-    expect(screen.queryByText(/Nie masz/)).toBeNull();
+    expect(screen.queryByText(/simple rules/)).toBeNull();
+    expect(screen.queryByText(/You don’t have/)).toBeNull();
   });
 });
 
@@ -192,7 +192,7 @@ describe('rating, keeping and wearing', () => {
 
     await fireEvent.press(screen.getAllByTestId('outfit-dislike')[0] as never);
 
-    expect(await screen.findByText('Nie udało się połączyć. Sprawdź internet i spróbuj ponownie.')).toBeOnTheScreen();
+    expect(await screen.findByText('Can’t connect right now. Check your internet connection and try again.')).toBeOnTheScreen();
     expect(screen.getAllByTestId('outfit-dislike')[0]?.props.accessibilityState.selected).toBe(false);
   });
 
@@ -212,10 +212,10 @@ describe('rating, keeping and wearing', () => {
     update.mockResolvedValueOnce(outfit('o1', { isSaved: true })).mockResolvedValueOnce(outfit('o1', { isSaved: false }));
     await renderScreen(<Proposals />);
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Zapisz zestaw' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Save outfit' }));
     expect(update).toHaveBeenLastCalledWith('o1', { saved: true });
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Usuń z zapisanych' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Remove from saved' }));
     expect(update).toHaveBeenLastCalledWith('o1', { saved: false });
   });
 
@@ -224,11 +224,11 @@ describe('rating, keeping and wearing', () => {
     update.mockResolvedValue(outfit('o1', { wornOn: '2026-10-05' }));
     await renderScreen(<Proposals />);
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Zakładam to' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Wear this' }));
 
     expect(update).toHaveBeenCalledWith('o1', { worn: true });
-    expect(await screen.findByRole('button', { name: 'Założony' })).toBeOnTheScreen();
-    expect(stateOf('Założony').busy).toBeFalsy();
+    expect(await screen.findByRole('button', { name: 'Worn' })).toBeOnTheScreen();
+    expect(stateOf('Worn').busy).toBeFalsy();
   });
 
   it('does not say it was worn when the server refused', async () => {
@@ -236,10 +236,10 @@ describe('rating, keeping and wearing', () => {
     update.mockRejectedValue(new ApiError({ status: 500, code: 'server_error' }));
     await renderScreen(<Proposals />);
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Zakładam to' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Wear this' }));
 
-    expect(await screen.findByText('Coś poszło nie tak po naszej stronie. Spróbuj ponownie za chwilę.')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Zakładam to' })).toBeOnTheScreen();
+    expect(await screen.findByText('Something went wrong on our end. Try again in a moment.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Wear this' })).toBeOnTheScreen();
   });
 });
 
@@ -249,11 +249,11 @@ describe('when the wardrobe cannot dress the person', () => {
 
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByText('Brakuje okrycia wierzchniego')).toBeOnTheScreen();
-    expect(screen.getByText('Przy 1°C potrzebne jest okrycie wierzchnie. Dodaj kurtkę albo płaszcz, a ułożymy zestaw.')).toBeOnTheScreen();
+    expect(await screen.findByText('You’re missing jackets and coats')).toBeOnTheScreen();
+    expect(screen.getByText('At 1°C, you need jackets and coats. Add a jacket or a coat and we’ll put an outfit together.')).toBeOnTheScreen();
     expect(screen.queryByRole('tablist')).toBeNull();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Dodaj ubrania' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add clothes' }));
     expect(router.push).toHaveBeenCalledWith('/add');
   });
 
@@ -262,7 +262,7 @@ describe('when the wardrobe cannot dress the person', () => {
 
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByText('Brakuje warstwy pośredniej albo okrycia wierzchniego')).toBeOnTheScreen();
+    expect(await screen.findByText('You’re missing warm layers or jackets and coats')).toBeOnTheScreen();
   });
 
   it('copes with a server that does not send the alternatives yet', async () => {
@@ -270,17 +270,17 @@ describe('when the wardrobe cannot dress the person', () => {
 
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByText('Brakuje butów')).toBeOnTheScreen();
+    expect(await screen.findByText('You’re missing shoes')).toBeOnTheScreen();
   });
 });
 
 describe('when asking fails', () => {
-  it('says the limit is used up and goes back to Dziś', async () => {
+  it('says the limit is used up and goes back to Today', async () => {
     suggest.mockRejectedValue(new ApiError({ status: 429, code: 'limit_reached', limit: 20 }));
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByText('Dzisiejszy limit jest wykorzystany. Wróć jutro.')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Wróć do Dziś' }));
+    expect(await screen.findByText('You’ve hit today’s limit. More tomorrow.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Back to Today' }));
 
     expect(router.back).toHaveBeenCalled();
   });
@@ -289,7 +289,7 @@ describe('when asking fails', () => {
     suggest.mockRejectedValue(new ApiError({ status: 409, code: 'location_missing' }));
     await renderScreen(<Proposals />);
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Wybierz miejsce' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Choose a city' }));
 
     expect(router.push).toHaveBeenCalledWith('/account/place');
   });
@@ -298,8 +298,8 @@ describe('when asking fails', () => {
     suggest.mockRejectedValueOnce(new ApiError({ status: 503, code: 'weather_unavailable' })).mockResolvedValueOnce(answer());
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByText('Nie udało się pobrać prognozy pogody. Spróbuj ponownie za chwilę.')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Spróbuj ponownie' }));
+    expect(await screen.findByText('We couldn’t get the forecast. Try again in a moment.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
 
     expect(await screen.findByTestId('proposals-screen')).toBeOnTheScreen();
     expect(suggest).toHaveBeenCalledTimes(2);
@@ -310,6 +310,6 @@ describe('when asking fails', () => {
 
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByText(/Nie udało się ułożyć zestawów/)).toBeOnTheScreen();
+    expect(await screen.findByText(/We couldn’t put together an outfit/)).toBeOnTheScreen();
   });
 });

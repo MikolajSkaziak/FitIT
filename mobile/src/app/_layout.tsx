@@ -13,6 +13,7 @@ import { restoreSession, useSession } from '@/auth/session';
 import { AppText } from '@/components/AppText';
 import { Brandmark } from '@/components/brand';
 import { Button } from '@/components/Button';
+import { PhotoPeekHost } from '@/components/PhotoPeek';
 import { Screen } from '@/components/Screen';
 import { queryClient } from '@/lib/queryClient';
 import { space, useTheme } from '@/theme';
@@ -53,18 +54,20 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={navigationTheme}>
         <StatusBar style="auto" />
-        {status === 'unreachable' ? (
-          <Unreachable />
-        ) : (
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.canvas } }}>
-            <Stack.Protected guard={signedIn}>
-              <Stack.Screen name="(app)" />
-            </Stack.Protected>
-            <Stack.Protected guard={!signedIn}>
-              <Stack.Screen name="(auth)" />
-            </Stack.Protected>
-          </Stack>
-        )}
+        <PhotoPeekHost>
+          {status === 'unreachable' ? (
+            <Unreachable />
+          ) : (
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.canvas } }}>
+              <Stack.Protected guard={signedIn}>
+                <Stack.Screen name="(app)" />
+              </Stack.Protected>
+              <Stack.Protected guard={!signedIn}>
+                <Stack.Screen name="(auth)" />
+              </Stack.Protected>
+            </Stack>
+          )}
+        </PhotoPeekHost>
       </ThemeProvider>
     </QueryClientProvider>
   );
@@ -80,14 +83,14 @@ function Unreachable() {
   };
 
   return (
-    <Screen scroll={false} footer={<Button label="Spróbuj ponownie" busy={retrying} onPress={() => void retry()} testID="retry-connection" />}>
+    <Screen scroll={false} footer={<Button label="Try again" busy={retrying} onPress={() => void retry()} testID="retry-connection" />}>
       <View style={styles.unreachable}>
         <Brandmark small />
         <View style={styles.message}>
           <AppText variant="display" accessibilityRole="header">
-            Nie udało się połączyć
+            Couldn’t connect
           </AppText>
-          <AppText color="textSecondary">Sprawdź internet i spróbuj ponownie. Twoje konto i ubrania są bezpieczne.</AppText>
+          <AppText color="textSecondary">Check your internet and try again. Your account and clothes are safe.</AppText>
         </View>
       </View>
     </Screen>

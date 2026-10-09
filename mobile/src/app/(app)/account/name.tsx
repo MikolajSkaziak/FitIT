@@ -28,9 +28,9 @@ export default function EditName() {
   };
 
   return (
-    <EditScreen title="Imię" onAction={submit} busy={save.isPending} error={save.error} testID="edit-name">
+    <EditScreen title="Name" onAction={submit} busy={save.isPending} error={save.error} testID="edit-name">
       <Field
-        label="Imię"
+        label="Name"
         value={name}
         onChangeText={(text) => {
           setName(text);

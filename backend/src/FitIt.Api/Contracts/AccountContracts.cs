@@ -49,10 +49,14 @@ public sealed class RegisterRequest
     [Required]
     public Guid? AvatarId { get; init; }
 
-    [MaxLength(5)]
+    [MaxLength(GarmentCatalog.MaxPreferredStyles)]
     public StyleTag[]? Styles { get; init; }
 
     public ThermalPreference? ThermalPreference { get; init; }
+
+    public ClothingSize? ClothingSize { get; init; }
+
+    public LegLength? LegLength { get; init; }
 
     public LocationRequest? Location { get; init; }
 }
@@ -72,6 +76,45 @@ public sealed class RefreshRequest
     public string RefreshToken { get; init; } = "";
 }
 
+public sealed class PasswordResetRequest
+{
+    [Required, EmailAddress, MaxLength(254)]
+    public string Email { get; init; } = "";
+}
+
+public sealed class PasswordResetConfirmRequest
+{
+    [Required, EmailAddress, MaxLength(254)]
+    public string Email { get; init; } = "";
+
+    /// <summary>The six digits from the e-mail.</summary>
+    [Required, RegularExpression(@"^[0-9]{6}$")]
+    public string Code { get; init; } = "";
+
+    [Required, MinLength(8), MaxLength(128)]
+    public string NewPassword { get; init; } = "";
+}
+
+public sealed class ChangePasswordRequest
+{
+    [Required, MaxLength(128)]
+    public string CurrentPassword { get; init; } = "";
+
+    [Required, MinLength(8), MaxLength(128)]
+    public string NewPassword { get; init; } = "";
+
+    /// <summary>The refresh token of the session that stays signed in. Every other session ends; without it every session does, this one too.</summary>
+    [MaxLength(200)]
+    public string? RefreshToken { get; init; }
+}
+
+public sealed class DeleteAccountRequest
+{
+    /// <summary>The current password, as confirmation.</summary>
+    [Required, MaxLength(128)]
+    public string Password { get; init; } = "";
+}
+
 public sealed class UpdateProfileRequest
 {
     [MinLength(1), MaxLength(40)]
@@ -83,21 +126,39 @@ public sealed class UpdateProfileRequest
 
     public Guid? AvatarId { get; init; }
 
-    [MaxLength(5)]
+    [MaxLength(GarmentCatalog.MaxPreferredStyles)]
     public StyleTag[]? Styles { get; init; }
 
     public ThermalPreference? ThermalPreference { get; init; }
+
+    public ClothingSize? ClothingSize { get; init; }
+
+    public LegLength? LegLength { get; init; }
+
+    /// <summary>True goes back to "not set" for the usual size.</summary>
+    public bool? ClearClothingSize { get; init; }
+
+    /// <summary>True goes back to "not set" for the leg length.</summary>
+    public bool? ClearLegLength { get; init; }
 
     public LocationRequest? Location { get; init; }
 
     /// <summary>True removes the stored weather place.</summary>
     public bool? ClearLocation { get; init; }
 
-    /// <summary>True records consent to sending garment photos to external AI services; false withdraws it.</summary>
+    /// <summary>True records consent to sending photos to external AI services; false withdraws it. Creating an account already records it.</summary>
     public bool? AiConsent { get; init; }
+
+    /// <summary>The first step of the post-registration flow that is not finished yet (0 colors, 1 first pieces, 2 recap). It never moves back.</summary>
+    [Range(0, 2)]
+    public int? OnboardingStep { get; init; }
+
+    /// <summary>True marks the post-registration flow as done for this account.</summary>
+    public bool? OnboardingDone { get; init; }
 }
 
-public sealed record AvatarResponse(Guid Id, Gender Gender, string BodyType, string Label, string ImageUrl, string ThumbUrl);
+/// <summary><c>FigureUrl</c> is the silhouette as a whole figure on a transparent background (PNG, 3:4), for drawing an outfit on.</summary>
+public sealed record AvatarResponse(Guid Id, Gender Gender, string BodyType, string Label, string ImageUrl, string ThumbUrl, string FigureUrl);
 
 public sealed record LocationResponse(LocationSource Source, string Name, double Lat, double Lon);
 
@@ -110,9 +171,51 @@ public sealed record UserResponse(
     AvatarResponse Avatar,
     IReadOnlyList<StyleTag> Styles,
     ThermalPreference ThermalPreference,
+    ClothingSize? ClothingSize,
+    LegLength? LegLength,
     LocationResponse? Location,
     DateTimeOffset? AiConsentAt,
+    ColorAnalysisResponse? ColorAnalysis,
+    int OnboardingStep,
+    DateTimeOffset? OnboardingDoneAt,
     DateTimeOffset CreatedAt);
+
+public sealed record ColorSwatchResponse(string Name, string Hex, Color? WardrobeColor);
+
+/// <summary>The seasonal colour type of the person and its palette. <c>Best</c> are the colors to wear more of, <c>Soften</c> the ones to go easy on.</summary>
+public sealed record ColorAnalysisResponse(
+    ColorSeason Season,
+    string Name,
+    string Summary,
+    ColorAnalysisSource Source,
+    IReadOnlyList<ColorSwatchResponse> Best,
+    IReadOnlyList<ColorSwatchResponse> Soften,
+    DateTimeOffset AnalyzedAt);
+
+public sealed class ColorAnswersRequest
+{
+    /// <summary>From 1 (very fair) to 8 (deep). The undertone is a separate answer.</summary>
+    [Required, Range(1, ColorQuiz.SkinTones)]
+    public int? SkinTone { get; init; }
+
+    [Required]
+    public SkinUndertone? Undertone { get; init; }
+
+    [Required]
+    public HairColor? Hair { get; init; }
+
+    [Required]
+    public EyeColor? Eyes { get; init; }
+}
+
+public sealed class AnalyzeColorsRequest
+{
+    /// <summary>The key returned by <c>POST /api/me/color-analysis/upload</c>, after the selfie was uploaded. Send this or <c>Answers</c>, not both.</summary>
+    [MaxLength(120)]
+    public string? Key { get; init; }
+
+    public ColorAnswersRequest? Answers { get; init; }
+}
 
 public sealed record AuthResponse(string AccessToken, string RefreshToken, int ExpiresIn, UserResponse User);
 

@@ -9,20 +9,21 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Collage } from '@/components/Collage';
 import { IconButton } from '@/components/controls';
+import { Fade } from '@/components/motion';
 import { FormError } from '@/components/forms';
 import { BackHeader } from '@/components/headers';
 import { Skeleton } from '@/components/lists';
 import { Screen } from '@/components/Screen';
 import { messageFor } from '@/copy/errors';
-import { occasionLabel } from '@/copy/labels';
+import { occasionIcon, occasionLabel } from '@/copy/labels';
 import { OutfitNotes, RatingBar } from '@/features/styling/OutfitParts';
 import { findCachedOutfit, useOutfitActions } from '@/features/styling/useOutfitActions';
 import { OutfitVisualization } from '@/features/visualization/OutfitVisualization';
 import { rangeOf } from '@/features/weather/copy';
 import { formatDay } from '@/lib/dates';
-import { radius, size, space } from '@/theme';
+import { motion, radius, size, space } from '@/theme';
 
-const outfitGone = 'Tego zestawu już nie ma.';
+const outfitGone = 'This outfit isn’t here anymore.';
 
 /** One saved outfit: the garments, what the stylist said about them, and what can be done with it. */
 export default function OutfitDetail() {
@@ -47,15 +48,15 @@ export default function OutfitDetail() {
       <Screen testID="outfit-screen">
         <View style={styles.content}>
           <View style={styles.head}>
-            <IconButton icon="back" label="Wróć" onPress={() => router.back()} />
+            <IconButton icon="back" label="Back" onPress={() => router.back()} />
           </View>
           {found.isError ? (
             <View style={styles.problem}>
               <AppText color="textSecondary">{codeOf(found.error) === 'not_found' ? outfitGone : messageFor(found.error)}</AppText>
-              {codeOf(found.error) === 'not_found' ? null : <Button label="Spróbuj ponownie" kind="secondary" inline onPress={() => void found.refetch()} />}
+              {codeOf(found.error) === 'not_found' ? null : <Button label="Try again" kind="secondary" inline onPress={() => void found.refetch()} />}
             </View>
           ) : (
-            <View style={styles.problem} accessibilityRole="progressbar" accessibilityLabel="Wczytujemy zestaw">
+            <View style={styles.problem} accessibilityRole="progressbar" accessibilityLabel="Loading outfit">
               <Skeleton height={size.touch} width="60%" />
               <Skeleton height={240} radius={radius.well} />
               <Skeleton height={16} />
@@ -69,18 +70,18 @@ export default function OutfitDetail() {
 
   const name = `${occasionLabel(outfit.occasion)}, ${formatDay(new Date(outfit.createdAt))}`;
   const confirmRemoval = () =>
-    Alert.alert(`Usunąć zestaw „${name}”?`, 'Usuniemy go z zapisanych. Tego nie da się cofnąć.', [
-      { text: 'Zostaw', style: 'cancel' },
-      { text: 'Usuń zestaw', style: 'destructive', onPress: () => actions.remove(outfit, () => router.back()) },
+    Alert.alert(`Delete outfit “${name}”?`, 'We’ll remove it from your saved outfits. This can’t be undone.', [
+      { text: 'Keep', style: 'cancel' },
+      { text: 'Delete outfit', style: 'destructive', onPress: () => actions.remove(outfit, () => router.back()) },
     ]);
 
   return (
     <Screen testID="outfit-screen">
       <View style={styles.content}>
-        <BackHeader title={occasionLabel(outfit.occasion)} meta={`${formatDay(new Date(outfit.createdAt))}, ${rangeOf(outfit.weather)}`} onBack={() => router.back()} />
+        <BackHeader title={outfit.name ?? occasionLabel(outfit.occasion)} titleIcon={occasionIcon(outfit.occasion)} meta={outfit.weather ? `${formatDay(new Date(outfit.createdAt))}, ${rangeOf(outfit.weather)}` : formatDay(new Date(outfit.createdAt))} onBack={() => router.back()} />
         {outfit.occasionNote ? (
           <AppText variant="secondary" color="textSecondary">
-            Notatka: {outfit.occasionNote}
+            Note: {outfit.occasionNote}
           </AppText>
         ) : null}
         <OutfitVisualization
@@ -92,15 +93,17 @@ export default function OutfitDetail() {
         <RatingBar outfit={outfit} onRate={(rating) => actions.rate(outfit, rating)} onKeep={() => actions.keep(outfit)} />
         <View style={styles.footer}>
           <FormError message={actions.error ? (codeOf(actions.error) === 'not_found' ? outfitGone : messageFor(actions.error)) : null} />
-          <Button
-            label={worn ? 'Założony' : 'Zakładam to'}
-            icon={worn ? 'check' : undefined}
-            kind={worn ? 'secondary' : 'primary'}
-            busy={actions.wearing}
-            onPress={() => actions.wear(outfit, () => setWorn(true))}
-            testID="outfit-wear"
-          />
-          <Button label="Usuń zestaw" kind="dangerText" busy={actions.removing} onPress={confirmRemoval} testID="outfit-delete" />
+          <Fade key={worn ? 'worn' : 'wear'} enter={worn} exit duration={motion.exit}>
+            <Button
+              label={worn ? 'Worn' : 'Wear this'}
+              icon={worn ? 'check' : undefined}
+              kind={worn ? 'secondary' : 'primary'}
+              busy={actions.wearing}
+              onPress={() => actions.wear(outfit, () => setWorn(true))}
+              testID="outfit-wear"
+            />
+          </Fade>
+          <Button label="Delete outfit" kind="dangerText" busy={actions.removing} onPress={confirmRemoval} testID="outfit-delete" />
         </View>
       </View>
     </Screen>

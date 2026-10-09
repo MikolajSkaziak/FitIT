@@ -11,6 +11,21 @@ internal sealed class EnumCodeConverter<T>() : ValueConverter<T, string>(
     code => EnumCodes.Parse<T>(code))
     where T : struct, Enum;
 
+/// <summary>Stores a value as a JSON document with snake case names and enum codes, so the column reads like the API does.</summary>
+internal sealed class JsonDocumentConverter<T>() : ValueConverter<T, string>(
+    value => JsonSerializer.Serialize(value, JsonDocuments.Options),
+    json => JsonSerializer.Deserialize<T>(json, JsonDocuments.Options)!)
+    where T : class;
+
+internal static class JsonDocuments
+{
+    public static readonly JsonSerializerOptions Options = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower) },
+    };
+}
+
 internal static class SnakeCaseNaming
 {
     /// <summary>Renames every column, key, foreign key and index to snake case. Table names are set explicitly per entity.</summary>

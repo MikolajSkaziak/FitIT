@@ -15,6 +15,28 @@ public enum Category
     Accessory,
 }
 
+/// <summary>
+/// What a person picks a garment by: a familiar shop-style group of related types, the same list for everyone. A group is not a
+/// <see cref="Category"/>: tracksuits and sweats, for one, hold bottoms, mid layers and one-pieces. The role a garment plays in an
+/// outfit always comes from its <see cref="Subcategory"/> (see <see cref="GarmentCatalog"/>). Order is the order shown in pickers.
+/// </summary>
+public enum GarmentGroup
+{
+    TShirtsAndTops,
+    ShirtsAndBlouses,
+    SweatersAndHoodies,
+    JacketsAndCoats,
+    Jeans,
+    Pants,
+    Skirts,
+    DressesAndJumpsuits,
+    SuitsAndBlazers,
+    TracksuitsAndSweats,
+    Shoes,
+    Bags,
+    Accessories,
+}
+
 /// <summary>The type of garment. Each belongs to exactly one <see cref="Category"/> (see <see cref="GarmentCatalog"/>).</summary>
 public enum Subcategory
 {
@@ -31,7 +53,9 @@ public enum Subcategory
     Hoodie,
     Cardigan,
     Blazer,
+    SuitJacket,
     Vest,
+    TrackJacket,
 
     Jeans,
     Trousers,
@@ -43,6 +67,7 @@ public enum Subcategory
 
     Dress,
     Jumpsuit,
+    Tracksuit,
 
     Coat,
     Jacket,
@@ -96,6 +121,15 @@ public enum Color
     Purple,
     Yellow,
     Orange,
+}
+
+/// <summary>The time of year a garment is for. Only organises the wardrobe; the stylist does not read it.</summary>
+public enum Season
+{
+    Spring,
+    Summer,
+    Fall,
+    Winter,
 }
 
 public enum Pattern

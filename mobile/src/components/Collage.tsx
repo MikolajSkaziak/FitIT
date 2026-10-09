@@ -25,12 +25,12 @@ export function Collage({ items, width, gap = space[2], inset = 12, corner = rad
   const ordered = inReadingOrder(items);
   const layout = collageLayout(ordered.length);
   const rowHeight = rowHeightFor(width, gap);
-  const names = ordered.map((item) => item.clothing.name ?? 'ubranie bez opisu').join(', ');
+  const names = ordered.map((item) => item.clothing.name ?? 'item without details').join(', ');
   return (
     <View
       accessible
       accessibilityRole="image"
-      accessibilityLabel={`Zestaw: ${names}`}
+      accessibilityLabel={`Outfit: ${names}`}
       style={{ width, height: collageHeight(layout.rows, rowHeight, gap) }}
       testID={testID}>
       {layout.cells.map((cell) => {

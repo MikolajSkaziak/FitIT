@@ -15,7 +15,7 @@ export type DevicePlace =
   | { kind: 'unavailable' };
 
 export const nameMaxLength = 80;
-const fallbackName = 'Twoja okolica';
+const fallbackName = 'Your area';
 const positionTimeoutMs = 15_000;
 const lastKnownMaxAgeMs = 30 * 60_000;
 

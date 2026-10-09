@@ -9,7 +9,7 @@ export const unstable_settings = { anchor: '(tabs)' };
 export default function AppLayout() {
   const theme = useTheme();
   useKeepPlaceCurrent();
-  const sheet = (detents: number[]) =>
+  const sheet = (detents: number[] | 'fitToContents') =>
     ({
       presentation: 'formSheet',
       sheetAllowedDetents: detents,
@@ -21,9 +21,12 @@ export default function AppLayout() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.canvas } }}>
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="onboarding" />
       <Stack.Screen name="add" options={sheet([0.62, 0.94])} />
-      <Stack.Screen name="filters" options={sheet([0.72])} />
-      <Stack.Screen name="occasion" options={sheet([0.8])} />
+      <Stack.Screen name="filters" options={sheet([0.72, 0.94])} />
+      <Stack.Screen name="occasion" options={sheet('fitToContents')} />
+      <Stack.Screen name="create" options={sheet('fitToContents')} />
+      <Stack.Screen name="basics" options={sheet([0.9])} />
     </Stack>
   );
 }

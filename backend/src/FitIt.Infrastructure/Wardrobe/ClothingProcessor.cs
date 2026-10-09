@@ -77,8 +77,10 @@ public sealed class ClothingProcessor(
         {
             var photo = new ImageSource(item.OriginalKey, storage.SignRead(item.OriginalKey, ProviderReadLifetime));
             var removal = await remover.RemoveAsync(photo, cancellationToken);
-            var key = ObjectKeys.Cutout(item.UserId, item.Id, removal.Extension);
-            await storage.WriteAsync(key, removal.Content, removal.ContentType, cancellationToken);
+            // Stored cropped to the garment: the remover keeps the frame of the photo around it.
+            var tight = CutoutTrimmer.Trim(removal.Content);
+            var key = ObjectKeys.Cutout(item.UserId, item.Id, tight is null ? removal.Extension : CutoutTrimmer.Extension);
+            await storage.WriteAsync(key, tight ?? removal.Content, tight is null ? removal.ContentType : CutoutTrimmer.ContentType, cancellationToken);
             ledger.Record(item.UserId, AiOperation.BackgroundRemoval, removal.Cost, watch.Elapsed, success: true);
             item.AttachCutout(key, clock.UtcNow);
             await db.SaveChangesAsync(cancellationToken);

@@ -1,10 +1,10 @@
 import type { StyleTag } from '@/api/account';
-import type { Category, Color, Material, Pattern, Subcategory } from '@/api/wardrobe';
+import type { Color, GarmentGroup, Material, Pattern, Season, Subcategory } from '@/api/wardrobe';
 
 /** The description of a garment while a person is filling it in: anything may still be missing. */
 export interface GarmentForm {
   name: string;
-  category: Category | null;
+  group: GarmentGroup | null;
   subcategory: Subcategory | null;
   colors: readonly Color[];
   pattern: Pattern | null;
@@ -13,41 +13,43 @@ export interface GarmentForm {
   warmth: number | null;
   rainOk: boolean;
   styles: readonly StyleTag[];
+  /** Optional: left empty, the garment gets the seasons its warmth suggests. */
+  seasons: readonly Season[];
 }
 
 /** What still has to be filled in before the description can be saved, named the way the form names it. */
 export function missingTags(form: GarmentForm): string[] {
   const missing: string[] = [];
   if (form.name.trim().length === 0) {
-    missing.push('nazwa');
+    missing.push('name');
   }
 
-  if (!form.category) {
-    missing.push('kategoria');
+  if (!form.group) {
+    missing.push('group');
   }
 
   if (!form.subcategory) {
-    missing.push('typ');
+    missing.push('type');
   }
 
   if (form.colors.length === 0) {
-    missing.push('kolor');
+    missing.push('color');
   }
 
   if (!form.pattern) {
-    missing.push('wzór');
+    missing.push('pattern');
   }
 
   if (!form.material) {
-    missing.push('materiał');
+    missing.push('material');
   }
 
   if (form.formality === null) {
-    missing.push('formalność');
+    missing.push('formality');
   }
 
   if (form.warmth === null) {
-    missing.push('ciepło');
+    missing.push('warmth');
   }
 
   return missing;

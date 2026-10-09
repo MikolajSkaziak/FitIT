@@ -41,28 +41,28 @@ describe('the place screen', () => {
   it('says where the weather is checked now', async () => {
     await renderScreen(<EditPlace />);
 
-    expect(screen.getByTestId('place-current')).toHaveTextContent('Teraz: Gliwice, według lokalizacji telefonu.');
+    expect(screen.getByTestId('place-current')).toHaveTextContent('Now: Gliwice, from your phone’s location.');
   });
 
   it('takes the place from the phone and goes back', async () => {
-    findDevicePlace.mockResolvedValue({ kind: 'found', place: { name: 'Kraków', lat: 50.1, lon: 19.9 } });
-    updateProfile.mockResolvedValue(user({ location: { source: 'device', name: 'Kraków', lat: 50.1, lon: 19.9 } }));
+    findDevicePlace.mockResolvedValue({ kind: 'found', place: { name: 'Krakow', lat: 50.1, lon: 19.9 } });
+    updateProfile.mockResolvedValue(user({ location: { source: 'device', name: 'Krakow', lat: 50.1, lon: 19.9 } }));
     await renderScreen(<EditPlace />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Użyj lokalizacji telefonu' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Use phone location' }));
 
     await waitFor(() => expect(router.back).toHaveBeenCalled());
-    expect(updateProfile).toHaveBeenCalledWith({ location: { source: 'device', name: 'Kraków', lat: 50.1, lon: 19.9 } });
-    expect(useSession.getState().user?.location?.name).toBe('Kraków');
+    expect(updateProfile).toHaveBeenCalledWith({ location: { source: 'device', name: 'Krakow', lat: 50.1, lon: 19.9 } });
+    expect(useSession.getState().user?.location?.name).toBe('Krakow');
   });
 
   it('stays, and says why, when the phone will not tell where it is', async () => {
     findDevicePlace.mockResolvedValue({ kind: 'denied' });
     await renderScreen(<EditPlace />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Użyj lokalizacji telefonu' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Use phone location' }));
 
-    expect(await screen.findByText('Nie masz zgody na lokalizację. Wpisz miasto albo włącz ją w ustawieniach telefonu.')).toBeOnTheScreen();
+    expect(await screen.findByText('Location is turned off. Choose a city, or turn it on in your phone’s Settings.')).toBeOnTheScreen();
     expect(router.back).not.toHaveBeenCalled();
     expect(updateProfile).not.toHaveBeenCalled();
   });
@@ -72,8 +72,8 @@ describe('the place screen', () => {
     const settings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
     await renderScreen(<EditPlace />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Użyj lokalizacji telefonu' }));
-    await fireEvent.press(await screen.findByRole('link', { name: 'Otwórz ustawienia telefonu' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Use phone location' }));
+    await fireEvent.press(await screen.findByRole('link', { name: 'Open phone settings' }));
 
     expect(settings).toHaveBeenCalled();
     settings.mockRestore();
@@ -86,7 +86,7 @@ describe('the place screen', () => {
 
     await fireEvent.changeText(screen.getByTestId('place-search'), 'Osaka');
     await fireEvent.press(await screen.findByTestId('place-0'));
-    await fireEvent.press(screen.getByRole('button', { name: 'Zapisz miasto' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save city' }));
 
     await waitFor(() => expect(router.back).toHaveBeenCalled());
     expect(updateProfile).toHaveBeenCalledWith({ location: { source: 'manual', name: 'Osaka', lat: 34.7, lon: 135.5 } });
@@ -95,9 +95,9 @@ describe('the place screen', () => {
   it('asks for a city from the list instead of saving nothing', async () => {
     await renderScreen(<EditPlace />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Zapisz miasto' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save city' }));
 
-    expect(screen.getByText('Wybierz miejscowość z listy.')).toBeOnTheScreen();
+    expect(screen.getByText('Pick a place from the list.')).toBeOnTheScreen();
     expect(updateProfile).not.toHaveBeenCalled();
   });
 });
@@ -107,12 +107,12 @@ describe('the thermal preference screen', () => {
     updateProfile.mockResolvedValue(user({ thermalPreference: 'runs_cold' }));
     await renderScreen(<EditThermalPreference />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Zapisz' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
     expect(updateProfile).not.toHaveBeenCalled();
     expect(router.back).toHaveBeenCalledTimes(1);
 
-    await fireEvent.press(screen.getByRole('radio', { name: 'Marznę' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Zapisz' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'I get cold easily' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ thermalPreference: 'runs_cold' }));
     await waitFor(() => expect(router.back).toHaveBeenCalledTimes(2));
@@ -140,13 +140,13 @@ describe('keeping the place current', () => {
 
   it('replaces a place taken from the phone when the phone has moved', async () => {
     hasLocationAccess.mockResolvedValue(true);
-    findDevicePlace.mockResolvedValue({ kind: 'found', place: { name: 'Kraków', lat: 50.1, lon: 19.9 } });
-    updateProfile.mockResolvedValue(user({ location: { source: 'device', name: 'Kraków', lat: 50.1, lon: 19.9 } }));
+    findDevicePlace.mockResolvedValue({ kind: 'found', place: { name: 'Krakow', lat: 50.1, lon: 19.9 } });
+    updateProfile.mockResolvedValue(user({ location: { source: 'device', name: 'Krakow', lat: 50.1, lon: 19.9 } }));
 
     await open();
 
-    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ location: { source: 'device', name: 'Kraków', lat: 50.1, lon: 19.9 } }));
-    expect(useSession.getState().user?.location?.name).toBe('Kraków');
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ location: { source: 'device', name: 'Krakow', lat: 50.1, lon: 19.9 } }));
+    expect(useSession.getState().user?.location?.name).toBe('Krakow');
   });
 
   it('does it again when the app comes back to the foreground', async () => {
@@ -154,12 +154,12 @@ describe('keeping the place current', () => {
     findDevicePlace.mockResolvedValueOnce({ kind: 'found', place: { name: 'Gliwice', lat: 50.3, lon: 18.7 } });
     const { comeForward } = await open();
     await waitFor(() => expect(findDevicePlace).toHaveBeenCalledTimes(1));
-    findDevicePlace.mockResolvedValueOnce({ kind: 'found', place: { name: 'Wiedeń', lat: 48.2, lon: 16.4 } });
-    updateProfile.mockResolvedValue(user({ location: { source: 'device', name: 'Wiedeń', lat: 48.2, lon: 16.4 } }));
+    findDevicePlace.mockResolvedValueOnce({ kind: 'found', place: { name: 'Vienna', lat: 48.2, lon: 16.4 } });
+    updateProfile.mockResolvedValue(user({ location: { source: 'device', name: 'Vienna', lat: 48.2, lon: 16.4 } }));
 
     await comeForward();
 
-    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ location: { source: 'device', name: 'Wiedeń', lat: 48.2, lon: 16.4 } }));
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ location: { source: 'device', name: 'Vienna', lat: 48.2, lon: 16.4 } }));
   });
 
   it('leaves the profile alone when the phone is where it was', async () => {
@@ -197,7 +197,7 @@ describe('keeping the place current', () => {
     const { comeForward } = await open();
     await waitFor(() => expect(findDevicePlace).toHaveBeenCalledTimes(1));
 
-    findDevicePlace.mockResolvedValueOnce({ kind: 'found', place: { name: 'Wiedeń', lat: 48.2, lon: 16.4 } });
+    findDevicePlace.mockResolvedValueOnce({ kind: 'found', place: { name: 'Vienna', lat: 48.2, lon: 16.4 } });
     updateProfile.mockRejectedValue(new Error('offline'));
     await comeForward();
 

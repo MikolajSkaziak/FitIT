@@ -76,6 +76,47 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                     b.ToTable("avatars", (string)null);
                 });
 
+            modelBuilder.Entity("FitIt.Core.Accounts.PasswordResetCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_password_reset_codes");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_password_reset_codes_user_id_created_at");
+
+                    b.ToTable("password_reset_codes", (string)null);
+                });
+
             modelBuilder.Entity("FitIt.Core.Accounts.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -115,6 +156,151 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_refresh_tokens_user_id");
 
                     b.ToTable("refresh_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("FitIt.Core.Styling.Outfit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly?>("DailyOn")
+                        .HasColumnType("date")
+                        .HasColumnName("daily_on");
+
+                    b.Property<bool>("IsSaved")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_saved");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("model");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Occasion")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("occasion");
+
+                    b.Property<string>("OccasionNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("occasion_note");
+
+                    b.Property<string>("PromptVersion")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("prompt_version");
+
+                    b.Property<DateTimeOffset?>("RatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rated_at");
+
+                    b.Property<string>("Rating")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("rating");
+
+                    b.Property<string>("Reasoning")
+                        .IsRequired()
+                        .HasMaxLength(600)
+                        .HasColumnType("character varying(600)")
+                        .HasColumnName("reasoning");
+
+                    b.PrimitiveCollection<string[]>("Relaxations")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("relaxations");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer")
+                        .HasColumnName("score");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("source");
+
+                    b.Property<bool>("Umbrella")
+                        .HasColumnType("boolean")
+                        .HasColumnName("umbrella");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("Weather")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("weather_snapshot");
+
+                    b.Property<string>("WeatherNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("weather_note");
+
+                    b.Property<DateOnly?>("WornOn")
+                        .HasColumnType("date")
+                        .HasColumnName("worn_on");
+
+                    b.HasKey("Id")
+                        .HasName("pk_outfits");
+
+                    b.HasIndex("RequestId")
+                        .HasDatabaseName("ix_outfits_request_id");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_outfits_user_id_created_at");
+
+                    b.ToTable("outfits", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_outfits_score", "score BETWEEN 0 AND 100");
+                        });
+                });
+
+            modelBuilder.Entity("FitIt.Core.Styling.OutfitItem", b =>
+                {
+                    b.Property<Guid>("OutfitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("outfit_id");
+
+                    b.Property<Guid>("ClothingItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clothing_item_id");
+
+                    b.Property<string>("Slot")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("slot");
+
+                    b.HasKey("OutfitId", "ClothingItemId")
+                        .HasName("pk_outfit_items");
+
+                    b.HasIndex("ClothingItemId")
+                        .HasDatabaseName("ix_outfit_items_clothing_item_id");
+
+                    b.ToTable("outfit_items", (string)null);
                 });
 
             modelBuilder.Entity("FitIt.Core.Usage.AiUsageEntry", b =>
@@ -191,6 +377,109 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasName("pk_usage_counters");
 
                     b.ToTable("usage_counters", (string)null);
+                });
+
+            modelBuilder.Entity("FitIt.Core.Visualizations.Visualization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<Guid>("AvatarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("avatar_id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<decimal>("CostUsd")
+                        .HasPrecision(12, 6)
+                        .HasColumnType("numeric(12,6)")
+                        .HasColumnName("cost_usd");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("error_code");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<string>("ImageKey")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("image_key");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("model");
+
+                    b.Property<Guid>("OutfitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("outfit_id");
+
+                    b.Property<string>("PromptVersion")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("prompt_version");
+
+                    b.Property<string>("ProviderRequestId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("provider_request_id");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<DateOnly>("UsageDay")
+                        .HasColumnType("date")
+                        .HasColumnName("usage_day");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_visualizations");
+
+                    b.HasIndex("AvatarId")
+                        .HasDatabaseName("ix_visualizations_avatar_id");
+
+                    b.HasIndex("OutfitId", "CreatedAt")
+                        .HasDatabaseName("ix_visualizations_outfit_id_created_at");
+
+                    b.HasIndex("Status", "UpdatedAt")
+                        .HasDatabaseName("ix_visualizations_status_updated_at");
+
+                    b.HasIndex("UserId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_visualizations_user_id_idempotency_key");
+
+                    b.ToTable("visualizations", (string)null);
                 });
 
             modelBuilder.Entity("FitIt.Core.Wardrobe.ClothingItem", b =>
@@ -277,6 +566,16 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("reject_reason");
 
+                    b.PrimitiveCollection<string[]>("Seasons")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("seasons");
+
+                    b.Property<string>("StarterCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("starter_code");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -322,6 +621,11 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "CreatedAt")
                         .HasDatabaseName("ix_clothing_items_user_id_created_at");
 
+                    b.HasIndex("UserId", "StarterCode")
+                        .IsUnique()
+                        .HasDatabaseName("ix_clothing_items_user_id_starter_code")
+                        .HasFilter("starter_code IS NOT NULL");
+
                     b.ToTable("clothing_items", null, t =>
                         {
                             t.HasCheckConstraint("ck_clothing_items_formality", "formality BETWEEN 1 AND 5");
@@ -352,6 +656,15 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("BirthDate")
                         .HasColumnType("date")
                         .HasColumnName("birth_date");
+
+                    b.Property<string>("ClothingSize")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("clothing_size");
+
+                    b.Property<string>("ColorAnalysis")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("color_analysis");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
@@ -387,6 +700,11 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasColumnType("double precision")
                         .HasColumnName("lat");
 
+                    b.Property<string>("LegLength")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("leg_length");
+
                     b.Property<string>("LocationName")
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
@@ -418,6 +736,14 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
                         .HasColumnName("normalized_user_name");
+
+                    b.Property<DateTimeOffset?>("OnboardingDoneAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("onboarding_done_at");
+
+                    b.Property<int>("OnboardingStep")
+                        .HasColumnType("integer")
+                        .HasColumnName("onboarding_step");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text")
@@ -552,6 +878,16 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                     b.ToTable("user_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("FitIt.Core.Accounts.PasswordResetCode", b =>
+                {
+                    b.HasOne("FitIt.Infrastructure.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_password_reset_codes_users_user_id");
+                });
+
             modelBuilder.Entity("FitIt.Core.Accounts.RefreshToken", b =>
                 {
                     b.HasOne("FitIt.Infrastructure.Identity.AppUser", null)
@@ -560,6 +896,33 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_refresh_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("FitIt.Core.Styling.Outfit", b =>
+                {
+                    b.HasOne("FitIt.Infrastructure.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_outfits_users_user_id");
+                });
+
+            modelBuilder.Entity("FitIt.Core.Styling.OutfitItem", b =>
+                {
+                    b.HasOne("FitIt.Core.Wardrobe.ClothingItem", null)
+                        .WithMany()
+                        .HasForeignKey("ClothingItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_outfit_items_clothing_items_clothing_item_id");
+
+                    b.HasOne("FitIt.Core.Styling.Outfit", null)
+                        .WithMany("Items")
+                        .HasForeignKey("OutfitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_outfit_items_outfits_outfit_id");
                 });
 
             modelBuilder.Entity("FitIt.Core.Usage.AiUsageEntry", b =>
@@ -579,6 +942,30 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_usage_counters_users_user_id");
+                });
+
+            modelBuilder.Entity("FitIt.Core.Visualizations.Visualization", b =>
+                {
+                    b.HasOne("FitIt.Core.Accounts.Avatar", null)
+                        .WithMany()
+                        .HasForeignKey("AvatarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_visualizations_avatars_avatar_id");
+
+                    b.HasOne("FitIt.Core.Styling.Outfit", null)
+                        .WithMany()
+                        .HasForeignKey("OutfitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_visualizations_outfits_outfit_id");
+
+                    b.HasOne("FitIt.Infrastructure.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_visualizations_users_user_id");
                 });
 
             modelBuilder.Entity("FitIt.Core.Wardrobe.ClothingItem", b =>
@@ -631,6 +1018,11 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("FitIt.Core.Styling.Outfit", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

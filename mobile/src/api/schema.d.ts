@@ -100,6 +100,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/starter-pieces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listStarterPieces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/starter-pieces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMyStarterPieces"];
+        put?: never;
+        post: operations["addStarterPieces"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/weather/today": {
         parameters: {
             query?: never;
@@ -126,6 +158,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["suggestOutfits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outfits/suggestions/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["getTodaysOutfits"];
         delete?: never;
         options?: never;
         head?: never;
@@ -372,6 +420,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/color-analysis/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createSelfieUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/color-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getColorAnalysis"];
+        put?: never;
+        post: operations["analyzeColors"];
+        delete: operations["deleteColorAnalysis"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/outfits": {
         parameters: {
             query?: never;
@@ -381,7 +461,23 @@ export interface paths {
         };
         get: operations["listOutfits"];
         put?: never;
-        post?: never;
+        post: operations["createOutfit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outfits/tips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["getOutfitTips"];
         delete?: never;
         options?: never;
         head?: never;
@@ -411,6 +507,13 @@ export interface components {
         AddClothingRequest: {
             key: string;
         };
+        AddStarterPiecesRequest: {
+            codes: string[];
+        };
+        AnalyzeColorsRequest: {
+            key?: null | string;
+            answers?: null | components["schemas"]["ColorAnswersRequest"];
+        };
         AuthResponse: {
             accessToken: string;
             refreshToken: string;
@@ -426,6 +529,7 @@ export interface components {
             label: string;
             imageUrl: string;
             thumbUrl: string;
+            figureUrl: string;
         };
         /** @enum {unknown} */
         Category: "top" | "mid_layer" | "bottom" | "one_piece" | "outerwear" | "shoes" | "accessory";
@@ -445,6 +549,7 @@ export interface components {
             status: components["schemas"]["ClothingStatus"];
             name: null | string;
             category: null | components["schemas"]["Category"];
+            group: null | components["schemas"]["GarmentGroup"];
             subcategory: null | components["schemas"]["Subcategory"];
             colors: components["schemas"]["Color"][];
             pattern: null | components["schemas"]["Pattern"];
@@ -455,6 +560,7 @@ export interface components {
             warmth: null | number;
             rainOk: null | boolean;
             styles: components["schemas"]["StyleTag"][];
+            seasons: components["schemas"]["Season"][];
             inLaundry: boolean;
             rarelyWorn: boolean;
             isForgotten: boolean;
@@ -469,23 +575,62 @@ export interface components {
             createdAt: string;
         };
         /** @enum {unknown} */
+        ClothingSize: "xs" | "s" | "m" | "l" | "xl" | "xxl" | null;
+        /** @enum {unknown} */
         ClothingStatus: "processing" | "ready" | "failed" | "rejected";
         /** @enum {unknown} */
         Color: "white" | "cream" | "beige" | "grey" | "black" | "navy" | "brown" | "blue" | "light_blue" | "green" | "olive" | "red" | "burgundy" | "pink" | "purple" | "yellow" | "orange";
+        ColorAnalysisResponse: {
+            season: components["schemas"]["ColorSeason"];
+            name: string;
+            summary: string;
+            source: components["schemas"]["ColorAnalysisSource"];
+            best: components["schemas"]["ColorSwatchResponse"][];
+            soften: components["schemas"]["ColorSwatchResponse"][];
+            /** Format: date-time */
+            analyzedAt: string;
+        };
+        /** @enum {unknown} */
+        ColorAnalysisSource: "photo" | "quiz";
+        ColorAnswersRequest: {
+            /** Format: int32 */
+            skinTone: null | number;
+            undertone: null | components["schemas"]["SkinUndertone"];
+            hair: null | components["schemas"]["HairColor"];
+            eyes: null | components["schemas"]["EyeColor"];
+        };
         ColorEntry: {
             code: components["schemas"]["Color"];
             label: string;
             neutral: boolean;
+            hex: string;
+        };
+        /** @enum {unknown} */
+        ColorSeason: "light_spring" | "warm_spring" | "bright_spring" | "light_summer" | "cool_summer" | "soft_summer" | "soft_autumn" | "warm_autumn" | "deep_autumn" | "deep_winter" | "cool_winter" | "bright_winter";
+        ColorSwatchResponse: {
+            name: string;
+            hex: string;
+            wardrobeColor: null | components["schemas"]["Color"];
+        };
+        CreateOutfitRequest: {
+            items: null | string[];
+            occasion?: null | components["schemas"]["Occasion"];
+            name?: null | string;
+            saved?: null | boolean;
+            /** Format: uuid */
+            draftId?: null | string;
         };
         DeleteAccountRequest: {
             password: string;
         };
         DictionariesResponse: {
             categories: components["schemas"]["CategoryEntry"][];
+            groups: components["schemas"]["GroupEntry"][];
             colors: components["schemas"]["ColorEntry"][];
             patterns: components["schemas"]["PatternEntry"][];
             materials: components["schemas"]["MaterialEntry"][];
             styles: components["schemas"]["StyleEntry"][];
+            seasons: components["schemas"]["SeasonEntry"][];
             formality: components["schemas"]["ScaleEntry"][];
             warmth: components["schemas"]["ScaleEntry"][];
         };
@@ -496,7 +641,18 @@ export interface components {
             available: boolean;
         };
         /** @enum {unknown} */
-        Gender: "female" | "male";
+        EyeColor: "light_blue" | "gray" | "green" | "hazel" | "amber" | "dark_brown" | "near_black" | null;
+        /** @enum {unknown} */
+        GarmentGroup: "t_shirts_and_tops" | "shirts_and_blouses" | "sweaters_and_hoodies" | "jackets_and_coats" | "jeans" | "pants" | "skirts" | "dresses_and_jumpsuits" | "suits_and_blazers" | "tracksuits_and_sweats" | "shoes" | "bags" | "accessories";
+        /** @enum {unknown} */
+        Gender: "female" | "male" | "non_binary" | "unspecified";
+        GroupEntry: {
+            code: components["schemas"]["GarmentGroup"];
+            label: string;
+            types: components["schemas"]["TypeEntry"][];
+        };
+        /** @enum {unknown} */
+        HairColor: "platinum_blond" | "golden_blond" | "red" | "auburn" | "light_brown" | "dark_brown" | "black" | "gray" | "dyed" | null;
         HealthResponse: {
             status: string;
         };
@@ -511,6 +667,8 @@ export interface components {
                 [key: string]: string[];
             };
         };
+        /** @enum {unknown} */
+        LegLength: "shorter" | "average" | "longer" | null;
         LocationRequest: {
             source: null | components["schemas"]["LocationSource"];
             name: string;
@@ -539,8 +697,21 @@ export interface components {
             code: components["schemas"]["Material"];
             label: string;
         };
+        MyStarterPieceResponse: {
+            code: string;
+            name: string;
+            category: components["schemas"]["Category"];
+            type: components["schemas"]["Subcategory"];
+            colors: components["schemas"]["Color"][];
+            imageUrl: string;
+            added: boolean;
+        };
         /** @enum {unknown} */
         Occasion: "everyday" | "work" | "business" | "date" | "friends" | "workout";
+        OutfitImprovementResponse: {
+            code: string;
+            text: string;
+        };
         OutfitItemResponse: {
             slot: components["schemas"]["Category"];
             clothing: components["schemas"]["ClothingResponse"];
@@ -556,6 +727,7 @@ export interface components {
             requestId: string;
             occasion: components["schemas"]["Occasion"];
             occasionNote: null | string;
+            name: null | string;
             kind: null | components["schemas"]["OutfitKind"];
             /** Format: int32 */
             score: number;
@@ -568,14 +740,24 @@ export interface components {
             isSaved: boolean;
             /** Format: date */
             wornOn: null | string;
-            weather: components["schemas"]["OutfitWeatherResponse"];
+            weather: null | components["schemas"]["OutfitWeatherResponse"];
             items: components["schemas"]["OutfitItemResponse"][];
             visualization: null | components["schemas"]["OutfitVisualizationResponse"];
             /** Format: date-time */
             createdAt: string;
         };
         /** @enum {unknown} */
-        OutfitSource: "model" | "rules";
+        OutfitSource: "model" | "rules" | "manual";
+        OutfitTipsRequest: {
+            items: null | string[];
+            occasion?: null | components["schemas"]["Occasion"];
+        };
+        OutfitTipsResponse: {
+            positives: string[];
+            improvements: components["schemas"]["OutfitImprovementResponse"][];
+            /** Format: int32 */
+            score: number;
+        };
         OutfitVisualizationResponse: {
             /** Format: uuid */
             id: string;
@@ -646,6 +828,8 @@ export interface components {
             avatarId: null | string;
             styles?: null | components["schemas"]["StyleTag"][];
             thermalPreference?: null | components["schemas"]["ThermalPreference"];
+            clothingSize?: null | components["schemas"]["ClothingSize"];
+            legLength?: null | components["schemas"]["LegLength"];
             location?: null | components["schemas"]["LocationRequest"];
         };
         /** @enum {unknown} */
@@ -662,15 +846,39 @@ export interface components {
             label: string;
         };
         /** @enum {unknown} */
-        Sky: "sun" | "cloud_sun" | "cloud" | "rain" | "snow";
-        StyleEntry: {
-            code: components["schemas"]["StyleTag"];
+        Season: "spring" | "summer" | "fall" | "winter";
+        SeasonEntry: {
+            code: components["schemas"]["Season"];
             label: string;
         };
         /** @enum {unknown} */
-        StyleTag: "casual" | "smart" | "elegant" | "sporty" | "streetwear";
+        SkinUndertone: "warm" | "cool" | "neutral" | null;
         /** @enum {unknown} */
-        Subcategory: "t_shirt" | "shirt" | "blouse" | "polo" | "tank_top" | "longsleeve" | "turtleneck" | "sweater" | "sweatshirt" | "hoodie" | "cardigan" | "blazer" | "vest" | "jeans" | "trousers" | "chinos" | "shorts" | "skirt" | "leggings" | "sweatpants" | "dress" | "jumpsuit" | "coat" | "jacket" | "down_jacket" | "trench_coat" | "raincoat" | "parka" | "bomber_jacket" | "denim_jacket" | "leather_jacket" | "sneakers" | "boots" | "winter_boots" | "loafers" | "dress_shoes" | "heels" | "flats" | "sandals" | "flip_flops" | "sports_shoes" | "rain_boots" | "scarf" | "hat" | "cap" | "gloves" | "belt" | "bag" | "backpack" | "tie" | "sunglasses";
+        Sky: "sun" | "cloud_sun" | "cloud" | "rain" | "snow";
+        StarterAdditionResponse: {
+            /** Format: int32 */
+            added: number;
+            /** Format: int32 */
+            alreadyThere: number;
+        };
+        StarterPieceResponse: {
+            code: string;
+            name: string;
+            category: components["schemas"]["Category"];
+            type: components["schemas"]["Subcategory"];
+            colors: components["schemas"]["Color"][];
+            imageUrl: string;
+        };
+        StyleEntry: {
+            code: components["schemas"]["StyleTag"];
+            label: string;
+            womanImageUrl: string;
+            manImageUrl: string;
+        };
+        /** @enum {unknown} */
+        StyleTag: "casual" | "smart" | "elegant" | "sporty" | "streetwear" | "minimalist" | "old_money" | "preppy" | "vintage" | "y2k" | "boho" | "grunge" | "gorpcore" | "business" | "romantic" | "edgy";
+        /** @enum {unknown} */
+        Subcategory: "t_shirt" | "shirt" | "blouse" | "polo" | "tank_top" | "longsleeve" | "turtleneck" | "sweater" | "sweatshirt" | "hoodie" | "cardigan" | "blazer" | "suit_jacket" | "vest" | "track_jacket" | "jeans" | "trousers" | "chinos" | "shorts" | "skirt" | "leggings" | "sweatpants" | "dress" | "jumpsuit" | "tracksuit" | "coat" | "jacket" | "down_jacket" | "trench_coat" | "raincoat" | "parka" | "bomber_jacket" | "denim_jacket" | "leather_jacket" | "sneakers" | "boots" | "winter_boots" | "loafers" | "dress_shoes" | "heels" | "flats" | "sandals" | "flip_flops" | "sports_shoes" | "rain_boots" | "scarf" | "hat" | "cap" | "gloves" | "belt" | "bag" | "backpack" | "tie" | "sunglasses";
         SuggestionsResponse: {
             status: components["schemas"]["SuggestionStatus"];
             missing: components["schemas"]["Category"][];
@@ -694,6 +902,10 @@ export interface components {
         TemperatureBand: "hot" | "warm" | "mild" | "cold" | "freezing";
         /** @enum {unknown} */
         ThermalPreference: "runs_cold" | "normal" | "runs_warm";
+        TodaysOutfitsRequest: {
+            occasion: null | components["schemas"]["Occasion"];
+            fresh?: boolean;
+        };
         TokenResponse: {
             accessToken: string;
             refreshToken: string;
@@ -717,6 +929,7 @@ export interface components {
             warmth?: null | number;
             rainOk?: null | boolean;
             styles?: null | components["schemas"]["StyleTag"][];
+            seasons?: null | components["schemas"]["Season"][];
             inLaundry?: null | boolean;
             rarelyWorn?: null | boolean;
         };
@@ -734,9 +947,16 @@ export interface components {
             avatarId?: null | string;
             styles?: null | components["schemas"]["StyleTag"][];
             thermalPreference?: null | components["schemas"]["ThermalPreference"];
+            clothingSize?: null | components["schemas"]["ClothingSize"];
+            legLength?: null | components["schemas"]["LegLength"];
+            clearClothingSize?: null | boolean;
+            clearLegLength?: null | boolean;
             location?: null | components["schemas"]["LocationRequest"];
             clearLocation?: null | boolean;
             aiConsent?: null | boolean;
+            /** Format: int32 */
+            onboardingStep?: null | number;
+            onboardingDone?: null | boolean;
         };
         UploadResponse: {
             key: string;
@@ -774,9 +994,16 @@ export interface components {
             avatar: components["schemas"]["AvatarResponse"];
             styles: components["schemas"]["StyleTag"][];
             thermalPreference: components["schemas"]["ThermalPreference"];
+            clothingSize: null | components["schemas"]["ClothingSize"];
+            legLength: null | components["schemas"]["LegLength"];
             location: null | components["schemas"]["LocationResponse"];
             /** Format: date-time */
             aiConsentAt: null | string;
+            colorAnalysis: null | components["schemas"]["ColorAnalysisResponse"];
+            /** Format: int32 */
+            onboardingStep: number;
+            /** Format: date-time */
+            onboardingDoneAt: null | string;
             /** Format: date-time */
             createdAt: string;
         };
@@ -808,6 +1035,13 @@ export interface components {
             /** Format: int32 */
             needsTags: number;
         };
+        WeatherHourResponse: {
+            /** Format: date-time */
+            time: string;
+            /** Format: int32 */
+            feels: number;
+            sky: components["schemas"]["Sky"];
+        };
         WeatherResponse: {
             place: string;
             forTomorrow: boolean;
@@ -831,6 +1065,7 @@ export interface components {
             rainFrom: null | string;
             needsLayers: boolean;
             band: components["schemas"]["TemperatureBand"];
+            hours: components["schemas"]["WeatherHourResponse"][];
         };
     };
     responses: never;
@@ -1037,6 +1272,97 @@ export interface operations {
             };
         };
     };
+    listStarterPieces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StarterPieceResponse"][];
+                };
+            };
+        };
+    };
+    listMyStarterPieces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyStarterPieceResponse"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    addStarterPieces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddStarterPiecesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StarterAdditionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     getWeatherToday: {
         parameters: {
             query?: never;
@@ -1094,6 +1420,75 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SuggestOutfitsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getTodaysOutfits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodaysOutfitsRequest"];
             };
         };
         responses: {
@@ -1742,6 +2137,12 @@ export interface operations {
             query?: {
                 q?: string;
                 category?: string;
+                group?: string;
+                types?: string;
+                colors?: string;
+                seasons?: string;
+                materials?: string;
+                usage?: string;
                 forgotten?: boolean;
                 ids?: string;
             };
@@ -2067,6 +2468,187 @@ export interface operations {
             };
         };
     };
+    createSelfieUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getColorAnalysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ColorAnalysisResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    analyzeColors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyzeColorsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ColorAnalysisResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deleteColorAnalysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     listOutfits: {
         parameters: {
             query?: {
@@ -2089,6 +2671,99 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createOutfit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOutfitRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutfitResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getOutfitTips: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutfitTipsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutfitTipsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

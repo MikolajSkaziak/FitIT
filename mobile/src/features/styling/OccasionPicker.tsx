@@ -17,21 +17,21 @@ interface OccasionPickerProps {
   onNote: (note: string) => void;
 }
 
-/** "Okazja": six tiles, one chosen, and an optional note in the person's own words. Shared by Dziś and "Dobierz do tego". */
+/** "Occasion": six tiles, one chosen, and an optional note in the person's own words. Shared by Today and "Style this". */
 export function OccasionPicker({ occasion, onOccasion, note, onNote }: OccasionPickerProps) {
   return (
     <View style={styles.picker}>
       <View style={styles.group}>
         <AppText variant="subheading" accessibilityRole="header">
-          Okazja
+          What’s the occasion?
         </AppText>
-        <ChoiceGrid label="Okazja" options={occasionOptions} value={occasion} onChange={onOccasion} testID="occasion" />
+        <ChoiceGrid label="Occasion" options={occasionOptions} value={occasion} onChange={onOccasion} testID="occasion" />
       </View>
       <Field
-        label="Notatka (opcjonalnie)"
+        label="Note (optional)"
         value={note}
         onChangeText={onNote}
-        placeholder="np. prezentacja przed klientem"
+        placeholder="Anything we should know?"
         maxLength={noteMaxLength}
         returnKeyType="done"
         testID="occasion-note"

@@ -19,21 +19,39 @@ const daysInMonth = (year: number, month: number): number => {
 const exists = ({ day, month, year }: CalendarDate): boolean =>
   year >= 1 && month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(year, month);
 
-/** Reads "14.03.1999" (also with "-" or "/"). Returns null for anything that is not a real day. */
-export function parseDate(text: string): CalendarDate | null {
-  const match = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/.exec(text.trim());
-  if (!match) {
+const pad = (value: number, width = 2): string => String(value).padStart(width, '0');
+
+/**
+ * A birth date as it is entered: the month is chosen by name, the day and the year are typed. There is no
+ * "05.06.2004" to misread, because nobody ever writes the month and the day next to each other as digits.
+ */
+export interface DateParts {
+  /** 1 to 12, or null while no month is chosen. */
+  month: number | null;
+  day: string;
+  year: string;
+}
+
+export const emptyDateParts: DateParts = { month: null, day: '', year: '' };
+
+/** Nothing entered in any of the three parts. */
+export const isBlankDate = ({ month, day, year }: DateParts): boolean => month === null && day === '' && year === '';
+
+/** The parts a calendar date is shown in, for a field that starts with a known date. */
+export const toDateParts = ({ day, month, year }: CalendarDate): DateParts => ({ month, day: String(day), year: pad(year, 4) });
+
+/** What a person typed into the day or the year box: digits only, no more than `length` of them. */
+export const digitsUpTo = (text: string, length: number): string => text.replace(/\D/g, '').slice(0, length);
+
+/** The date the three parts name, or null when one is missing or there is no such day (31 February). */
+export function readDateParts({ month, day, year }: DateParts): CalendarDate | null {
+  if (month === null || !/^\d{1,2}$/.test(day) || !/^\d{4}$/.test(year)) {
     return null;
   }
 
-  const date = { day: Number(match[1]), month: Number(match[2]), year: Number(match[3]) };
+  const date = { day: Number(day), month, year: Number(year) };
   return exists(date) ? date : null;
 }
-
-const pad = (value: number, width = 2): string => String(value).padStart(width, '0');
-
-/** "14.03.1999", the way dates are written in Poland. */
-export const formatDate = ({ day, month, year }: CalendarDate): string => `${pad(day)}.${pad(month)}.${pad(year, 4)}`;
 
 /** "1999-03-14", the way the API takes and returns dates. */
 export const toIso = ({ day, month, year }: CalendarDate): string => `${pad(year, 4)}-${pad(month)}-${pad(day)}`;
@@ -48,15 +66,9 @@ export function fromIso(iso: string): CalendarDate | null {
   return exists(date) ? date : null;
 }
 
-/** Turns typed digits into "DD.MM.RRRR" as they arrive, so nobody has to find the dot on a number pad. */
-export function maskDate(text: string): string {
-  const digits = text.replace(/\D/g, '').slice(0, 8);
-  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter((part) => part.length > 0).join('.');
-}
-
 export const fromJsDate = (date: Date): CalendarDate => ({ day: date.getDate(), month: date.getMonth() + 1, year: date.getFullYear() });
 
-/** Noon, so that the system date picker shows the same day in every time zone. */
+/** Noon, so that a calendar date reads as the same day in every time zone. */
 export const toJsDate = ({ day, month, year }: CalendarDate): Date => new Date(year, month - 1, day, 12);
 
 export const today = (now: Date = new Date()): CalendarDate => fromJsDate(now);
@@ -71,32 +83,32 @@ export function addYears(date: CalendarDate, years: number): CalendarDate {
   return { year, month: date.month, day: Math.min(date.day, daysInMonth(year, date.month)) };
 }
 
-const weekdays = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'] as const;
-const months = [
-  'stycznia',
-  'lutego',
-  'marca',
-  'kwietnia',
-  'maja',
-  'czerwca',
-  'lipca',
-  'sierpnia',
-  'września',
-  'października',
-  'listopada',
-  'grudnia',
+const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+export const months = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ] as const;
 
-/** "5 października 2026". */
-export const formatLongDate = ({ day, month, year }: CalendarDate): string => `${day} ${months[month - 1]} ${year}`;
+/** "October 5, 2026": the month is always a word, so no reader has to guess which number is the month. */
+export const formatLongDate = ({ day, month, year }: CalendarDate): string => `${months[month - 1]} ${day}, ${year}`;
 
-/** "poniedziałek, 5 października". */
-export const formatWeekday = (date: Date): string => `${weekdays[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
+/** "Monday, October 5". */
+export const formatWeekday = (date: Date): string => `${weekdays[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
 
-/** "2 października", with the year added when it is not this one: for "added on" lines. */
+/** "October 2", with the year added when it is not this one: for "added on" lines. */
 export function formatDay(date: Date, now: Date = new Date()): string {
-  const day = `${date.getDate()} ${months[date.getMonth()]}`;
-  return date.getFullYear() === now.getFullYear() ? day : `${day} ${date.getFullYear()}`;
+  const day = `${months[date.getMonth()]} ${date.getDate()}`;
+  return date.getFullYear() === now.getFullYear() ? day : `${day}, ${date.getFullYear()}`;
 }
 
 export interface WallClock {
@@ -119,11 +131,17 @@ export function wallClock(iso: string): WallClock | null {
   return exists(date) ? { date, hour: Number(match[4]), minute: Number(match[5]) } : null;
 }
 
-/** "5 października", for a calendar date; the year is added when it is not the current one. */
+/** "October 5", for a calendar date; the year is added when it is not the current one. */
 export function formatCalendarDay(date: CalendarDate, now: Date = new Date()): string {
-  const day = `${date.day} ${months[date.month - 1]}`;
-  return date.year === now.getFullYear() ? day : `${day} ${date.year}`;
+  const day = `${months[date.month - 1]} ${date.day}`;
+  return date.year === now.getFullYear() ? day : `${day}, ${date.year}`;
 }
 
-/** "poniedziałek, 5 października", for a calendar date. */
+/** "Monday, October 5", for a calendar date. */
 export const formatCalendarWeekday = (date: CalendarDate): string => formatWeekday(toJsDate(date));
+
+/** "3 pm", "3:30 pm", "12 am": the 12-hour clock of American English. */
+export function formatClock({ hour, minute }: Pick<WallClock, 'hour' | 'minute'>): string {
+  const hours = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hours}${minute === 0 ? '' : `:${pad(minute)}`} ${hour < 12 ? 'am' : 'pm'}`;
+}

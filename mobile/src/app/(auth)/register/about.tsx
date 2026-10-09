@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/Button';
-import { Segmented } from '@/components/controls';
+import { GenderChoice } from '@/components/choices';
 import { Field } from '@/components/Field';
 import { BirthDateField, Labeled } from '@/components/forms';
-import { genderOptions } from '@/copy/labels';
+import { flow } from '@/features/flow';
 import { useRegistrationDraft } from '@/features/registration/draft';
 import { checkBirthDate, limits, messages, nameError } from '@/features/registration/validation';
 import { WizardStep } from '@/features/registration/WizardStep';
@@ -30,14 +30,14 @@ export default function RegisterAbout() {
 
   return (
     <WizardStep
-      step={2}
-      title="Powiedz coś o sobie"
-      lead="Dzięki temu zwrócimy się do Ciebie po imieniu."
+      step={flow.about}
+      title="Tell us about yourself"
+      lead="We’ll use your name to greet you."
       testID="register-about"
-      footer={<Button label="Dalej" onPress={next} testID="register-next" />}>
+      footer={<Button label="Next" onPress={next} testID="register-next" />}>
       <View style={styles.form}>
         <Field
-          label="Imię"
+          label="Name"
           value={displayName}
           onChangeText={(text) => {
             setDraft({ displayName: text });
@@ -53,18 +53,16 @@ export default function RegisterAbout() {
         />
         <BirthDateField
           value={birthDate}
-          onChangeText={(text) => {
-            setDraft({ birthDate: text });
+          onChange={(parts) => {
+            setDraft({ birthDate: parts });
             setErrors((current) => ({ ...current, birthDate: null }));
           }}
           error={errors.birthDate}
-          helper="Potrzebna do potwierdzenia wieku. Nikomu jej nie pokazujemy."
+          helper="We only use it to check your age. No one else sees it."
           testID="register-birth-date"
         />
-        <Labeled label="Płeć" error={errors.gender} helper="Od niej zależy, które typy sylwetek pokażemy w następnym kroku.">
-          <Segmented
-            label="Płeć"
-            options={genderOptions}
+        <Labeled label="Gender" error={errors.gender} helper="This decides which body shapes we show you next. Non-binary and prefer not to say show all of them.">
+          <GenderChoice
             value={gender}
             onChange={(value) => {
               setDraft({ gender: value });

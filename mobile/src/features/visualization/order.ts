@@ -54,8 +54,11 @@ export const progressOf = (elapsedMs: number, expectedMs: number = defaults.expe
 
 export interface VisualizationOrder {
   store: StoreApi<OrderState>;
-  /** Orders the picture, or sends the order that was refused once again. */
-  start: () => void;
+  /**
+   * Orders the picture, or sends the order that was refused once again. An outfit that is not stored yet comes with
+   * `prepare`, which stores it and answers with the id to order the picture for.
+   */
+  start: (prepare?: () => Promise<string>) => void;
   /** Takes over an order the server already has: the one that came attached to the outfit. */
   adopt: (known: OutfitVisualization) => void;
   /** Stops asking. The server carries on, and the picture waits by the outfit. */
@@ -154,9 +157,9 @@ export function createVisualizationOrder(outfitId: string, deps: OrderDeps, opti
 
   return {
     store,
-    start: () => {
+    start: (prepare) => {
       const sending = (key ??= deps.newKey());
-      void run(() => deps.request(outfitId, sending));
+      void run(async () => deps.request(prepare ? await prepare() : outfitId, sending));
     },
     adopt: (known) => {
       if (known.status === 'completed' && known.imageUrl) {
