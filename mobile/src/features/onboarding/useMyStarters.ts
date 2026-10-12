@@ -2,11 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { addStarterPieces, fetchMyStarterPieces, wardrobeKeys } from '@/api/wardrobe';
+import { useSession } from '@/auth/session';
 
-/** The common pieces this person has not added yet. Empty while loading, after a failure, and once everything is added. */
+import { piecesFor } from './audience';
+
+/** The common pieces this person has not added yet and that suit the gender in their profile. Empty while loading, after a failure, and once everything is added. */
 export function useMyStarters() {
   const query = useQuery({ queryKey: wardrobeKeys.starterMine, queryFn: fetchMyStarterPieces });
-  const remaining = useMemo(() => (query.data ?? []).filter((piece) => !piece.added), [query.data]);
+  const gender = useSession((session) => session.user?.gender);
+  const remaining = useMemo(() => piecesFor((query.data ?? []).filter((piece) => !piece.added), gender), [query.data, gender]);
   return { query, remaining };
 }
 

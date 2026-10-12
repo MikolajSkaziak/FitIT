@@ -15,6 +15,13 @@ public static partial class ObjectKeys
 
     public static string NewOriginal(Guid userId) => string.Create(CultureInfo.InvariantCulture, $"{PrefixOf(userId)}orig/{Guid.CreateVersion7():N}.jpg");
 
+    /// <summary>One more photo of a garment, kept as the phone sent it (see <see cref="ClothingPhoto"/>).</summary>
+    public static string NewExtra(Guid userId) => string.Create(CultureInfo.InvariantCulture, $"{PrefixOf(userId)}extra/{Guid.CreateVersion7():N}.jpg");
+
+    /// <summary>True when the key is one this user could have been given by <see cref="NewExtra"/>.</summary>
+    public static bool IsExtraOf(Guid userId, string? key) =>
+        key is not null && key.StartsWith(PrefixOf(userId) + "extra/", StringComparison.Ordinal) && ExtraShape().IsMatch(key);
+
     /// <summary>
     /// A garment's picture without background, cropped to the garment (see <c>CutoutTrimmer</c>). The <c>-tight</c> in the name
     /// tells such a picture from the padded ones stored before cropping existed, and gives a repaired picture a new name,
@@ -57,4 +64,7 @@ public static partial class ObjectKeys
 
     [GeneratedRegex(@"^u/[0-9a-f]{32}/orig/[0-9a-f]{32}\.jpg$", RegexOptions.CultureInvariant)]
     private static partial Regex OriginalShape();
+
+    [GeneratedRegex(@"^u/[0-9a-f]{32}/extra/[0-9a-f]{32}\.jpg$", RegexOptions.CultureInvariant)]
+    private static partial Regex ExtraShape();
 }

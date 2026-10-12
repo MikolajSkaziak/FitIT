@@ -5,6 +5,7 @@ using FitIt.Api.Contracts;
 using FitIt.Core.Usage;
 using FitIt.Core.Wardrobe;
 using FitIt.Infrastructure.Accounts;
+using FitIt.Tests.Styling;
 using FitIt.Tests.Support;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -134,7 +135,8 @@ public sealed class AccountDeletionTests(ApiFactory factory)
         Assert.Empty(await (await client.GetAsync("/api/clothes")).ReadAsync<List<ClothingResponse>>());
         Assert.Empty(await (await client.GetAsync("/api/outfits")).ReadAsync<List<OutfitResponse>>());
         Assert.Equal(0, (await (await client.GetAsync("/api/me/usage")).ReadAsync<UsageResponse>()).Items.Used);
-        Assert.NotNull(again.User.AiConsentAt);
+        // The consent went with the old account; the new one has to give its own.
+        Assert.Null(again.User.AiConsentAt);
         // Nothing of the old account answers to the old garments' ids.
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/clothes/{person.Garment}")).StatusCode);
     }
@@ -186,11 +188,16 @@ public sealed class AccountDeletionTests(ApiFactory factory)
         factory.Visualizer.Reset();
         var outfit = (await client.SuggestedAsync()).Outfits[0];
         await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", new JsonObject { ["rating"] = "like", ["worn"] = true, ["saved"] = true });
+        // On the calendar twice: worn today, planned for the day after tomorrow.
+        await client.PlannedAsync(factory.DayIn().AddDays(2), outfit.Id);
+        Assert.Equal(2, await factory.WithDatabaseAsync(db => db.CalendarEntries.CountAsync(row => row.UserId == auth.User.Id)));
         var order = await (await Order(client, outfit.Id)).ReadAsync<VisualizationResponse>();
         await factory.RunVisualizationAsync(order.Id);
         await factory.CreateClient().PostJsonAsync("/api/auth/password-reset/request", new JsonObject { ["email"] = auth.User.Email });
+        await client.AddExtraPhotoAsync(factory.Storage, wardrobe[0].Id);
         var keys = factory.Storage.Keys.Where(key => key.StartsWith(ObjectKeys.PrefixOf(auth.User.Id), StringComparison.Ordinal)).ToList();
-        // Cutouts, originals, the silhouette copy and the picture.
+        // Cutouts, originals, an extra photo of a garment, the silhouette copy and the picture.
+        Assert.Contains(keys, key => key.Contains("/extra/", StringComparison.Ordinal));
         Assert.Contains(keys, key => key.Contains("/orig/", StringComparison.Ordinal));
         Assert.Contains(keys, key => key.Contains("/cut/", StringComparison.Ordinal));
         Assert.Contains(keys, key => key.Contains("/sil/", StringComparison.Ordinal));
@@ -215,8 +222,10 @@ public sealed class AccountDeletionTests(ApiFactory factory)
         var rows = await db.Users.CountAsync(row => row.Id == userId)
             + await db.RefreshTokens.CountAsync(row => row.UserId == userId)
             + await db.Clothes.CountAsync(row => row.UserId == userId)
+            + await db.ClothingPhotos.CountAsync(row => db.Clothes.Any(item => item.Id == row.ClothingItemId && item.UserId == userId))
             + await db.Outfits.CountAsync(row => row.UserId == userId)
             + await db.OutfitItems.CountAsync(row => db.Outfits.Any(outfit => outfit.Id == row.OutfitId && outfit.UserId == userId))
+            + await db.CalendarEntries.CountAsync(row => row.UserId == userId)
             + await db.Visualizations.CountAsync(row => row.UserId == userId)
             + await db.UsageCounters.CountAsync(row => row.UserId == userId)
             + await db.PasswordResetCodes.CountAsync(row => row.UserId == userId)

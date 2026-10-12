@@ -96,8 +96,8 @@ public sealed class RegistrationTests(ApiFactory factory)
         Assert.Equal(TestApi.FemaleAvatar, auth.User.Avatar.Id);
         Assert.Equal([StyleTag.Casual, StyleTag.Smart], auth.User.Styles);
         Assert.Equal(ThermalPreference.Normal, auth.User.ThermalPreference);
-        // Creating the account is the agreement to AI processing; the flow after it starts from the first step.
-        Assert.NotNull(auth.User.AiConsentAt);
+        // Creating the account is not the agreement to AI processing: the app asks for it in context, right before the first photo.
+        Assert.Null(auth.User.AiConsentAt);
         Assert.Equal(0, auth.User.OnboardingStep);
         Assert.Null(auth.User.OnboardingDoneAt);
         Assert.Null(auth.User.ColorAnalysis);
@@ -150,10 +150,47 @@ public sealed class RegistrationTests(ApiFactory factory)
         Assert.Equal((null, null), (without.User.ClothingSize, without.User.LegLength));
     }
 
+    [Fact]
+    public async Task Registration_without_gender_and_silhouette_creates_the_account_with_a_stand_in_until_the_first_step_sets_them()
+    {
+        var auth = await _client.RegisterAsync(change: body =>
+        {
+            body.Remove("gender");
+            body.Remove("avatarId");
+            body.Remove("clothingSize");
+            body.Remove("legLength");
+        });
+
+        Assert.Equal(Gender.Unspecified, auth.User.Gender);
+        Assert.Contains(auth.User.Avatar.Id, AvatarCatalog.All.Select(a => a.Id));
+        Assert.Equal((null, null), (auth.User.ClothingSize, auth.User.LegLength));
+        Assert.Equal((0, null), (auth.User.OnboardingStep, auth.User.OnboardingDoneAt));
+
+        // The first step after sign-up sets both through the profile, with the same rules as before.
+        var client = factory.Authorized(auth.AccessToken);
+        var mismatch = await client.PatchJsonAsync("/api/me", new JsonObject { ["gender"] = "female", ["avatarId"] = TestApi.MaleAvatar.ToString() });
+        Assert.Equal("avatar_gender_mismatch", await mismatch.ProblemCodeAsync());
+        var chosen = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["gender"] = "male", ["avatarId"] = TestApi.MaleAvatar.ToString(), ["onboardingStep"] = 1 })).ReadAsync<UserResponse>();
+        Assert.Equal((Gender.Male, TestApi.MaleAvatar, 1), (chosen.Gender, chosen.Avatar.Id, chosen.OnboardingStep));
+    }
+
     [Theory]
-    [InlineData("avatarId")]
+    [InlineData("female")]
+    [InlineData("male")]
+    public async Task Registration_with_a_gender_alone_takes_a_stand_in_silhouette_of_that_set(string gender)
+    {
+        var auth = await _client.RegisterAsync(change: body =>
+        {
+            body["gender"] = gender;
+            body.Remove("avatarId");
+        });
+
+        Assert.Equal(auth.User.Gender, auth.User.Avatar.Gender);
+        Assert.Equal(gender == "male" ? Gender.Male : Gender.Female, auth.User.Gender);
+    }
+
+    [Theory]
     [InlineData("birthDate")]
-    [InlineData("gender")]
     [InlineData("displayName")]
     [InlineData("email")]
     [InlineData("password")]
@@ -246,8 +283,9 @@ public sealed class RegistrationTests(ApiFactory factory)
 
         var second = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["onboardingStep"] = 2 })).ReadAsync<UserResponse>();
         var back = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["onboardingStep"] = 1 })).ReadAsync<UserResponse>();
-        var tooFar = await client.PatchJsonAsync("/api/me", new JsonObject { ["onboardingStep"] = 3 });
-        Assert.Equal((2, 2), (second.OnboardingStep, back.OnboardingStep));
+        var last = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["onboardingStep"] = 3 })).ReadAsync<UserResponse>();
+        var tooFar = await client.PatchJsonAsync("/api/me", new JsonObject { ["onboardingStep"] = 4 });
+        Assert.Equal((2, 2, 3), (second.OnboardingStep, back.OnboardingStep, last.OnboardingStep));
         Assert.Equal(HttpStatusCode.BadRequest, tooFar.StatusCode);
         Assert.Null(back.OnboardingDoneAt);
 

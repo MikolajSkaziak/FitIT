@@ -1,5 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 
 import { LegalNote } from '@/features/registration/LegalNote';
 import { renderScreen } from '@/test/screen';
@@ -19,15 +19,15 @@ describe('the line under "Create account"', () => {
   it('says that creating the account is the agreement, with both documents as links', async () => {
     process.env.EXPO_PUBLIC_TERMS_URL = 'https://fitit.test/terms';
     process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL = 'https://fitit.test/privacy';
-    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const open = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.CANCEL });
     await renderScreen(<LegalNote />);
 
-    expect(screen.getByTestId('legal-note')).toHaveTextContent('By creating an account you agree to our Terms and Privacy Policy.');
+    expect(screen.getByTestId('legal-note')).toHaveTextContent('By creating an account you agree to the Terms and Privacy Policy.');
     await fireEvent.press(screen.getByTestId('legal-terms'));
     await fireEvent.press(screen.getByTestId('legal-privacy'));
 
-    expect(open).toHaveBeenNthCalledWith(1, 'https://fitit.test/terms');
-    expect(open).toHaveBeenNthCalledWith(2, 'https://fitit.test/privacy');
+    expect(open).toHaveBeenNthCalledWith(1, 'https://fitit.test/terms', expect.anything());
+    expect(open).toHaveBeenNthCalledWith(2, 'https://fitit.test/privacy', expect.anything());
   });
 
   it('shows a document that is not published yet as plain text rather than a dead link', async () => {
@@ -35,7 +35,7 @@ describe('the line under "Create account"', () => {
     delete process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL;
     await renderScreen(<LegalNote />);
 
-    expect(screen.getByTestId('legal-note')).toHaveTextContent('By creating an account you agree to our Terms and Privacy Policy.');
+    expect(screen.getByTestId('legal-note')).toHaveTextContent('By creating an account you agree to the Terms and Privacy Policy.');
     expect(screen.queryByTestId('legal-terms')).toBeNull();
     expect(screen.queryByTestId('legal-privacy')).toBeNull();
   });

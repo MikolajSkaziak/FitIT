@@ -140,12 +140,12 @@ public sealed class ClothingProcessor(
             // Not a garment we can dress anybody in: the row stays for a day to explain why, the pictures go now.
             item.MarkRejected(reason, clock.UtcNow);
             await db.SaveChangesAsync(cancellationToken);
-            await wardrobe.DeleteFilesAsync(item, cancellationToken);
+            await wardrobe.DeleteFilesAsync(item, await wardrobe.TakePhotosAsync(item.Id, cancellationToken), cancellationToken);
             return;
         }
 
         var tags = outcome.Tags!;
-        item.MarkReady(tags, string.IsNullOrWhiteSpace(outcome.Description) ? tags.Describe() : outcome.Description.Trim(), clock.UtcNow);
+        item.MarkReady(tags, string.IsNullOrWhiteSpace(outcome.Description) ? tags.Describe() : outcome.Description.Trim(), clock.UtcNow, describedByAi: true);
         await db.SaveChangesAsync(cancellationToken);
     }
 }

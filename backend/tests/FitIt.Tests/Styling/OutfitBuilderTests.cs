@@ -170,6 +170,79 @@ public sealed class OutfitBuilderTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task An_outfit_can_be_created_with_the_board_already_arranged()
+    {
+        var (client, auth, wardrobe) = await factory.DressedAsync(Warm, [Tee, Jeans, Sneakers, Belt]);
+        var chosen = wardrobe.Take(3).ToList();
+        JsonObject Placed(Guid id, double x) => new() { ["clothingId"] = id.ToString(), ["x"] = x, ["y"] = 0.4, ["scale"] = 0.35, ["z"] = 2 };
+
+        var body = Body(chosen);
+        body["layout"] = new JsonArray(Placed(chosen[0].Id, 0.3), Placed(chosen[2].Id, 0.8));
+        var created = await client.PostJsonAsync("/api/outfits", body);
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        OutfitPlacementResponse[] expected = [new(chosen[0].Id, 0.3, 0.4, 0.35, 2), new(chosen[2].Id, 0.8, 0.4, 0.35, 2)];
+        var outfit = await created.ReadAsync<OutfitResponse>();
+        Assert.Equal(expected, outfit.Layout);
+        Assert.Equal(expected, (await (await client.GetAsync($"/api/outfits/{outfit.Id}")).ReadAsync<OutfitResponse>()).Layout);
+
+        // Left out, the app lays the garments out itself.
+        Assert.Null((await (await Create(client, chosen)).ReadAsync<OutfitResponse>()).Layout);
+
+        // A garment that is not in the outfit (though it is the person's own), or one placed twice, is refused and nothing is stored.
+        foreach (var layout in new[] { new JsonArray(Placed(wardrobe[3].Id, 0.5)), new JsonArray(Placed(chosen[0].Id, 0.2), Placed(chosen[0].Id, 0.6)) })
+        {
+            var wrong = Body(chosen);
+            wrong["layout"] = layout;
+            var refused = await client.PostJsonAsync("/api/outfits", wrong);
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Equal("layout_invalid", await refused.ProblemCodeAsync());
+        }
+
+        var offBoard = Body(chosen);
+        offBoard["layout"] = new JsonArray(Placed(chosen[0].Id, 1.2));
+        Assert.Equal("validation_failed", await (await client.PostJsonAsync("/api/outfits", offBoard)).ProblemCodeAsync());
+        Assert.Equal(2, await factory.WithDatabaseAsync(db => db.Outfits.CountAsync(found => found.UserId == auth.User.Id)));
+    }
+
+    [Fact]
+    public async Task An_outfit_can_be_created_with_the_figure_already_arranged()
+    {
+        var (client, auth, wardrobe) = await factory.DressedAsync(Warm, [Tee, Jeans, Sneakers, Belt]);
+        var chosen = wardrobe.Take(3).ToList();
+        JsonObject Placed(Guid id, double x) => new() { ["clothingId"] = id.ToString(), ["x"] = x, ["y"] = 0.4, ["scale"] = 0.35, ["z"] = 2 };
+
+        var body = Body(chosen);
+        body["figureLayout"] = new JsonArray(Placed(chosen[0].Id, 0.3), Placed(chosen[2].Id, 0.8));
+        var created = await client.PostJsonAsync("/api/outfits", body);
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        OutfitPlacementResponse[] expected = [new(chosen[0].Id, 0.3, 0.4, 0.35, 2), new(chosen[2].Id, 0.8, 0.4, 0.35, 2)];
+        var outfit = await created.ReadAsync<OutfitResponse>();
+        Assert.Equal(expected, outfit.FigureLayout);
+        Assert.Null(outfit.Layout);
+        Assert.Equal(expected, (await (await client.GetAsync($"/api/outfits/{outfit.Id}")).ReadAsync<OutfitResponse>()).FigureLayout);
+
+        // Left out, the app places the garments itself.
+        Assert.Null((await (await Create(client, chosen)).ReadAsync<OutfitResponse>()).FigureLayout);
+
+        // A garment that is not in the outfit (though it is the person's own), or one placed twice, is refused and nothing is stored.
+        foreach (var layout in new[] { new JsonArray(Placed(wardrobe[3].Id, 0.5)), new JsonArray(Placed(chosen[0].Id, 0.2), Placed(chosen[0].Id, 0.6)) })
+        {
+            var wrong = Body(chosen);
+            wrong["figureLayout"] = layout;
+            var refused = await client.PostJsonAsync("/api/outfits", wrong);
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Equal("layout_invalid", await refused.ProblemCodeAsync());
+        }
+
+        var offFigure = Body(chosen);
+        offFigure["figureLayout"] = new JsonArray(Placed(chosen[0].Id, 1.2));
+        Assert.Equal("validation_failed", await (await client.PostJsonAsync("/api/outfits", offFigure)).ProblemCodeAsync());
+        Assert.Equal(2, await factory.WithDatabaseAsync(db => db.Outfits.CountAsync(found => found.UserId == auth.User.Id)));
+    }
+
+    [Fact]
     public async Task A_built_outfit_can_be_rated_worn_deleted_and_tried_on_like_any_other()
     {
         var (client, _, wardrobe) = await factory.DressedAsync(Warm, [Tee, Jeans, Sneakers]);

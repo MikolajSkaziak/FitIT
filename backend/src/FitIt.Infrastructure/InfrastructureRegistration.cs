@@ -88,10 +88,12 @@ public static class InfrastructureRegistration
         services.AddScoped<WeatherService>();
         services.AddScoped<StylistService>();
         services.AddScoped<OutfitService>();
+        services.AddScoped<CalendarService>();
         services.AddScoped<OutfitBuilderService>();
         services.AddScoped<VisualizationFiles>();
         services.AddScoped<SilhouetteStore>();
         services.AddScoped<VisualizationService>();
+        services.AddScoped<VisualizationReportService>();
         services.AddScoped<VisualizationProcessor>();
         services.AddScoped<VisualizationMaintenance>();
 

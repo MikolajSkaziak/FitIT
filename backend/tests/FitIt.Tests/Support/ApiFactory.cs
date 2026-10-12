@@ -44,6 +44,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Jwt:SigningKey", "test-only-signing-key-0123456789-0123456789");
         builder.UseSetting("RateLimits:AuthPerMinute", "100000");
         builder.UseSetting("RateLimits:PasswordResetPer15Minutes", "100000");
+        builder.UseSetting("RateLimits:ReportsPerHour", "100000");
         // The job schedules its own next poll; the test host runs jobs by hand and has no need to wait between them.
         builder.UseSetting("Visualization:PollIntervalSeconds", "0");
         builder.UseSetting("Providers:LocationSearch", "Fake");

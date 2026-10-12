@@ -9,10 +9,15 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "pl.fitit.app",
-      "supportsTablet": false
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "pl.fitit.app",
+      "versionCode": 1,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#2F5D4C",
@@ -27,7 +32,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F5F7F3",
+          "backgroundColor": "#FAFAF7",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 96,
           "dark": {
@@ -45,10 +50,20 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "fitit. needs your photos so you can add clothes to your wardrobe.",
-          "cameraPermission": "fitit. uses the camera so you can take photos of your clothes."
+          "photosPermission": "fitit. lets you pick photos of your clothes from your library.",
+          "microphonePermission": false
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "fitit. uses the camera to photograph your clothes and, if you choose, a selfie for your color analysis.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

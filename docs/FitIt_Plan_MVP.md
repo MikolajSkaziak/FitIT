@@ -1,7 +1,7 @@
 # FitIt — plan działania: od zera do działającego MVP
 
-- **Wersja:** 3.3, 6 października 2026 (zadania 1.3, 1.4, 1.14 i 3.16 dopasowane do makiet; godziny bez ponownej wyceny)
-- **Co budujemy:** [FitIt_Specyfikacja_MVP.md](FitIt_Specyfikacja_MVP.md), wersja 2.4, i makiety w [design/](design/README.md)
+- **Wersja:** 3.4, 10 października 2026 (zadania 1.4 i 1.14: nowa kolejność rejestracji i onboardingu, konto dopiero po pierwszym zestawie, a po nim sylwetka, rozmiar, kolory i podsumowanie; godziny bez ponownej wyceny)
+- **Co budujemy:** [FitIt_Specyfikacja_MVP.md](FitIt_Specyfikacja_MVP.md), wersja 2.5, i makiety w [design/](design/README.md)
 - **Dlaczego tak:** [FitIt_Krytyka_Specyfikacji.md](FitIt_Krytyka_Specyfikacji.md)
 
 ---
@@ -106,7 +106,7 @@ Kolumna „Tydz.” to numer tygodnia w obrębie etapu. Numery sekcji w nawiasac
 | 1.1 | 1 | Solucja .NET 10: `FitIt.Api`, `FitIt.Core`, `FitIt.Infrastructure`, `FitIt.Tests`; wspólne ustawienia kompilacji i formatowania. | `dotnet build` i `dotnet test` przechodzą | 2 |
 | 1.2 | 1 | PostgreSQL w Docker Compose; EF Core; pierwsza migracja. | Baza wstaje jednym poleceniem; migracja przechodzi | 3 |
 | 1.3 | 1 | Tabela `avatars` z dziesięcioma sylwetkami (płeć i typ) wgrywanymi przy starcie; obrazy jako publiczne pliki statyczne; publiczny `GET /api/avatars?gender=`. | Endpoint zwraca pięć pozycji dla każdej płci z adresami miniatur | 2 |
-| 1.4 | 1 | Identity; rejestracja z imieniem, datą urodzenia, płcią, sylwetką, stylami, preferencją termiczną i miejscem pogody; logowanie; JWT na 15 minut. | Testy: rejestracja bez sylwetki, z sylwetką innej płci albo poniżej 16 lat jest odrzucana; logowanie zwraca token | 6 |
+| 1.4 | 1 | Identity; rejestracja z imieniem, datą urodzenia, stylami, preferencją termiczną i miejscem pogody (płeć i sylwetka opcjonalne, uzupełniane w pierwszym kroku po rejestracji); logowanie; JWT na 15 minut. | Testy: rejestracja bez płci i sylwetki zakłada konto z sylwetką zastępczą; z sylwetką innej płci albo poniżej 16 lat jest odrzucana; logowanie zwraca token | 6 |
 | 1.5 | 1 | Dockerfile API i profil Compose z pełnym stosem (API i PostgreSQL). Ten sam plik posłuży później na VM. | Jedno polecenie `docker compose` stawia działające API z bazą | 3 |
 | 1.6 | 2 | Refresh token: rotacja przy każdym użyciu, w bazie tylko skrót; wylogowanie. | Test: zużyty token jest odrzucany | 4 |
 | 1.7 | 2 | Fundament API: błędy w formacie ProblemDetails, walidacja wejścia, logi strukturalne, `/health`, dokument OpenAPI, limit żądań na logowaniu. | Dokument OpenAPI jest dostępny; błędna prośba zwraca czytelny błąd | 4 |
@@ -116,7 +116,7 @@ Kolumna „Tydz.” to numer tygodnia w obrębie etapu. Numery sekcji w nawiasac
 | 1.11 | 3 | CI w GitHub Actions: build i testy backendu, budowanie obrazu API; lint i kontrola typów aplikacji. | Zielony przebieg na każdym pull requeście | 2 |
 | 1.12 | 3 | Projekt Expo: Expo Router, TypeScript w trybie ścisłym, ESLint, pięć podstawowych komponentów (ekran, tekst, przycisk, pole, kafel). | Uruchamia się w Expo Go i w symulatorze iPhone'a | 5 |
 | 1.13 | 3 | Klient API generowany z OpenAPI; TanStack Query; adres API zależny od środowiska (symulator: `localhost`, telefon: adres komputera w sieci lokalnej). | Jedno polecenie odświeża typy po zmianie backendu | 3 |
-| 1.14 | 4 | Ekran startowy; rejestracja w pięciu krokach (konto; imię, data urodzenia, płeć; typ sylwetki; styl; pogoda z lokalizacji albo miasto), logowanie, tokeny w SecureStore, odświeżanie po odpowiedzi 401, wylogowanie. | Sesja przeżywa zamknięcie aplikacji i wygaśnięcie tokenu | 10 |
+| 1.14 | 4 | Ekran startowy („Get started”); rejestracja w pięciu krokach przed kontem (style; podstawowe ubrania; miejsce pogody; pierwszy zestaw; konto), logowanie, tokeny w SecureStore, odświeżanie po odpowiedzi 401, wylogowanie. | Sesja przeżywa zamknięcie aplikacji i wygaśnięcie tokenu | 10 |
 | 1.15 | 4 | Zakładki Dziś, Szafa, Outfity, Profil; w profilu imię, zmiana sylwetki, wylogowanie. | Zmiana sylwetki zapisuje się w profilu | 3 |
 | 1.16 | 4 | Notatki do pracy: architektura i uzasadnienia wyborów. | `docs/decyzje/etap-1.md` | 1 |
 
@@ -178,6 +178,14 @@ Kolumna „Tydz.” to numer tygodnia w obrębie etapu. Numery sekcji w nawiasac
 | 3.19 | 7 | Pierwszy build testowy w EAS: Android jako plik APK; iOS, jeśli jest konto Apple Developer. | Aplikacja instaluje się z linku na obcym telefonie i łączy się z API na VM | 3 |
 | 3.20 | 7 | Wersja dla pięciu osób: krótka instrukcja, zebranie uwag po tygodniu. | Lista uwag | 2 |
 | 3.21 | 7 | Notatki do pracy: wyniki ewaluacji, porównanie modelu z samymi regułami. | `docs/decyzje/etap-3.md` | 3 |
+
+Dodane 11 października 2026 (kalendarz zestawów, specyfikacja 6.10), zrobione:
+
+| Nr | Zadanie | Gotowe, gdy |
+|---|---|---|
+| 3.22 | Kalendarz na backendzie: tabela `calendar_entries` z migracją i uzupełnieniem historii z `worn_on`, `GET/POST/PATCH/DELETE /api/calendar`, `GET /api/outfits/{id}/days`, „Zakładam to” zapisuje wpis na dziś. | Testy integracyjne: limit trzech na dzień, idempotencja, strefy czasowe, kaskady, migracja |
+| 3.23 | Pogoda i propozycje dla wybranego dnia: prognoza na 8 dni, `GET /api/weather/day`, `date` w `POST /api/outfits/suggestions`. | Testy: horyzont, okno całego dnia, limit dnia żądania |
+| 3.24 | Aplikacja: pasek tygodnia na „Dziś”, widok „Calendar” w „Outfity”, arkusz „Wear it when?” z cofnięciem, „Plan for a day” w szczegółach, propozycjach i podglądzie kreatora. | Testy ekranów; przejście na telefonie zostaje do zrobienia |
 
 **Bramka, 28 lutego:** macierz scenariuszy przechodzi bez naruszeń twardych reguł; mediana odpowiedzi jest poniżej 8 sekund; co najmniej 70% ręcznie ocenionych zestawów nadaje się do założenia; gdy wśród kandydatów jest zapomniane ubranie, jedna z propozycji po nie sięga; z wyłączonym modelem aplikacja dalej zwraca propozycje; wersja jest u pięciu osób.
 

@@ -138,7 +138,8 @@ public sealed class ProfileTests(ApiFactory factory)
     [Fact]
     public async Task Consent_is_dated_when_given_keeps_its_date_and_can_be_withdrawn()
     {
-        var (client, _) = await factory.SignedInAsync();
+        var (client, auth) = await factory.SignedInWithoutConsentAsync();
+        Assert.Null(auth.User.AiConsentAt);
 
         var given = await (await client.PatchJsonAsync("/api/me", new JsonObject { ["aiConsent"] = true })).ReadAsync<UserResponse>();
         factory.Clock.Advance(TimeSpan.FromMinutes(5));

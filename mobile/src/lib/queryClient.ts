@@ -1,9 +1,12 @@
-import { QueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@/api/problem';
 import { onSessionEnd } from '@/auth/session';
 
+import { failureCue } from './failureCue';
+
 export const queryClient = new QueryClient({
+  mutationCache: new MutationCache({ onError: failureCue }),
   defaultOptions: {
     queries: {
       staleTime: 30_000,

@@ -1,7 +1,5 @@
 import { addYears, isAfter, isBlankDate, readDateParts, today as currentDay, type CalendarDate, type DateParts } from '@/lib/dates';
 
-import type { RegistrationDraft } from './draft';
-
 /** Mirrors the server's limits (AccountContracts.cs). The server stays the judge; this only saves a round trip. */
 export const limits = { email: 254, passwordMin: 8, passwordMax: 128, name: 40, oldestAge: 120, resetCode: 6 } as const;
 
@@ -22,7 +20,6 @@ export const messages = {
   birthDateInvalid: 'That date doesn’t look right. Check the month, day and year.',
   birthDateImplausible: 'Check the year you were born.',
   underage: (age: number) => `You need to be ${age} to create an account.`,
-  genderMissing: 'Choose one to continue.',
   avatarMissing: 'Choose a body shape to continue.',
 } as const;
 
@@ -82,19 +79,4 @@ export function checkBirthDate(parts: DateParts, today: CalendarDate = currentDa
   }
 
   return { date, error: null };
-}
-
-export type RegistrationStep = '/register' | '/register/about' | '/register/silhouette';
-
-/** The earliest step that still has something missing, or null when the draft can be sent. */
-export function firstIncompleteStep(draft: RegistrationDraft, today: CalendarDate = currentDay()): RegistrationStep | null {
-  if (emailError(draft.email) || passwordError(draft.password)) {
-    return '/register';
-  }
-
-  if (nameError(draft.displayName) || checkBirthDate(draft.birthDate, today).error || !draft.gender) {
-    return '/register/about';
-  }
-
-  return draft.avatarId ? null : '/register/silhouette';
 }

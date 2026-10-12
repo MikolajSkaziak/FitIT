@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import type { StyleTag } from '@/api/account';
 import {
@@ -19,18 +19,23 @@ import {
 } from '@/api/wardrobe';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { Segmented } from '@/components/controls';
-import { Field } from '@/components/Field';
-import { FormError, Labeled } from '@/components/forms';
-import { BackHeader } from '@/components/headers';
-import { Card, Skeleton } from '@/components/lists';
+import { IconButton, Segmented, Swatch } from '@/components/controls';
+import { Eyebrow } from '@/components/Eyebrow';
+import { FormError } from '@/components/forms';
+import { GarmentImage } from '@/components/garments';
+import { Hairline } from '@/components/Hairline';
+import type { IconName } from '@/components/Icon';
+import { Skeleton } from '@/components/lists';
 import { Screen } from '@/components/Screen';
-import { ChoiceGrid, ToggleRow } from '@/components/toggles';
+import { TextTabs } from '@/components/TextTabs';
+import { ToggleRow } from '@/components/toggles';
 import { messageFor } from '@/copy/errors';
+import { AiNote } from '@/features/wardrobe/AiNote';
 import { missingTags, toggleColor, type GarmentForm } from '@/features/wardrobe/garmentForm';
-import { seasonIcon } from '@/features/wardrobe/seasons';
+import { RemovablePhotos } from '@/features/wardrobe/MorePhotos';
 import { categoryOfType, useDictionaries } from '@/features/wardrobe/useDictionaries';
-import { space } from '@/theme';
+import { capitalized } from '@/lib/plural';
+import { space, typography, useTheme } from '@/theme';
 
 const levels = ['1', '2', '3', '4', '5'].map((value) => ({ value, label: value }));
 
@@ -45,7 +50,7 @@ export default function EditGarment() {
     return (
       <Screen testID="garment-edit-screen">
         <View style={styles.content}>
-          <BackHeader title="Item details" onBack={() => router.back()} />
+          <EditHeader onClose={() => router.back()} />
           {failed ? (
             <View style={styles.section}>
               <AppText color="textSecondary">{messageFor(failed)}</AppText>
@@ -129,28 +134,27 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
               checked && missing.length > 0 ? `Still to fill in: ${missing.join(', ')}.` : save.isError ? messageFor(save.error) : null
             }
           />
-          <Button label="Save details" busy={save.isPending} onPress={submit} testID="garment-save" />
+          <Button label="Save changes" busy={save.isPending} onPress={submit} testID="garment-save" />
         </>
       }>
       <View style={styles.content}>
-        <BackHeader title="Item details" onBack={() => router.back()} />
+        <EditHeader onClose={() => router.back()} />
         {garment.status === 'processing' ? (
           <AppText color="textSecondary">We’re still describing this item. You’ll be able to edit it in a moment.</AppText>
         ) : null}
-        <Field
-          label="Name"
-          value={form.name}
-          onChangeText={(name) => change({ name })}
-          placeholder="e.g. Navy oxford shirt"
-          maxLength={60}
-          autoCapitalize="sentences"
-          returnKeyType="done"
-          testID="garment-name-field"
-        />
+        <View style={styles.identity}>
+          <GarmentImage url={garment.imageUrl} cacheKey={garment.imageKey} height={140} inset={8} style={styles.photo} />
+          <NameField value={form.name} onChangeText={(name) => change({ name })} testID="garment-name-field" />
+        </View>
+
+        {garment.status === 'ready' && garment.describedByAi ? <AiNote testID="garment-ai-note" /> : null}
+
+        <RemovablePhotos garment={garment} />
 
         <Section title="Group">
-          <ChoiceGrid
+          <TextTabs
             label="Group"
+            layout="wrap"
             options={dictionaries.groups.map((entry) => ({ value: entry.code as GarmentGroup, label: entry.label }))}
             value={form.group}
             onChange={(group) =>
@@ -163,8 +167,9 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
 
         {form.group ? (
           <Section title="Type">
-            <ChoiceGrid
+            <TextTabs
               label="Type"
+              layout="wrap"
               options={types.map((entry) => ({ value: entry.code as Subcategory, label: entry.label }))}
               value={form.subcategory}
               onChange={(subcategory) => change({ subcategory })}
@@ -173,22 +178,26 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
           </Section>
         ) : null}
 
-        <Section title="Color" helper="One or two. The first one you choose is the main color.">
-          <ChoiceGrid
-            label="Color"
-            columns={3}
-            options={dictionaries.colors.map((entry) => ({ value: entry.code as Color, label: entry.label }))}
-            value={form.colors}
-            onChange={(color) => change({ colors: toggleColor(form.colors, color) })}
-            testID="edit-color"
-          />
+        <Section title="Colors" icon="palette" helper="One or two. The first one you choose is the main color.">
+          <View accessibilityLabel="Colors" style={styles.swatches}>
+            {dictionaries.colors.map((entry) => (
+              <Swatch
+                key={entry.code}
+                hex={entry.hex}
+                label={capitalized(entry.label)}
+                selected={form.colors.includes(entry.code as Color)}
+                onPress={() => change({ colors: toggleColor(form.colors, entry.code as Color) })}
+                testID={`edit-color-${entry.code}`}
+              />
+            ))}
+          </View>
         </Section>
 
         <Section title="Pattern">
-          <ChoiceGrid
+          <TextTabs
             label="Pattern"
-            columns={3}
-            options={dictionaries.patterns.map((entry) => ({ value: entry.code as Pattern, label: entry.label }))}
+            layout="wrap"
+            options={dictionaries.patterns.map((entry) => ({ value: entry.code as Pattern, label: capitalized(entry.label) }))}
             value={form.pattern}
             onChange={(pattern) => change({ pattern })}
             testID="edit-pattern"
@@ -196,41 +205,44 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
         </Section>
 
         <Section title="Material">
-          <ChoiceGrid
+          <TextTabs
             label="Material"
-            columns={3}
-            options={dictionaries.materials.map((entry) => ({ value: entry.code as Material, label: entry.label }))}
+            layout="wrap"
+            options={dictionaries.materials.map((entry) => ({ value: entry.code as Material, label: capitalized(entry.label) }))}
             value={form.material}
             onChange={(material) => change({ material })}
             testID="edit-material"
           />
         </Section>
 
-        <Labeled label="Formality" helper={label(dictionaries.formality, form.formality) ?? 'From 1 (sporty or loungewear) to 5 (formal or evening).'}>
+        <Section title="Formality" helper={label(dictionaries.formality, form.formality) ?? 'From 1 (sporty or loungewear) to 5 (formal or evening).'}>
           <Segmented label="Formality" options={levels} value={form.formality === null ? null : String(form.formality)} onChange={(value) => change({ formality: Number(value) })} />
-        </Labeled>
+        </Section>
 
-        <Labeled label="Warmth" helper={label(dictionaries.warmth, form.warmth) ?? 'From 1 (for hot weather) to 5 (for freezing weather).'}>
+        <Section title="Warmth" helper={label(dictionaries.warmth, form.warmth) ?? 'From 1 (for hot weather) to 5 (for freezing weather).'}>
           <Segmented label="Warmth" options={levels} value={form.warmth === null ? null : String(form.warmth)} onChange={(value) => change({ warmth: Number(value) })} />
-        </Labeled>
+        </Section>
 
-        <Card>
-          <ToggleRow label="Good in rain" value={form.rainOk} onChange={(rainOk) => change({ rainOk })} last testID="edit-rain" />
-        </Card>
+        <View>
+          <Hairline />
+          <ToggleRow icon="rain" label="Good in rain" value={form.rainOk} onChange={(rainOk) => change({ rainOk })} testID="edit-rain" />
+        </View>
 
-        <Section title="Seasons" helper="Pick any that fit. Leave them all off and we’ll suggest seasons from the warmth.">
-          <ChoiceGrid
+        <Section title="Seasons" icon="sun" helper="Pick any that fit. Leave them all off and we’ll suggest seasons from the warmth.">
+          <TextTabs
             label="Seasons"
-            options={dictionaries.seasons.map((entry) => ({ value: entry.code as Season, label: entry.label, icon: seasonIcon[entry.code] }))}
+            layout="wrap"
+            options={dictionaries.seasons.map((entry) => ({ value: entry.code as Season, label: entry.label }))}
             value={form.seasons}
             onChange={(season) => change({ seasons: form.seasons.includes(season) ? form.seasons.filter((chosen) => chosen !== season) : [...form.seasons, season] })}
             testID="edit-season"
           />
         </Section>
 
-        <Section title="Style" helper="Pick as many as you like, or none.">
-          <ChoiceGrid
-            label="Style"
+        <Section title="Styles" icon="hanger" helper="Pick as many as you like, or none.">
+          <TextTabs
+            label="Styles"
+            layout="wrap"
             options={dictionaries.styles.map((entry) => ({ value: entry.code as StyleTag, label: entry.label }))}
             value={form.styles}
             onChange={(style) => change({ styles: form.styles.includes(style) ? form.styles.filter((chosen) => chosen !== style) : [...form.styles, style] })}
@@ -242,12 +254,54 @@ function Form({ garment, dictionaries }: { garment: Clothing; dictionaries: Dict
   );
 }
 
-function Section({ title, helper, children }: { title: string; helper?: string; children: React.ReactNode }) {
+/** A round way out and the name of the screen, centred between it and a spacer of the same width. */
+function EditHeader({ onClose }: { onClose: () => void }) {
+  return (
+    <View style={styles.bar}>
+      <IconButton icon="close" label="Close" onPress={onClose} />
+      <AppText variant="eyebrow" accessibilityRole="header">
+        Edit piece
+      </AppText>
+      <View style={styles.balance} />
+    </View>
+  );
+}
+
+/** The name, written large on its line: the serif of a title, with its caption above. */
+function NameField({ value, onChangeText, testID }: { value: string; onChangeText: (text: string) => void; testID: string }) {
+  const theme = useTheme();
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={styles.name}>
+      <AppText variant="caption" color="textSecondary">
+        Name
+      </AppText>
+      <TextInput
+        accessibilityLabel="Name"
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="e.g. Navy oxford shirt"
+        placeholderTextColor={theme.textSecondary}
+        maxLength={60}
+        autoCapitalize="sentences"
+        returnKeyType="done"
+        maxFontSizeMultiplier={1.3}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={[styles.nameInput, { color: theme.text }]}
+        testID={testID}
+      />
+      <View style={[styles.nameLine, { backgroundColor: focused ? theme.action : theme.borderControl, height: focused ? 2 : 1 }]} />
+    </View>
+  );
+}
+
+function Section({ title, icon, helper, children }: { title: string; icon?: IconName; helper?: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
-      <AppText variant="secondaryStrong" accessibilityRole="header">
+      <Eyebrow icon={icon} header>
         {title}
-      </AppText>
+      </Eyebrow>
       {children}
       {helper ? (
         <AppText variant="meta" color="textSecondary">
@@ -260,5 +314,13 @@ function Section({ title, helper, children }: { title: string; helper?: string; 
 
 const styles = StyleSheet.create({
   content: { gap: space[6] },
-  section: { gap: space[2] },
+  section: { gap: 10 },
+  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  balance: { width: 44, height: 44 },
+  identity: { flexDirection: 'row', alignItems: 'flex-end', gap: space[4] },
+  photo: { width: 112 },
+  name: { flex: 1 },
+  nameInput: { ...typography.heading, minHeight: 40, paddingVertical: 4, paddingHorizontal: 0 },
+  nameLine: { alignSelf: 'stretch' },
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', marginLeft: -4 },
 });

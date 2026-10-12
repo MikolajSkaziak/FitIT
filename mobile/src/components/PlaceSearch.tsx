@@ -27,7 +27,7 @@ interface PlaceSearchProps {
   autoFocus?: boolean;
 }
 
-/** A city field: type a few letters, pick the place from the matches below. */
+/** A city field on a line: type a few letters, pick the place from the hairline rows below. */
 export function PlaceSearch({ value, onChange, error, initialText = '', autoFocus = false }: PlaceSearchProps) {
   const [text, setText] = useState(value?.name ?? initialText);
   const query = useDebounced(text.trim(), 300);
@@ -86,7 +86,6 @@ export function PlaceSearch({ value, onChange, error, initialText = '', autoFocu
                 key={`${place.name}-${place.lat}-${place.lon}`}
                 label={place.name}
                 meta={placeDetail(place) || undefined}
-                last={index === matches.data.length - 1}
                 onPress={() => {
                   setText(place.name);
                   onChange(place);
@@ -103,5 +102,5 @@ export function PlaceSearch({ value, onChange, error, initialText = '', autoFocu
 
 const styles = StyleSheet.create({
   search: { gap: space[2] },
-  loading: { padding: space[4], gap: space[2] },
+  loading: { paddingVertical: space[4], gap: space[2] },
 });

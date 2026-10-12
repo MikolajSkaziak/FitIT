@@ -8,11 +8,12 @@ import * as weatherApi from '@/api/weather';
 import Today from '@/app/(app)/(tabs)/index';
 import { useSession } from '@/auth/session';
 import * as location from '@/lib/location';
-import { clothing, outfit, user, weather } from '@/test/fixtures';
+import { colorAnalysis, clothing, outfit, user, weather } from '@/test/fixtures';
 import { renderScreen, router } from '@/test/screen';
 
 jest.mock('expo-router', () => jest.requireActual('@/test/screen').routerModule);
 jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
+jest.mock('@/api/calendar', () => jest.requireActual('@/test/calendar').quietCalendar());
 jest.mock('@/auth/tokenStorage', () => ({
   tokenStorage: { load: jest.fn(async () => null), save: jest.fn(async () => undefined), clear: jest.fn(async () => undefined) },
 }));
@@ -33,6 +34,7 @@ const stats = (total: number, forgotten = 0): wardrobe.WardrobeStats => ({ total
 
 const answer = (list: outfits.Outfit[], change: Partial<outfits.Suggestions> = {}): outfits.Suggestions => ({
   status: 'proposed',
+  date: '2026-10-05',
   missing: [],
   missingEither: [],
   fallback: false,
@@ -76,7 +78,7 @@ describe('the greeting', () => {
     await renderScreen(<Today />);
 
     await screen.findByTestId('weather-row');
-    expect(screen.getByTestId('today-date')).toHaveTextContent(/^\w+, October 5$/);
+    expect(screen.getByTestId('today-date')).toHaveTextContent(/^\w+ · October 5$/);
     expect(screen.getByTestId('today-greeting')).toHaveTextContent('Good morning, Ola');
     expect(screen.getByRole('header', { name: 'Good morning, Ola' })).toBeOnTheScreen();
 
@@ -227,20 +229,19 @@ describe('without a place', () => {
 });
 
 describe('today’s picks', () => {
-  it('are there without pressing anything: everyday outfits on the figure, the first one in front', async () => {
+  it('are there without pressing anything: everyday outfits on their boards, the first one in front', async () => {
     await renderScreen(<Today />);
 
     expect(await screen.findByTestId('today-picks')).toBeOnTheScreen();
     expect(fetchPicks).toHaveBeenCalledTimes(1);
     expect(fetchPicks).toHaveBeenCalledWith('everyday');
-    expect(screen.getByRole('header', { name: 'Today’s picks' })).toBeOnTheScreen();
-    expect(screen.getByTestId('today-picks-line')).toHaveTextContent('Three outfits from your wardrobe, for this weather');
+    expect(screen.getByRole('header', { name: 'Today’s looks' })).toBeOnTheScreen();
+    expect(screen.getByTestId('today-picks-count')).toHaveTextContent('1 / 3');
 
-    // Each card is a button named by the outfit and its place, with the kind and the count on it and the figure inside.
+    // Each card is a button named by the outfit and its place, with the kind on a care label and the board inside.
     const first = screen.getByRole('button', { name: 'Your sure bet, 1 of 3' });
     expect(within(first).getByText('Sure bet')).toBeOnTheScreen();
-    expect(within(first).getByText('1 of 3')).toBeOnTheScreen();
-    expect(within(first).getByTestId('today-figure-o1', { includeHiddenElements: true })).toBeOnTheScreen();
+    expect(within(first).getByTestId('today-board-o1', { includeHiddenElements: true })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'A new pairing, 2 of 3' })).toBeOnTheScreen();
     expect(within(screen.getByRole('button', { name: 'Outfit 3, 3 of 3' })).getByText('Outfit 3')).toBeOnTheScreen();
 
@@ -263,18 +264,21 @@ describe('today’s picks', () => {
     await renderScreen(<Today />);
     await screen.findByTestId('today-picks');
 
-    await swipeTo(274);
+    await swipeTo(304);
+    expect(screen.getByTestId('today-picks-count')).toHaveTextContent('2 / 3');
     expect(screen.getByTestId('today-pick-name')).toHaveTextContent('A new pairing');
     expect(screen.getByTestId('today-pick-reason')).toHaveTextContent('The chinos and the coat have not met yet.');
 
     // The last card cannot travel a whole step; the end of the row is the last card.
     await swipeTo(452);
+    expect(screen.getByTestId('today-picks-count')).toHaveTextContent('3 / 3');
     expect(screen.getByTestId('today-pick-name')).toHaveTextContent('Outfit 3');
     const pieces = within(screen.getByTestId('today-pieces'));
     expect(pieces.getByText('Cream sweater')).toBeOnTheScreen();
     expect(pieces.queryByText('Navy shirt')).toBeNull();
 
     await swipeTo(0);
+    expect(screen.getByTestId('today-picks-count')).toHaveTextContent('1 / 3');
     expect(screen.getByTestId('today-pick-name')).toHaveTextContent('Your sure bet');
   });
 
@@ -327,7 +331,7 @@ describe('today’s picks', () => {
     await renderScreen(<Today />);
 
     expect(await screen.findByRole('button', { name: 'Your sure bet, 1 of 1' })).toBeOnTheScreen();
-    expect(screen.getByTestId('today-picks-line')).toHaveTextContent('One outfit from your wardrobe, for this weather');
+    expect(screen.getByTestId('today-picks-count')).toHaveTextContent('1 / 1');
   });
 });
 
@@ -335,7 +339,7 @@ describe('asking for a fresh set', () => {
   it('replaces the picks with new ones and starts from the first card again', async () => {
     await renderScreen(<Today />);
     await screen.findByTestId('today-picks');
-    await swipeTo(274);
+    await swipeTo(304);
     fetchPicks.mockResolvedValue(answer([outfit('n1', { requestId: 'request-2', kind: 'discovery', reasoning: 'Something you have not worn in a while.' })]));
 
     await fireEvent.press(screen.getByRole('button', { name: 'Suggest new outfits' }));
@@ -363,7 +367,6 @@ describe('dressing for something else', () => {
     await renderScreen(<Today />);
     await screen.findByTestId('today-picks');
 
-    expect(screen.getByRole('header', { name: 'Dressing for something else?' })).toBeOnTheScreen();
     const group = screen.getByTestId('today-occasions');
     expect([group.props.accessibilityRole, group.props.accessibilityLabel]).toEqual(['radiogroup', 'Occasion']);
     expect(within(group).getAllByRole('radio').map((radio) => radio.props.accessibilityLabel)).toEqual(['Everyday', 'Work', 'Business', 'Date night', 'Friends', 'Workout']);
@@ -410,7 +413,7 @@ describe('too few clothes', () => {
 
     const empty = within(await screen.findByTestId('today-empty'));
     expect(empty.getByRole('header', { name: 'Start with your wardrobe' })).toBeOnTheScreen();
-    expect(screen.queryByRole('header', { name: 'Today’s picks' })).toBeNull();
+    expect(screen.queryByRole('header', { name: 'Today’s looks' })).toBeNull();
     expect(screen.queryByTestId('today-occasions')).toBeNull();
     expect(screen.queryByTestId('today-nudge')).toBeNull();
     expect(fetchPicks).not.toHaveBeenCalled();
@@ -504,5 +507,25 @@ describe('not worn lately', () => {
     await screen.findByTestId('today-picks');
     expect(screen.queryByTestId('today-forgotten')).toBeNull();
     expect(fetchClothes).not.toHaveBeenCalled();
+  });
+});
+
+describe('your colors', () => {
+  it('tells someone without a color analysis that there is one, and leads to it', async () => {
+    await renderScreen(<Today />);
+
+    const card = within(await screen.findByTestId('today-colors'));
+    expect(card.getByText('Find the colors that suit you')).toBeTruthy();
+    fireEvent.press(card.getByTestId('today-find-colors'));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/onboarding/colors', params: { redo: '1' } });
+  });
+
+  it('stays away once the colors are known', async () => {
+    useSession.setState({ user: user({ colorAnalysis }) });
+
+    await renderScreen(<Today />);
+
+    await screen.findByTestId('today-picks');
+    expect(screen.queryByTestId('today-colors')).toBeNull();
   });
 });

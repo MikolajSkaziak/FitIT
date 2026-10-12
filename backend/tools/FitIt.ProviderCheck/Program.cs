@@ -62,7 +62,7 @@ if (what is "tagger" or "all")
 if (what is "stylist" or "all")
 {
     // One scenario of the evaluation: the sample wardrobe of 12 garments, a mild day, an everyday occasion, through the real pipeline.
-    var report = await EvalRunner.RunAsync(new GeminiOutfitStylist(gemini), settings.Model, new EvalMatrix([12], [TemperatureBand.Mild], [Occasion.Everyday]));
+    var report = await EvalRunner.RunAsync(new GeminiOutfitStylist(gemini), settings.Model, new EvalMatrix([12], [TemperatureBand.Mild], [Occasion.Everyday], [StyleProfile.CasualSmart]));
     var results = report.Stylists[0];
     foreach (var outcome in results.Outcomes)
     {

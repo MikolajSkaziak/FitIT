@@ -1,91 +1,146 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import type { Weather } from '@/api/weather';
+import type { DayWeather, Weather } from '@/api/weather';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { LinkText } from '@/components/controls';
 import { FormError } from '@/components/forms';
-import { Icon, SkyBackdrop } from '@/components/Icon';
+import { Hairline } from '@/components/Hairline';
+import { Icon, SkyBackdrop, type Sky } from '@/components/Icon';
 import { Skeleton } from '@/components/lists';
-import { Fade } from '@/components/motion';
-import { motion, radius, space, useTheme } from '@/theme';
+import { Fade, Nudge, Shiver, Spin } from '@/components/motion';
+import { motion, space } from '@/theme';
 
-import { advice, formatDegrees, glyphOf, headline, hourSlots, placeLine, rangeOf } from './copy';
+import { advice, formatDegrees, glyphOf, headline, hourSlots, isAhead, placeLine, rangeOf } from './copy';
 
-/** How strongly the quiet parts of the card show against its green: the sky behind the words, the rule, and the labels of the hours. */
-const faint = { sky: 0.2, rule: 0.22, label: 0.8 } as const;
+/** Whether the forecast has already greeted the person in this run of the app. */
+let greeted = false;
+
+/** Lets the next forecast to arrive greet again (tests). */
+export function resetWeatherGreeting(): void {
+  greeted = false;
+}
+
+/** True for the one card that is the first to appear in this run of the app, never for a tab switch, a refetch or a re-render. */
+function useGreeting(): boolean {
+  // Decided on the first render (a read, so safe to repeat) and claimed once the card is really on screen.
+  const [greet] = useState(() => !greeted);
+  useEffect(() => {
+    greeted = true;
+  }, []);
+  return greet;
+}
+
+/** The sky icon's one small act, matching the sky: a drop falls (rain), the sun turns, the cold shivers (snow); cloud does nothing. */
+function SkyAct({ sky, play, children }: { sky: Sky; play: boolean; children: ReactNode }) {
+  switch (sky) {
+    case 'rain':
+      return (
+        <Nudge dy={3} play={play}>
+          {children}
+        </Nudge>
+      );
+    case 'sun':
+      return (
+        <Spin degrees={45} play={play}>
+          {children}
+        </Spin>
+      );
+    case 'snow':
+      return <Shiver play={play}>{children}</Shiver>;
+    default:
+      return <>{children}</>;
+  }
+}
 
 /**
- * Today's weather on the one green card of the app: the place, what it feels like now, one line about the sky, one
- * about what to do, and the hours from now to the evening. Read as one sentence by screen readers.
+ * The weather between two hairlines: how it feels now in large serif figures beside one line about the sky and one
+ * about what to do, then the hours from now to the evening. Read as one sentence by screen readers. The first time the forecast arrives in a run of the
+ * app, the sky icon plays one small act that matches the sky.
+ *
+ * For a day ahead (`day` names it: "Thursday") there is no "now": the large figure is the warmest the day will feel,
+ * labelled "High", the range beside it holds the coldest, and the hours are that day's, each named by its clock.
  */
-export function WeatherCard({ weather }: { weather: Weather }) {
-  const theme = useTheme();
+export function WeatherCard({ weather, day }: { weather: Weather | DayWeather; day?: string }) {
   const summary = headline(weather);
-  const slots = hourSlots(weather);
+  const greet = useGreeting();
+  const ahead = isAhead(weather);
+  const slots = hourSlots(weather, ahead);
   const now = weather.hours[0]?.feels ?? weather.feelsMin;
+  const figure = ahead ? weather.feelsMax : now;
+  const when = day ?? 'that day';
   const spoken = [
-    `${placeLine(weather)}. ${formatDegrees(now)} now, feels like ${rangeOf(weather)} today. ${summary}. ${advice(weather)}`,
-    ...slots.slice(1).map((slot) => `${slot.label}: ${slot.value}.`),
+    ahead
+      ? `${placeLine(weather)}, ${when}. Feels like ${rangeOf(weather)}. ${summary}. ${advice(weather)}`
+      : `${placeLine(weather)}. ${formatDegrees(now)} now, feels like ${rangeOf(weather)} today. ${summary}. ${advice(weather)}`,
+    ...slots.slice(ahead ? 0 : 1).map((slot) => `${slot.label}: ${slot.value}.`),
   ].join(' ');
 
   return (
     <Fade>
-      <View style={[styles.card, styles.forecast, { backgroundColor: theme.action }]} accessible accessibilityLabel={spoken} testID="weather-row">
-        <View style={[styles.backdrop, { opacity: faint.sky }]}>
-          <SkyBackdrop sky={glyphOf(weather.sky)} />
-        </View>
-        <View style={styles.place}>
-          <Icon name="pin" size={16} color="onAction" />
-          <AppText variant="secondaryStrong" color="onAction" numberOfLines={1} style={styles.shrink}>
-            {placeLine(weather)}
-          </AppText>
-        </View>
+      <View style={styles.block} accessible accessibilityLabel={spoken} testID="weather-row">
+        <Hairline />
         <View style={styles.now}>
-          <AppText variant="figure" color="onAction" tabular testID="weather-now">
-            {formatDegrees(now)}
-          </AppText>
-          <View style={styles.words}>
-            <AppText variant="label" color="onAction">
-              {summary}
+          <View>
+            {ahead ? (
+              <AppText variant="eyebrow" testID="weather-high">
+                High
+              </AppText>
+            ) : null}
+            <AppText variant="figure" tabular testID="weather-now">
+              {formatDegrees(figure)}
             </AppText>
-            <AppText variant="secondary" color="onAction" testID="weather-range">
-              Feels like {rangeOf(weather)}. {advice(weather)}
+          </View>
+          <View style={styles.words}>
+            <View style={styles.sky}>
+              <SkyAct sky={glyphOf(weather.sky)} play={greet}>
+                <SkyBackdrop sky={glyphOf(weather.sky)} size={20} color="text" />
+              </SkyAct>
+              <AppText variant="title" numberOfLines={1} style={styles.shrink}>
+                {summary}
+              </AppText>
+            </View>
+            <AppText variant="secondary" color="textSecondary">
+              <AppText variant="secondary" color="textSecondary" numberOfLines={1}>
+                {placeLine(weather)}
+              </AppText>
+              {' · '}
+              <AppText variant="secondary" color="textSecondary" testID="weather-range">
+                Feels like {rangeOf(weather)}. {advice(weather)}
+              </AppText>
             </AppText>
           </View>
         </View>
         {slots.length > 0 ? (
           <View style={styles.hours} testID="weather-hours">
-            <View style={[styles.rule, { backgroundColor: theme.onAction, opacity: faint.rule }]} />
             {slots.map((slot) => (
               <View key={slot.key} style={styles.hour}>
-                <AppText variant="secondary" color="onAction" numberOfLines={1} style={{ opacity: faint.label }}>
+                <AppText variant="eyebrow" numberOfLines={1}>
                   {slot.label}
                 </AppText>
-                <AppText variant="secondaryStrong" color="onAction" numberOfLines={1} tabular>
-                  {slot.value}
-                </AppText>
+                <View style={styles.value}>
+                  {slot.wet ? <Icon name="drop" size={12} color="textSecondary" /> : null}
+                  <AppText variant="caption" numberOfLines={1} tabular>
+                    {slot.value}
+                  </AppText>
+                </View>
               </View>
             ))}
           </View>
         ) : null}
+        <Hairline />
       </View>
     </Fade>
   );
 }
 
-/** The card as it will look, while the forecast is on its way. Close to its height, so little below it moves. */
+/** The block as it will look, while the forecast is on its way. Close to its height, so little below it moves. */
 export function WeatherSkeleton() {
-  const theme = useTheme();
   return (
     <Fade enter={false} exit duration={motion.exit}>
-      <View
-        style={[styles.card, styles.forecast, styles.quiet, { backgroundColor: theme.surface, borderColor: theme.border }]}
-        accessibilityRole="progressbar"
-        accessibilityLabel="Checking the weather"
-        testID="weather-loading">
-        <Skeleton height={16} width={96} />
+      <View style={styles.block} accessibilityRole="progressbar" accessibilityLabel="Checking the weather" testID="weather-loading">
+        <Hairline />
         <View style={styles.now}>
           <Skeleton height={56} width={96} />
           <View style={styles.words}>
@@ -93,30 +148,32 @@ export function WeatherSkeleton() {
             <Skeleton height={16} width="60%" />
           </View>
         </View>
-        <Skeleton height={42} />
+        <Skeleton height={32} />
+        <Hairline />
       </View>
     </Fade>
   );
 }
 
-/** The sage card the weather speaks from when it has no forecast to show. */
+/** What the weather says in place of a forecast, between the same two hairlines. */
 function Notice({ title, text, children, testID }: { title: string; text: string; children: ReactNode; testID: string }) {
-  const theme = useTheme();
   return (
     <Fade>
-      <View style={[styles.card, styles.notice, { backgroundColor: theme.sage }]} testID={testID}>
-        <View style={[styles.backdrop, { opacity: faint.sky }]}>
-          <SkyBackdrop sky="cloud" color="onSage" />
-        </View>
+      <View style={styles.block} testID={testID}>
+        <Hairline />
         <View style={styles.noticeWords}>
-          <AppText variant="subheading" accessibilityRole="header">
-            {title}
-          </AppText>
-          <AppText variant="secondary" color="onSage">
+          <View style={styles.sky}>
+            <SkyBackdrop sky="cloud" size={20} color="text" />
+            <AppText variant="title" accessibilityRole="header" style={styles.shrink}>
+              {title}
+            </AppText>
+          </View>
+          <AppText variant="secondary" color="textSecondary">
             {text}
           </AppText>
         </View>
         {children}
+        <Hairline />
       </View>
     </Fade>
   );
@@ -158,18 +215,14 @@ export function WeatherProblem({ message, onRetry, retrying }: WeatherProblemPro
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.card, overflow: 'hidden' },
-  forecast: { paddingTop: 18, paddingHorizontal: 18, paddingBottom: 14, gap: 14 },
-  quiet: { borderWidth: 1 },
-  notice: { padding: space[4], gap: space[3] },
-  noticeWords: { gap: 2, paddingRight: space[12] },
-  backdrop: { position: 'absolute', right: -18, top: -22 },
-  place: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  block: { gap: 14 },
+  now: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
+  words: { flex: 1, gap: space[1] },
+  sky: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   shrink: { flexShrink: 1 },
-  now: { flexDirection: 'row', alignItems: 'flex-end', gap: 14 },
-  words: { flex: 1, paddingBottom: space[1] },
-  hours: { flexDirection: 'row', gap: space[2], paddingTop: space[3] },
-  rule: { position: 'absolute', top: 0, left: 0, right: 0, height: 1 },
-  hour: { flex: 1 },
+  hours: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: space[2] },
+  hour: { gap: space[1] },
+  value: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
+  noticeWords: { gap: space[1] },
   actions: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
 });

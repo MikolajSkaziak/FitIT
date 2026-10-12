@@ -15,6 +15,8 @@ import { isFinal, type OutfitVisualization, type Visualization, type Visualizati
 export type OrderStage = 'none' | 'working' | 'ready' | 'blocked' | 'failed' | 'refused';
 
 export interface Picture {
+  /** The server's id of the picture: what a report about it names. */
+  id: string;
   url: string;
   cacheKey: string | null;
 }
@@ -24,8 +26,6 @@ export interface OrderState {
   picture: Picture | null;
   /** Machine code of why it did not come out, or of the refusal; the words for it are in `copy`. */
   errorCode: string | null;
-  /** 0 to 1, from how long the order has been running against how long one usually takes. */
-  progress: number;
 }
 
 /** Everything the order needs from the outside world, so tests can stand in for the server and the clock. */
@@ -41,16 +41,14 @@ export interface OrderDeps {
 export interface OrderOptions {
   /** How often the server is asked about a running order; the spec says two to three seconds. */
   pollMs: number;
-  /** How long a picture usually takes. The progress bar is measured against this, never past it. */
-  expectedMs: number;
 }
 
-const defaults: OrderOptions = { pollMs: 2500, expectedMs: 40_000 };
+const defaults: OrderOptions = { pollMs: 2500 };
 
-const idle: OrderState = { stage: 'none', picture: null, errorCode: null, progress: 0 };
+/** How long a picture usually takes (10 to 40 seconds in practice): the estimate of the progress bar is measured against it. */
+export const typicalWaitMs = 25_000;
 
-/** A sliver is visible from the first moment, and the bar never claims to be finished before the picture is. */
-export const progressOf = (elapsedMs: number, expectedMs: number = defaults.expectedMs): number => Math.min(0.92, 0.08 + elapsedMs / expectedMs);
+const idle: OrderState = { stage: 'none', picture: null, errorCode: null };
 
 export interface VisualizationOrder {
   store: StoreApi<OrderState>;
@@ -63,6 +61,8 @@ export interface VisualizationOrder {
   adopt: (known: OutfitVisualization) => void;
   /** Stops asking. The server carries on, and the picture waits by the outfit. */
   stop: () => void;
+  /** Lets go of the picture and the order: back to nothing ordered (a picture that was reported and removed). */
+  forget: () => void;
 }
 
 /**
@@ -81,14 +81,14 @@ export function createVisualizationOrder(outfitId: string, deps: OrderDeps, opti
     if (record.status === 'completed') {
       store.setState(
         record.imageUrl
-          ? { stage: 'ready', picture: { url: record.imageUrl, cacheKey: record.imageKey }, errorCode: null, progress: 1 }
+          ? { stage: 'ready', picture: { id: record.id, url: record.imageUrl, cacheKey: record.imageKey }, errorCode: null }
           : // Finished without a picture: nothing to show, so it reads as a failure rather than an empty frame.
-            { stage: 'failed', picture: null, errorCode: 'invalid_image', progress: 0 },
+            { stage: 'failed', picture: null, errorCode: 'invalid_image' },
       );
       return;
     }
 
-    store.setState({ stage: record.status === 'blocked' ? 'blocked' : 'failed', picture: null, errorCode: record.errorCode, progress: 0 });
+    store.setState({ stage: record.status === 'blocked' ? 'blocked' : 'failed', picture: null, errorCode: record.errorCode });
   }
 
   /** Runs one order to its end: `begin` either places it or picks up one that exists. */
@@ -99,8 +99,7 @@ export function createVisualizationOrder(outfitId: string, deps: OrderDeps, opti
 
     live = true;
     const mine = ++generation;
-    let elapsed = 0;
-    store.setState({ stage: 'working', picture: null, errorCode: null, progress: progressOf(0, settings.expectedMs) });
+    store.setState({ stage: 'working', picture: null, errorCode: null });
     try {
       let record: Visualization;
       try {
@@ -136,8 +135,6 @@ export function createVisualizationOrder(outfitId: string, deps: OrderDeps, opti
           return;
         }
 
-        elapsed += settings.pollMs;
-        store.setState({ progress: progressOf(elapsed, settings.expectedMs) });
         try {
           record = await deps.read(record.id);
         } catch (error) {
@@ -165,7 +162,7 @@ export function createVisualizationOrder(outfitId: string, deps: OrderDeps, opti
       if (known.status === 'completed' && known.imageUrl) {
         generation++;
         live = false;
-        store.setState({ stage: 'ready', picture: { url: known.imageUrl, cacheKey: known.imageKey }, errorCode: null, progress: 1 });
+        store.setState({ stage: 'ready', picture: { id: known.id, url: known.imageUrl, cacheKey: known.imageKey }, errorCode: null });
         return;
       }
 
@@ -174,6 +171,12 @@ export function createVisualizationOrder(outfitId: string, deps: OrderDeps, opti
     stop: () => {
       generation++;
       live = false;
+    },
+    forget: () => {
+      generation++;
+      live = false;
+      key = null;
+      store.setState(idle);
     },
   };
 }

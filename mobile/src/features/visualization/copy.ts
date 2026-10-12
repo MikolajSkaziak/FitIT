@@ -11,15 +11,19 @@ export const retryAction = 'Try again';
 
 export const viewLabel = 'Outfit view';
 
-/** The three ways to look at an outfit. "Try-on" is the AI picture of it on the person's body shape; "On figure" is instant and drawn on the phone. */
-export const figureView = 'On figure';
+/**
+ * The ways to look at an outfit. "Board" is the garments laid out flat and "On figure" the same garments where they are
+ * worn, over the person's silhouette: both instant and drawn on the phone. "Try-on" is the AI picture of the outfit on
+ * the person's body shape.
+ */
+export const boardView = 'Board';
 
-export const collageView = 'Collage';
+export const figureView = 'On figure';
 
 export const tryOnView = 'Try-on';
 
 /** Said under the picture, because the generator may miss a pattern or a logo (spec 7.6). */
-export const pictureCaption = 'This picture is an illustration, so colors and details can differ a little. The collage shows your clothes exactly as they are.';
+export const pictureCaption = 'A generated preview. Fit and colors can differ a little from the real thing.';
 
 export const pictureLabel = 'Outfit on your body shape';
 
@@ -27,33 +31,50 @@ export const enlargeAction = 'Enlarge picture';
 
 export const closeEnlarged = 'Close picture';
 
-export const working = {
-  title: 'Putting the outfit on you',
-  text: 'This can take up to a minute. Feel free to leave. The picture will be waiting with your outfit.',
-  /** Names the bar for screen readers; the panel beside it carries the words. */
-  progressLabel: 'Picture progress',
-};
+/** Said under the picture while it is being made, and while the curtain is still closed. */
+export const waitingCaption = 'This can take up to a minute. Feel free to leave. The picture will be waiting with your outfit.';
+
+/** The words on the closed curtain of the fitting room: what the wait is called, and what is being done as it goes on. */
+export const fittingRoom = {
+  eyebrow: 'Fitting room',
+  /** One for each stretch of the wait; the first is shown from the start. */
+  stages: ['Getting your pieces ready', 'Dressing the mannequin', 'Almost there'],
+  /** Names the bar for screen readers; the words above it carry the rest. */
+  progressLabel: 'Try-on progress',
+  /** Said once to screen readers when the curtain is about to open. */
+  ready: 'Your try-on is ready',
+} as const;
+
+/** Where the stages change, as a share of the bar. */
+const stageEdges = [0.35, 0.75] as const;
+
+/** The line for the stretch of the wait the bar has reached. */
+export function stageOf(progress: number): string {
+  const index = stageEdges.filter((edge) => progress >= edge).length;
+  return fittingRoom.stages[index] ?? fittingRoom.stages[0];
+}
 
 export interface Notice {
   title: string;
   text: string;
   /** Label of the way forward, or null when sending the same order again would end the same way. */
   action: string | null;
+  /** The way forward is the consent sheet first, then the order again. */
+  consent?: boolean;
 }
-
-const collageStays = 'Your collage of real clothing photos is still there.';
 
 const refunded = 'This one doesn’t count toward today’s limit.';
 
 const consent: Notice = {
   title: 'We need your OK to use AI on your photos',
-  text: `An AI service makes these pictures, so we can’t send it your clothing photos without your consent. You can turn it on in Profile, under Privacy. ${collageStays}`,
-  action: null,
+  text: 'AI services make these pictures, so we can’t send them your clothing photos until you allow it. You can change this any time in Profile.',
+  action: 'Review and allow',
+  consent: true,
 };
 
 const paused: Notice = {
   title: 'Try-on pictures are paused for today',
-  text: `We’ve used up today’s budget for pictures. They’ll be back tomorrow. ${collageStays}`,
+  text: `We’ve used up today’s budget for pictures. They’ll be back tomorrow.`,
   action: null,
 };
 
@@ -61,7 +82,7 @@ const paused: Notice = {
 const byCode: Record<string, Notice> = {
   content_blocked: {
     title: 'We couldn’t make a picture of this outfit',
-    text: `The picture service’s safety filter didn’t accept these clothes, usually because of exposed skin. ${refunded} ${collageStays}`,
+    text: `The picture service’s safety filter didn’t accept these clothes, usually because of exposed skin. ${refunded}`,
     action: null,
   },
   timeout: {
@@ -75,7 +96,7 @@ const byCode: Record<string, Notice> = {
   consent_required: consent,
   limit_reached: {
     title: 'You’ve used today’s try-on pictures',
-    text: `More tomorrow. ${collageStays}`,
+    text: 'More tomorrow.',
     action: null,
   },
   not_found: {

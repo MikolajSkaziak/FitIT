@@ -1,4 +1,4 @@
-import { leftToday, noticeFor, pictureCaption, working } from '@/features/visualization/copy';
+import { leftToday, noticeFor, fittingRoom, pictureCaption, stageOf, waitingCaption } from '@/features/visualization/copy';
 
 describe('what the person reads about a picture', () => {
   it('counts what is left of today, with the noun agreeing with the number', () => {
@@ -21,7 +21,7 @@ describe('what the person reads about a picture', () => {
 
     expect(notice?.title).toBe('We couldn’t make a picture of this outfit');
     expect(notice?.text).toContain('doesn’t count toward today’s limit');
-    expect(notice?.text).toContain('collage');
+    expect(notice?.text).not.toMatch(/collage/i);
     expect(notice?.action).toBeNull();
   });
 
@@ -37,7 +37,8 @@ describe('what the person reads about a picture', () => {
     expect(noticeFor('refused', 'limit_reached')).toMatchObject({ title: 'You’ve used today’s try-on pictures', action: null });
   });
 
-  it('points at the profile when the consent is missing, whichever side found out', () => {
+  it('offers the consent sheet as the way forward when the consent is missing, whichever side found out', () => {
+    expect(noticeFor('refused', 'consent_required')).toMatchObject({ action: 'Review and allow', consent: true });
     expect(noticeFor('refused', 'consent_required')?.text).toContain('in Profile');
     expect(noticeFor('failed', 'consent_withdrawn')).toEqual(noticeFor('refused', 'consent_required'));
   });
@@ -58,12 +59,19 @@ describe('what the person reads about a picture', () => {
   const codes = ['content_blocked', 'timeout', 'provider_failed', 'budget_exhausted', 'consent_withdrawn', 'limit_reached', 'not_found', 'network'];
 
   it('never blames the person and never uses a dash that is not a hyphen', () => {
-    const lines = [pictureCaption, working.title, working.text, leftToday({ used: 1, limit: 5 }), ...codes.flatMap((code) => [noticeFor('failed', code)?.title, noticeFor('failed', code)?.text])];
+    const lines = [pictureCaption, waitingCaption, fittingRoom.eyebrow, ...fittingRoom.stages, fittingRoom.ready, leftToday({ used: 1, limit: 5 }), ...codes.flatMap((code) => [noticeFor('failed', code)?.title, noticeFor('failed', code)?.text])];
 
     for (const line of lines) {
       expect(line).toBeTruthy();
       expect(line).not.toMatch(/[—–]/);
       expect(line).not.toMatch(/\b(your fault|you failed|wrong)\b/i);
     }
+  });
+
+  it('says a different thing as the wait goes on, from the first line to the last', () => {
+    expect(stageOf(0)).toBe(fittingRoom.stages[0]);
+    expect(stageOf(0.5)).toBe(fittingRoom.stages[1]);
+    expect(stageOf(0.9)).toBe(fittingRoom.stages[2]);
+    expect(stageOf(1)).toBe(fittingRoom.stages[2]);
   });
 });

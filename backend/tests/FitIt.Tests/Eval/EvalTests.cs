@@ -15,15 +15,16 @@ namespace FitIt.Tests.Eval;
 /// <summary>The evaluation of the stylist (product spec 6.9, plan 3.10 and 4.5): its matrix, its counts and its gate.</summary>
 public sealed class EvalTests
 {
-    private static readonly EvalMatrix Reduced = new([12], [TemperatureBand.Hot, TemperatureBand.Cold], [Occasion.Everyday, Occasion.Work]);
+    private static readonly EvalMatrix Reduced = new([12], [TemperatureBand.Hot, TemperatureBand.Cold], [Occasion.Everyday, Occasion.Work], [StyleProfile.CasualSmart]);
 
     [Fact]
-    public void The_matrix_of_the_spec_is_three_wardrobes_by_five_weathers_by_six_occasions()
+    public void The_matrix_is_that_of_the_spec_for_each_of_six_style_profiles()
     {
         var scenarios = EvalMatrix.Full.Scenarios().ToList();
 
         Assert.Equal([12, 30, 60], EvalMatrix.Full.Wardrobes);
-        Assert.Equal(3 * 5 * 6, scenarios.Count);
+        Assert.Equal(3 * 5 * 6 * 6, scenarios.Count);
+        Assert.Equal(6, EvalMatrix.Full.Profiles.Count);
         Assert.Equal(scenarios.Count, scenarios.Distinct().Count());
         Assert.All(scenarios, scenario => Assert.Equal(scenario.Band, new WeatherRules().BandOf(scenario.Feels)));
     }
@@ -85,9 +86,9 @@ public sealed class EvalTests
         Assert.All(headings, heading => Assert.Contains(heading, markdown, StringComparison.Ordinal));
         Assert.Contains("**Hard-rule violations: 0.** The gate is passed.", markdown, StringComparison.Ordinal);
         Assert.Contains("| Stylist | Scenarios | Answered | `missing_garments` | Hard-rule violations | Valid discovery | Served by fallback | Median ms | p95 ms | Cost USD |", markdown, StringComparison.Ordinal);
-        Assert.Contains("1 wardrobes (12 garments) x 2 weather bands x 2 occasions = 4 scenarios", markdown, StringComparison.Ordinal);
+        Assert.Contains("1 wardrobes (12 garments) x 2 weather bands x 2 occasions x 1 style profiles (casual + smart) = 4 scenarios", markdown, StringComparison.Ordinal);
         Assert.Contains("Rule-based generator", markdown, StringComparison.Ordinal);
-        Assert.Contains("stylist-v3", markdown, StringComparison.Ordinal);
+        Assert.Contains(StylistPrompt.Version, markdown, StringComparison.Ordinal);
         // Nothing is formatted by the machine's locale.
         Assert.DoesNotContain(',', Between(markdown, "| fake-outfit-stylist | 4 |", "\n"));
     }
@@ -96,7 +97,7 @@ public sealed class EvalTests
     public async Task The_report_counts_what_the_wardrobe_cannot_dress_and_names_the_roles_it_lacks()
     {
         // The smallest wardrobe at the lowest temperature has nothing warm enough for every part of the body.
-        var matrix = new EvalMatrix([12], [TemperatureBand.Freezing], [Occasion.Everyday, Occasion.Workout]);
+        var matrix = new EvalMatrix([12], [TemperatureBand.Freezing], [Occasion.Everyday, Occasion.Workout], [StyleProfile.CasualSmart]);
 
         var report = await EvalRunner.RunAsync(new FakeOutfitStylist(), "fake", matrix, null);
 
@@ -149,7 +150,7 @@ public sealed class EvalTests
     [Fact]
     public void An_outfit_that_breaks_a_hard_rule_is_found_whatever_produced_it()
     {
-        var scenario = new Scenario(12, TemperatureBand.Freezing, -5, Occasion.Business);
+        var scenario = new Scenario(12, TemperatureBand.Freezing, -5, Occasion.Business, StyleProfile.CasualSmart);
         var weather = Day(-5);
         var shirt = Garment(Subcategory.Shirt, formality: 4, warmth: 2);
         var trousers = Garment(Subcategory.Trousers, formality: 4, warmth: 3);
@@ -182,7 +183,7 @@ public sealed class EvalTests
     [Fact]
     public void A_report_with_a_violation_fails_the_gate_and_says_so()
     {
-        var scenario = new Scenario(12, TemperatureBand.Hot, 28, Occasion.Everyday);
+        var scenario = new Scenario(12, TemperatureBand.Hot, 28, Occasion.Everyday, StyleProfile.CasualSmart);
         var outcome = new Outcome(scenario, [], [], false, [], ["12 garments, hot (28 °C), Everyday: 0 outfits instead of one to 3."], false, false, 0m, TimeSpan.Zero);
         var report = new EvalReport(Reduced, [new StylistResults("fake", [outcome]), new StylistResults("Rule-based generator", [])], null, "fake", "stylist-v3");
 
@@ -203,7 +204,7 @@ public sealed class EvalTests
 
             Assert.Equal(0, exit);
             var markdown = await File.ReadAllTextAsync(path);
-            Assert.Contains("= 90 scenarios per stylist", markdown, StringComparison.Ordinal);
+            Assert.Contains("= 540 scenarios per stylist", markdown, StringComparison.Ordinal);
             Assert.Contains("| 2 | 2 | 0 | 0 |", markdown, StringComparison.Ordinal);
         }
         finally

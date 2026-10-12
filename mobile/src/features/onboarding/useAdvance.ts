@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { updateProfile, type ProfileChange } from '@/api/account';
 import { setUser } from '@/auth/session';
 
-import { previousRoute, type OnboardingRoute } from './steps';
+import { previousRoute, type OnboardingIndex, type OnboardingRoute } from './steps';
 
 /**
  * Saves how far the person got on the account, then moves on. The server remembers the step (it only ever moves
@@ -16,8 +16,12 @@ export function useAdvance() {
   return {
     pending: mutation.isPending,
     error: mutation.error,
-    /** Marks `step` as the first one left to do, and goes to `route` like any step forward, so Back leads to where the person was. */
-    to: (step: 1 | 2, route: OnboardingRoute) => mutation.mutate({ onboardingStep: step }, { onSuccess: () => router.push(route) }),
+    /**
+     * Marks `step` as the first one left to do, saving what this step answered (`change`) in the same request, and goes
+     * to `route` like any step forward, so Back leads to where the person was.
+     */
+    to: (step: OnboardingIndex, route: OnboardingRoute, change: ProfileChange = {}) =>
+      mutation.mutate({ ...change, onboardingStep: step }, { onSuccess: () => router.push(route) }),
     /** One step back. Pops to the screen if it is still in the history, and opens it if the flow was resumed after a restart. */
     back: (from: OnboardingRoute, hasColors: boolean) => {
       const to = previousRoute(from, hasColors);

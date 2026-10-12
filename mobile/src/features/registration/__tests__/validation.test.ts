@@ -1,7 +1,6 @@
-import type { RegistrationDraft } from '@/features/registration/draft';
 import { useRegistrationDraft } from '@/features/registration/draft';
 import { emptyDateParts } from '@/lib/dates';
-import { checkBirthDate, emailError, firstIncompleteStep, messages, nameError, passwordError } from '@/features/registration/validation';
+import { checkBirthDate, emailError, messages, nameError, passwordError } from '@/features/registration/validation';
 
 const today = { day: 6, month: 10, year: 2026 };
 
@@ -69,89 +68,24 @@ describe('checkBirthDate', () => {
   });
 });
 
-describe('firstIncompleteStep', () => {
-  const complete: RegistrationDraft = {
-    email: 'ola@example.com',
-    password: 'secretpass1',
-    displayName: 'Ola',
-    birthDate: born(3, 14, 1999),
-    gender: 'female',
-    avatarId: 'a1',
-    avatarGender: 'female',
-    clothingSize: null,
-    legLength: null,
-    styles: [],
-    thermalPreference: 'normal',
-  };
-
-  it('is null when everything needed is there (styles are optional)', () => {
-    expect(firstIncompleteStep(complete, today)).toBeNull();
-  });
-
-  it.each([
-    [{ email: 'ola' }, '/register'],
-    [{ password: 'krotkie' }, '/register'],
-    [{ displayName: ' ' }, '/register/about'],
-    [{ birthDate: born(3, 14, 2020) }, '/register/about'],
-    [{ birthDate: emptyDateParts }, '/register/about'],
-    [{ gender: null }, '/register/about'],
-    [{ avatarId: null }, '/register/silhouette'],
-    [{ email: '', avatarId: null }, '/register'],
-  ] as const)('points at the earliest step with a gap: %p', (change, step) => {
-    expect(firstIncompleteStep({ ...complete, ...change }, today)).toBe(step);
-  });
-});
-
 describe('the registration draft', () => {
   beforeEach(() => useRegistrationDraft.getState().reset());
 
-  it('drops the chosen silhouette when the gender changes, because silhouettes belong to a gender', () => {
-    const draft = useRegistrationDraft.getState();
-    draft.set({ gender: 'female' });
-    draft.set({ avatarId: 'klepsydra' });
-    expect(useRegistrationDraft.getState().avatarId).toBe('klepsydra');
-
-    draft.set({ gender: 'female' });
-    expect(useRegistrationDraft.getState().avatarId).toBe('klepsydra');
-
-    draft.set({ gender: 'male' });
-    expect(useRegistrationDraft.getState()).toMatchObject({ gender: 'male', avatarId: null });
-  });
-
-  it.each([
-    ['female', 'female', 'non_binary'],
-    ['male', 'male', 'unspecified'],
-    ['non_binary', 'male', 'unspecified'],
-    ['non_binary', 'female', 'female'],
-  ] as const)('keeps the chosen silhouette while it is still offered: %#', (from, shape, to) => {
-    const draft = useRegistrationDraft.getState();
-    draft.set({ gender: from });
-    draft.set({ avatarId: 'shape', avatarGender: shape });
-
-    draft.set({ gender: to });
-
-    expect(useRegistrationDraft.getState()).toMatchObject({ gender: to, avatarId: 'shape', avatarGender: shape });
-  });
-
-  it.each([
-    ['non_binary', 'male', 'female'],
-    ['non_binary', 'female', 'male'],
-    ['unspecified', 'male', 'female'],
-  ] as const)('drops a silhouette of the other set when the gender narrows down: %#', (from, shape, to) => {
-    const draft = useRegistrationDraft.getState();
-    draft.set({ gender: from });
-    draft.set({ avatarId: 'shape', avatarGender: shape });
-
-    draft.set({ gender: to });
-
-    expect(useRegistrationDraft.getState()).toMatchObject({ gender: to, avatarId: null, avatarGender: null });
+  it('holds what was picked before the account, and nothing about the body shape: that is asked after sign-up', () => {
+    expect(Object.keys(useRegistrationDraft.getState()).sort()).toEqual(['birthDate', 'displayName', 'email', 'gender', 'password', 'place', 'reset', 'set', 'starters', 'styles', 'thermalPreference']);
   });
 
   it('forgets everything on reset, the password included', () => {
-    useRegistrationDraft.getState().set({ email: 'ola@example.com', password: 'secretpass1', styles: ['casual'], thermalPreference: 'runs_cold' });
+    useRegistrationDraft.getState().set({
+      email: 'ola@example.com',
+      password: 'secretpass1',
+      styles: ['casual'],
+      starters: ['white_tshirt'],
+      place: { source: 'manual', name: 'Osaka', lat: 34.7, lon: 135.5 },
+    });
 
     useRegistrationDraft.getState().reset();
 
-    expect(useRegistrationDraft.getState()).toMatchObject({ email: '', password: '', styles: [], thermalPreference: 'normal', gender: null });
+    expect(useRegistrationDraft.getState()).toMatchObject({ email: '', password: '', styles: [], starters: [], place: null, birthDate: emptyDateParts });
   });
 });

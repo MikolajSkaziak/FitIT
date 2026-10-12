@@ -158,6 +158,45 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                     b.ToTable("refresh_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("FitIt.Core.Styling.CalendarEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<Guid>("OutfitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("outfit_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<bool>("Worn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("worn");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_entries");
+
+                    b.HasIndex("OutfitId")
+                        .HasDatabaseName("ix_calendar_entries_outfit_id");
+
+                    b.HasIndex("UserId", "Day", "OutfitId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_calendar_entries_user_id_day_outfit_id");
+
+                    b.ToTable("calendar_entries", (string)null);
+                });
+
             modelBuilder.Entity("FitIt.Core.Styling.Outfit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -172,6 +211,10 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("daily_on");
 
+                    b.Property<string>("FigureLayout")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("figure_layout");
+
                     b.Property<bool>("IsSaved")
                         .HasColumnType("boolean")
                         .HasColumnName("is_saved");
@@ -180,6 +223,10 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("kind");
+
+                    b.Property<string>("Layout")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("layout");
 
                     b.Property<string>("Model")
                         .HasMaxLength(80)
@@ -241,6 +288,11 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("source");
+
+                    b.Property<string>("Style")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("style");
 
                     b.Property<bool>("Umbrella")
                         .HasColumnType("boolean")
@@ -322,6 +374,10 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("duration_ms");
 
+                    b.Property<int?>("InputTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("input_tokens");
+
                     b.Property<string>("Model")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -334,9 +390,17 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operation");
 
+                    b.Property<int?>("OutputTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("output_tokens");
+
                     b.Property<bool>("Success")
                         .HasColumnType("boolean")
                         .HasColumnName("success");
+
+                    b.Property<int?>("ThoughtTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("thought_tokens");
 
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid")
@@ -482,6 +546,49 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                     b.ToTable("visualizations", (string)null);
                 });
 
+            modelBuilder.Entity("FitIt.Core.Visualizations.VisualizationReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("OutfitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("outfit_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("VisualizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("visualization_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_visualization_reports");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_visualization_reports_created_at");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_visualization_reports_user_id");
+
+                    b.HasIndex("VisualizationId")
+                        .HasDatabaseName("ix_visualization_reports_visualization_id");
+
+                    b.ToTable("visualization_reports", (string)null);
+                });
+
             modelBuilder.Entity("FitIt.Core.Wardrobe.ClothingItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -514,6 +621,10 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("DeferredUntil")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deferred_until");
+
+                    b.Property<bool>("DescribedByAi")
+                        .HasColumnType("boolean")
+                        .HasColumnName("described_by_ai");
 
                     b.Property<string>("Description")
                         .HasMaxLength(300)
@@ -632,6 +743,47 @@ namespace FitIt.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_clothing_items_warmth", "warmth BETWEEN 1 AND 5");
                         });
+                });
+
+            modelBuilder.Entity("FitIt.Core.Wardrobe.ClothingPhoto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClothingItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clothing_item_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("key");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
+
+                    b.HasKey("Id")
+                        .HasName("pk_clothing_photos");
+
+                    b.HasIndex("Key")
+                        .IsUnique()
+                        .HasDatabaseName("ix_clothing_photos_key");
+
+                    b.HasIndex("ClothingItemId", "CreatedAt")
+                        .HasDatabaseName("ix_clothing_photos_clothing_item_id_created_at");
+
+                    b.ToTable("clothing_photos", (string)null);
                 });
 
             modelBuilder.Entity("FitIt.Infrastructure.Identity.AppUser", b =>
@@ -898,6 +1050,23 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_refresh_tokens_users_user_id");
                 });
 
+            modelBuilder.Entity("FitIt.Core.Styling.CalendarEntry", b =>
+                {
+                    b.HasOne("FitIt.Core.Styling.Outfit", null)
+                        .WithMany()
+                        .HasForeignKey("OutfitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_entries_outfits_outfit_id");
+
+                    b.HasOne("FitIt.Infrastructure.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_entries_users_user_id");
+                });
+
             modelBuilder.Entity("FitIt.Core.Styling.Outfit", b =>
                 {
                     b.HasOne("FitIt.Infrastructure.Identity.AppUser", null)
@@ -968,6 +1137,16 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_visualizations_users_user_id");
                 });
 
+            modelBuilder.Entity("FitIt.Core.Visualizations.VisualizationReport", b =>
+                {
+                    b.HasOne("FitIt.Infrastructure.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_visualization_reports_users_user_id");
+                });
+
             modelBuilder.Entity("FitIt.Core.Wardrobe.ClothingItem", b =>
                 {
                     b.HasOne("FitIt.Infrastructure.Identity.AppUser", null)
@@ -976,6 +1155,16 @@ namespace FitIt.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_clothing_items_users_user_id");
+                });
+
+            modelBuilder.Entity("FitIt.Core.Wardrobe.ClothingPhoto", b =>
+                {
+                    b.HasOne("FitIt.Core.Wardrobe.ClothingItem", null)
+                        .WithMany()
+                        .HasForeignKey("ClothingItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_clothing_photos_clothing_items_clothing_item_id");
                 });
 
             modelBuilder.Entity("FitIt.Infrastructure.Identity.AppUser", b =>

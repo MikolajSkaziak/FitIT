@@ -43,10 +43,13 @@ public sealed class RegisterRequest
     [Required]
     public DateOnly? BirthDate { get; init; }
 
-    [Required]
+    /// <summary>
+    /// Optional: the app asks for the gender and the body shape right after the account exists, in the first step of the
+    /// post-registration flow. Left out, the account starts as <c>unspecified</c> with a stand-in silhouette until that step sets both.
+    /// </summary>
     public Gender? Gender { get; init; }
 
-    [Required]
+    /// <summary>Optional, see <see cref="Gender"/>.</summary>
     public Guid? AvatarId { get; init; }
 
     [MaxLength(GarmentCatalog.MaxPreferredStyles)]
@@ -146,11 +149,11 @@ public sealed class UpdateProfileRequest
     /// <summary>True removes the stored weather place.</summary>
     public bool? ClearLocation { get; init; }
 
-    /// <summary>True records consent to sending photos to external AI services; false withdraws it. Creating an account already records it.</summary>
+    /// <summary>True records consent to sending photos to external AI services; false withdraws it. A new account has none: the app asks right before the first photo is sent out.</summary>
     public bool? AiConsent { get; init; }
 
-    /// <summary>The first step of the post-registration flow that is not finished yet (0 colors, 1 first pieces, 2 recap). It never moves back.</summary>
-    [Range(0, 2)]
+    /// <summary>The first step of the post-registration flow that is not finished yet (0 body shape, 1 fit, 2 colors, 3 recap). It never moves back.</summary>
+    [Range(0, 3)]
     public int? OnboardingStep { get; init; }
 
     /// <summary>True marks the post-registration flow as done for this account.</summary>

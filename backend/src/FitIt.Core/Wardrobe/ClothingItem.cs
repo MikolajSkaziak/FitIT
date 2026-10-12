@@ -34,6 +34,9 @@ public sealed class ClothingItem
     /// <summary>One English sentence for the models.</summary>
     public string? Description { get; private set; }
 
+    /// <summary>True while the name and tags are what the AI tagger wrote. Starter pieces never have it, and the person's own edit clears it.</summary>
+    public bool DescribedByAi { get; private set; }
+
     /// <summary>Colour codes, the main one first.</summary>
     public string[] Colors { get; private set; } = [];
 
@@ -134,9 +137,10 @@ public sealed class ClothingItem
         UpdatedAt = now;
     }
 
-    public void MarkReady(GarmentTags tags, string description, DateTimeOffset now)
+    public void MarkReady(GarmentTags tags, string description, DateTimeOffset now, bool describedByAi = false)
     {
         Write(tags, description);
+        DescribedByAi = describedByAi;
         Status = ClothingStatus.Ready;
         RejectReason = null;
         DeferredUntil = null;
@@ -176,6 +180,7 @@ public sealed class ClothingItem
     public void Retag(GarmentTags tags, DateTimeOffset now)
     {
         Write(tags, tags.Describe());
+        DescribedByAi = false;
         if (Status == ClothingStatus.Failed)
         {
             Status = ClothingStatus.Ready;

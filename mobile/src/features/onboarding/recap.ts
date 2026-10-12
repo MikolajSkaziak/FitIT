@@ -4,7 +4,6 @@ import { styleLabel } from '@/copy/labels';
 import { rangeOf, skyNames } from '@/features/weather/copy';
 
 import { recap } from './copy';
-import { piecesForFirstOutfit } from './steps';
 
 export interface RecapLine {
   key: keyof typeof recap.labels;
@@ -39,6 +38,3 @@ export function recapLines(user: Pick<User, 'displayName' | 'location' | 'styles
   lines.push({ key: 'clothes', label: recap.labels.clothes, value: String(clothes) });
   return lines;
 }
-
-/** What happens next: how many pieces are still needed for the first outfit, or that there are enough. */
-export const nextLine = (clothes: number): string => (clothes >= piecesForFirstOutfit ? recap.ready : recap.needMore);

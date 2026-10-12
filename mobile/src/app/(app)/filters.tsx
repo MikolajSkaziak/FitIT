@@ -1,20 +1,23 @@
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { UsageFilter } from '@/api/wardrobe';
+import { fetchClothes, wardrobeKeys, type GarmentGroup, type UsageFilter } from '@/api/wardrobe';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { IconButton, Swatch } from '@/components/controls';
-import { Card } from '@/components/lists';
-import { ToggleFade } from '@/components/motion';
-import { Pill, ToggleRow } from '@/components/toggles';
+import { Swatch } from '@/components/controls';
+import { Eyebrow } from '@/components/Eyebrow';
+import { Hairline } from '@/components/Hairline';
+import type { IconName } from '@/components/Icon';
+import { PressScale, ToggleFade } from '@/components/motion';
+import { TextTabs } from '@/components/TextTabs';
+import { ToggleRow } from '@/components/toggles';
 import { defaultArrangement, groupByOptions, sortOptions } from '@/features/wardrobe/arrange';
 import { isFiltered, useWardrobeFilters } from '@/features/wardrobe/filters';
-import { seasonIcon } from '@/features/wardrobe/seasons';
 import { useDictionaries } from '@/features/wardrobe/useDictionaries';
-import { capitalized } from '@/lib/plural';
+import { capitalized, plural } from '@/lib/plural';
 import { motion, size, space, useTheme } from '@/theme';
 
 const usageOptions: readonly { value: UsageFilter; label: string }[] = [
@@ -25,7 +28,7 @@ const usageOptions: readonly { value: UsageFilter; label: string }[] = [
 
 /**
  * Narrowing, sorting and grouping the wardrobe: a sheet over the list, in sections. Every choice applies at once, so the list
- * behind it already shows the result. Several values may be chosen in Groups, Colors, Seasons and Materials; the rest take one.
+ * behind it already shows the result. Several values may be chosen in Group, Season, Material and Color; the rest take one.
  */
 export default function WardrobeFilters() {
   const router = useRouter();
@@ -47,6 +50,12 @@ export default function WardrobeFilters() {
   const arranged = state.sort !== defaultArrangement.sort || state.groupBy !== defaultArrangement.groupBy;
   const data = dictionaries.data;
 
+  const nothingSet = !isFiltered(state) && !arranged;
+  // What the list behind the sheet shows for these choices: read from the list's own answer, never asked again from here.
+  const shown = useQuery({ queryKey: wardrobeKeys.list(state), queryFn: ({ signal }) => fetchClothes(state, signal), enabled: false, placeholderData: keepPreviousData });
+  const showLabel = shown.data ? `Show ${shown.data.length} ${plural(shown.data.length, ['piece', 'pieces'])}` : 'Show clothes';
+  const groupOptions = [{ value: 'all' as GarmentGroup | 'all', label: 'All' }, ...(data?.groups ?? []).map((entry) => ({ value: entry.code as GarmentGroup | 'all', label: entry.label }))];
+
   // The root stays a real native view: react-native-screens resizes a ScrollView it finds directly under a sheet to the whole sheet.
   return (
     <View collapsable={false} style={styles.sheet} testID="filters-sheet">
@@ -54,7 +63,7 @@ export default function WardrobeFilters() {
         <AppText variant="heading" accessibilityRole="header">
           Filters
         </AppText>
-        <IconButton icon="close" label="Close" onPress={() => router.back()} />
+        <ClearLink disabled={nothingSet} onPress={state.clear} />
       </View>
       <ScrollView
         ref={list}
@@ -64,104 +73,119 @@ export default function WardrobeFilters() {
         onContentSizeChange={(_, height) => measure({ content: height })}
         onScroll={(event) => setOffset(event.nativeEvent.contentOffset.y)}
         scrollEventThrottle={32}>
-        <Section title="Groups">
-          <Pill label="All" selected={state.groups.length === 0} onPress={state.clearGroups} testID="filter-group-all" />
-          {(data?.groups ?? []).map((entry) => (
-            <Pill key={entry.code} label={entry.label} selected={state.groups.includes(entry.code)} onPress={() => state.toggleGroup(entry.code)} testID={`filter-group-${entry.code}`} />
-          ))}
+        <Section title="Group" icon="hanger">
+          <TextTabs
+            label="Group"
+            layout="wrap"
+            options={groupOptions}
+            value={state.groups.length > 0 ? state.groups : ['all']}
+            onChange={(group) => (group === 'all' ? state.clearGroups() : state.toggleGroup(group))}
+            testID="filter-group"
+          />
         </Section>
 
-        <Section title="Colors" spacing={space[1]}>
-          {(data?.colors ?? []).map((entry) => (
-            <Swatch
-              key={entry.code}
-              hex={entry.hex}
-              label={capitalized(entry.label)}
-              selected={state.colors.includes(entry.code)}
-              onPress={() => state.toggleColor(entry.code)}
-              testID={`filter-color-${entry.code}`}
-            />
-          ))}
+        <Section title="Season" icon="sun">
+          <TextTabs
+            label="Season"
+            layout="wrap"
+            options={(data?.seasons ?? []).map((entry) => ({ value: entry.code, label: entry.label }))}
+            value={state.seasons}
+            onChange={state.toggleSeason}
+            testID="filter-season"
+          />
         </Section>
 
-        <Section title="Seasons">
-          {(data?.seasons ?? []).map((entry) => (
-            <Pill
-              key={entry.code}
-              label={entry.label}
-              icon={seasonIcon[entry.code]}
-              selected={state.seasons.includes(entry.code)}
-              onPress={() => state.toggleSeason(entry.code)}
-              testID={`filter-season-${entry.code}`}
-            />
-          ))}
+        <Section title="Material" icon="style">
+          <TextTabs
+            label="Material"
+            layout="wrap"
+            options={(data?.materials ?? []).map((entry) => ({ value: entry.code, label: capitalized(entry.label) }))}
+            value={state.materials}
+            onChange={state.toggleMaterial}
+            testID="filter-material"
+          />
         </Section>
 
-        <Section title="Materials">
-          {(data?.materials ?? []).map((entry) => (
-            <Pill
-              key={entry.code}
-              label={capitalized(entry.label)}
-              selected={state.materials.includes(entry.code)}
-              onPress={() => state.toggleMaterial(entry.code)}
-              testID={`filter-material-${entry.code}`}
-            />
-          ))}
+        <Section title="Usage" icon="bookmark">
+          <TextTabs label="Usage" layout="wrap" options={usageOptions} value={state.usage} onChange={state.setUsage} testID="filter-usage" />
         </Section>
 
-        <Section title="Usage">
-          {usageOptions.map((option) => (
-            <Pill key={option.value} role="radio" label={option.label} selected={state.usage === option.value} onPress={() => state.setUsage(option.value)} testID={`filter-usage-${option.value}`} />
-          ))}
-        </Section>
-
-        <Card>
+        <View>
+          <Hairline />
           <ToggleRow
+            icon="clock"
             label="Forgotten clothes only"
             meta="Clothes you marked as rarely worn, or haven’t worn in 30 days."
             value={state.forgotten}
             onChange={state.setForgotten}
-            last
             testID="filter-forgotten"
           />
-        </Card>
+        </View>
 
-        <Section title="Sort by">
-          {sortOptions.map((option) => (
-            <Pill key={option.value} role="radio" label={option.label} selected={state.sort === option.value} onPress={() => state.setSort(option.value)} testID={`filter-sort-${option.value}`} />
-          ))}
+        <Section title="Sort by" icon="filters">
+          <TextTabs label="Sort by" layout="wrap" options={sortOptions} value={state.sort} onChange={state.setSort} testID="filter-sort" />
         </Section>
 
-        <Section title="Group by">
-          {groupByOptions.map((option) => (
-            <Pill key={option.value} role="radio" label={option.label} selected={state.groupBy === option.value} onPress={() => state.setGroupBy(option.value)} testID={`filter-groupby-${option.value}`} />
-          ))}
+        <Section title="Group by" icon="hanger">
+          <TextTabs label="Group by" layout="wrap" options={groupByOptions} value={state.groupBy} onChange={state.setGroupBy} testID="filter-groupby" />
+        </Section>
+
+        <Section title="Color" icon="palette">
+          <View accessibilityLabel="Color" style={styles.swatches}>
+            {(data?.colors ?? []).map((entry) => (
+              <Swatch
+                key={entry.code}
+                hex={entry.hex}
+                label={capitalized(entry.label)}
+                selected={state.colors.includes(entry.code)}
+                onPress={() => state.toggleColor(entry.code)}
+                testID={`filter-color-${entry.code}`}
+              />
+            ))}
+          </View>
         </Section>
       </ScrollView>
-      {/* A box of its own under the list: the filters scroll behind its top line and never sit under the buttons. */}
+      {/* A box of its own under the list: the filters scroll behind its top line and never sit under the button. */}
       <View style={[styles.footer, { borderTopColor: theme.border, backgroundColor: theme.canvas, paddingBottom: Math.max(insets.bottom, space[4]) }]}>
         <ToggleFade on={more} style={styles.more}>
           <AppText variant="meta" color="textSecondary" align="center">
             Scroll for more filters
           </AppText>
         </ToggleFade>
-        <View style={styles.actions}>
-          <Button label="Clear filters" kind="secondary" disabled={!isFiltered(state) && !arranged} onPress={state.clear} style={styles.action} testID="filters-clear" />
-          <Button label="Show clothes" onPress={() => router.back()} style={styles.action} testID="filters-done" />
-        </View>
+        <Button label={showLabel} onPress={() => router.back()} testID="filters-done" />
       </View>
     </View>
   );
 }
 
-/** A labelled section whose options wrap onto as many lines as they need. */
-function Section({ title, spacing = space[2], children }: { title: string; spacing?: number; children: ReactNode }) {
+/** "Clear all" in green words at the end of the title row; grey and inert while nothing is set. */
+function ClearLink({ disabled, onPress }: { disabled: boolean; onPress: () => void }) {
+  return (
+    <PressScale
+      accessibilityRole="button"
+      accessibilityLabel="Clear filters"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      haptic="quiet"
+      onPress={onPress}
+      hitSlop={{ left: 12, right: 4 }}
+      style={styles.clear}
+      testID="filters-clear">
+      <AppText variant="label" color={disabled ? 'disabledText' : 'action'}>
+        Clear all
+      </AppText>
+    </PressScale>
+  );
+}
+
+/** A section named by a small icon and label, whose options wrap onto as many lines as they need. */
+function Section({ title, icon, children }: { title: string; icon: IconName; children: ReactNode }) {
   return (
     <View style={styles.section}>
-      <AppText variant="subheading" accessibilityRole="header">
+      <Eyebrow icon={icon} header>
         {title}
-      </AppText>
-      <View style={[styles.options, { gap: spacing }]}>{children}</View>
+      </Eyebrow>
+      {children}
     </View>
   );
 }
@@ -170,12 +194,11 @@ const styles = StyleSheet.create({
   sheet: { flex: 1, paddingHorizontal: size.gutter, paddingTop: space[6], gap: space[4] },
   footer: { marginTop: -space[4], marginHorizontal: -size.gutter, paddingHorizontal: size.gutter, paddingTop: space[2], borderTopWidth: 1, gap: space[2] },
   more: { height: 18, justifyContent: 'center' },
-  actions: { flexDirection: 'row', gap: space[2] },
-  action: { flex: 1 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  clear: { minHeight: size.touch, justifyContent: 'center' },
   // The list runs to both edges of the sheet, so the scroll bar sits in the gutter beside the options, not over them.
   list: { marginHorizontal: -size.gutter },
   body: { gap: space[6], paddingHorizontal: size.gutter, paddingBottom: space[4] },
-  section: { gap: space[2] },
-  options: { flexDirection: 'row', flexWrap: 'wrap' },
+  section: { gap: 10 },
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', marginLeft: -4 },
 });

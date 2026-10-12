@@ -56,6 +56,22 @@ public sealed class ProcessingTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task A_garment_described_by_the_tagger_says_so_until_the_person_changes_its_tags()
+    {
+        factory.Ai.Reset();
+        var (client, _) = await factory.SignedInWithConsentAsync();
+        var garment = await factory.AddProcessedGarmentAsync(client);
+        Assert.True(garment.DescribedByAi);
+
+        var flagged = await (await client.PatchJsonAsync($"/api/clothes/{garment.Id}", new JsonObject { ["inLaundry"] = true })).ReadAsync<ClothingResponse>();
+        var renamed = await (await client.PatchJsonAsync($"/api/clothes/{garment.Id}", new JsonObject { ["name"] = "My favourite" })).ReadAsync<ClothingResponse>();
+
+        Assert.True(flagged.DescribedByAi);
+        Assert.Equal("My favourite", renamed.Name);
+        Assert.False(renamed.DescribedByAi);
+    }
+
+    [Fact]
     public async Task A_cutout_is_stored_cropped_to_the_garment()
     {
         factory.Ai.Reset().RemovalReturns(Pictures.Padded(640, 640, new SKRectI(200, 100, 400, 500)));

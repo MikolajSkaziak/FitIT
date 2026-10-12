@@ -9,8 +9,11 @@ using Microsoft.Extensions.Options;
 
 namespace FitIt.Infrastructure.Weather;
 
-/// <summary>The weather a person dresses for: where it was taken, what it comes down to, and a few hours of it from now to the evening.</summary>
-public sealed record PersonalWeather(WeatherPlace Place, WeatherProfile Profile, IReadOnlyList<WeatherHour> Hours);
+/// <summary>
+/// The weather a person dresses for: where it was taken, what it comes down to, and a few hours of it. For today those run
+/// from now to the evening and <see cref="IsToday"/> is true; for a day ahead they run through that whole day.
+/// </summary>
+public sealed record PersonalWeather(WeatherPlace Place, WeatherProfile Profile, IReadOnlyList<WeatherHour> Hours, DateOnly Day, bool IsToday = true);
 
 /// <summary>
 /// Forecasts for the place in a profile, turned into the profile the stylist's rules work with. A forecast is kept for
@@ -35,16 +38,45 @@ public sealed class WeatherService(AppDbContext db, IWeatherProvider provider, I
         return user.Place is { } place ? await AtAsync(place, user.ThermalPreference, cancellationToken) : WeatherErrors.NoPlace;
     }
 
-    public async Task<Result<PersonalWeather>> AtAsync(WeatherPlace place, ThermalPreference thermal, CancellationToken cancellationToken)
+    /// <summary>The weather of one day of the person's calendar, today or one of the next six.</summary>
+    public async Task<Result<PersonalWeather>> OnAsync(Guid userId, DateOnly day, CancellationToken cancellationToken)
     {
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(user => user.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            return ApiError.NotFound();
+        }
+
+        return user.Place is { } place ? await AtAsync(place, user.ThermalPreference, cancellationToken, day) : WeatherErrors.NoPlace;
+    }
+
+    /// <summary>
+    /// The weather at a place: for the rest of today, or with <paramref name="day"/> for that day of the place's calendar.
+    /// Today asked for by its date is the rest of today; a day before it or past the horizon is refused.
+    /// </summary>
+    public async Task<Result<PersonalWeather>> AtAsync(WeatherPlace place, ThermalPreference thermal, CancellationToken cancellationToken, DateOnly? day = null)
+    {
+        var today = clock.DayAt(place).Today;
+        if (day is { } asked && (asked < today || asked >= today.AddDays(WeatherProfile.HorizonDays)))
+        {
+            return WeatherErrors.OutOfRange;
+        }
+
         var forecast = await ForecastAsync(place.Lat, place.Lon, cancellationToken);
         if (!forecast.IsOk)
         {
             return forecast.Error!;
         }
 
+        if (day is { } ahead && ahead != today)
+        {
+            return WeatherProfile.Build(forecast.Value, ahead, thermal, rules.Value) is { } planned
+                ? new PersonalWeather(place, planned, WeatherProfile.Slots(forecast.Value, ahead, rules.Value), ahead, IsToday: false)
+                : WeatherErrors.Unavailable;
+        }
+
         return WeatherProfile.Build(forecast.Value, clock.UtcNow, thermal, rules.Value) is { } profile
-            ? new PersonalWeather(place, profile, WeatherProfile.Slots(forecast.Value, clock.UtcNow, rules.Value))
+            ? new PersonalWeather(place, profile, WeatherProfile.Slots(forecast.Value, clock.UtcNow, rules.Value), today)
             : WeatherErrors.Unavailable;
     }
 

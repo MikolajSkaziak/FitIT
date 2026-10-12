@@ -13,7 +13,7 @@ import { LegFigures } from '@/components/LegFigures';
 import { legDetails, legsNotSet, sizeNames } from '@/copy/labels';
 import { motion } from '@/theme';
 import { user } from '@/test/fixtures';
-import { renderScreen, router } from '@/test/screen';
+import { expectAccent, renderScreen, router } from '@/test/screen';
 
 jest.mock('expo-router', () => jest.requireActual('@/test/screen').routerModule);
 jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
@@ -90,12 +90,15 @@ describe('the size screen', () => {
     await renderScreen(<EditSize />);
 
     expect(screen.getByTestId('size-letter')).toHaveTextContent('XXL');
+    expect(screen.getByTestId('size-letter').props.numberOfLines).toBe(1);
     expect(screen.getByText('Double extra large')).toBeOnTheScreen();
-    expect(screen.getByText('try-on fit')).toBeOnTheScreen();
+    // The long name has the line to itself.
+    expect(screen.queryByText('try-on fit')).toBeNull();
     await fireEvent.press(screen.getByRole('radio', { name: 'Small' }));
 
     expect(screen.getByTestId('size-letter')).toHaveTextContent('S');
     expect(screen.getByText('Small')).toBeOnTheScreen();
+    expect(screen.getByText('try-on fit')).toBeOnTheScreen();
     expect(screen.getByTestId('size-letter').props.accessibilityLiveRegion).toBe('polite');
   });
 
@@ -184,6 +187,8 @@ describe('the leg length screen', () => {
     await renderScreen(<EditLegs />);
 
     expect(screen.getByTestId('legs').props).toMatchObject({ accessibilityRole: 'radiogroup', accessibilityLabel: 'Leg length' });
+    expect(screen.getByRole('header', { name: 'Leg length' })).toBeOnTheScreen();
+    expectAccent('rise', 'length');
     expect(screen.getAllByRole('radio')).toHaveLength(3);
     for (const label of ['Shorter', 'Average', 'Longer']) {
       expect(screen.getByRole('radio', { name: label })).toBeOnTheScreen();

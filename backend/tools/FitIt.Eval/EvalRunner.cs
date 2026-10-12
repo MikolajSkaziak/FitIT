@@ -10,13 +10,33 @@ using FitIt.Infrastructure.Visualizations;
 
 namespace FitIt.Eval;
 
-/// <summary>One row of the matrix of product spec 6.9: a wardrobe, a kind of weather and an occasion.</summary>
-public sealed record Scenario(int WardrobeSize, TemperatureBand Band, double Feels, Occasion Occasion);
-
-/// <summary>What the matrix is made of. The default is the one of the spec: 3 wardrobes, 5 weathers, 6 occasions.</summary>
-public sealed record EvalMatrix(IReadOnlyList<int> Wardrobes, IReadOnlyList<TemperatureBand> Bands, IReadOnlyList<Occasion> Occasions)
+/// <summary>The styles a sample person likes, as their profile would hold them.</summary>
+public sealed record StyleProfile(string Name, IReadOnlyList<StyleTag> Styles)
 {
-    public static readonly EvalMatrix Full = new(SampleWardrobes.Sizes, Enum.GetValues<TemperatureBand>(), Enum.GetValues<Occasion>());
+    public static readonly StyleProfile CasualSmart = new("casual + smart", [StyleTag.Casual, StyleTag.Smart]);
+
+    /// <summary>One broad taste, four narrow ones and one that pulls two ways.</summary>
+    public static readonly IReadOnlyList<StyleProfile> All =
+    [
+        CasualSmart,
+        new("old money", [StyleTag.OldMoney]),
+        new("streetwear", [StyleTag.Streetwear]),
+        new("gorpcore", [StyleTag.Gorpcore]),
+        new("boho + romantic", [StyleTag.Boho, StyleTag.Romantic]),
+        new("sporty", [StyleTag.Sporty]),
+    ];
+}
+
+/// <summary>One row of the matrix of product spec 6.9: a wardrobe, a kind of weather and an occasion, for a person of one taste.</summary>
+public sealed record Scenario(int WardrobeSize, TemperatureBand Band, double Feels, Occasion Occasion, StyleProfile Profile);
+
+/// <summary>What the matrix is made of. The default is the one of the spec (3 wardrobes, 5 weathers, 6 occasions) for each of the style profiles.</summary>
+public sealed record EvalMatrix(IReadOnlyList<int> Wardrobes, IReadOnlyList<TemperatureBand> Bands, IReadOnlyList<Occasion> Occasions, IReadOnlyList<StyleProfile> Profiles)
+{
+    public static readonly EvalMatrix Full = new(SampleWardrobes.Sizes, Enum.GetValues<TemperatureBand>(), Enum.GetValues<Occasion>(), StyleProfile.All);
+
+    /// <summary>The step of <see cref="Sample"/>: a prime, so the walk visits every scenario of any matrix it does not divide.</summary>
+    private const int Stride = 127;
 
     /// <summary>A temperature that sits squarely in each band, as the tests of the rules take it.</summary>
     public static double FeelsIn(TemperatureBand band) => band switch
@@ -29,7 +49,55 @@ public sealed record EvalMatrix(IReadOnlyList<int> Wardrobes, IReadOnlyList<Temp
     };
 
     public IEnumerable<Scenario> Scenarios() =>
-        from wardrobe in Wardrobes from band in Bands from occasion in Occasions select new Scenario(wardrobe, band, FeelsIn(band), occasion);
+        from wardrobe in Wardrobes from band in Bands from occasion in Occasions from profile in Profiles
+        select new Scenario(wardrobe, band, FeelsIn(band), occasion, profile);
+
+    /// <summary>
+    /// At most <paramref name="limit"/> scenarios the sample wardrobes can dress, the same ones on every run: the matrix is
+    /// walked in steps of <see cref="Stride"/>, which spreads the picks over profiles, wardrobes, weathers and occasions,
+    /// and a scenario that would end in <c>missing_garments</c> is passed over, since it asks nothing of a stylist.
+    /// </summary>
+    public IReadOnlyList<Scenario> Sample(int limit)
+    {
+        var all = Scenarios().ToList();
+        var rules = new WeatherRules();
+        var wardrobes = Wardrobes.ToDictionary(size => size, SampleWardrobes.Build);
+        var picked = new List<Scenario>();
+        for (var step = 0; step < all.Count && picked.Count < limit; step++)
+        {
+            var scenario = all[step * Stride % all.Count];
+            if (!picked.Contains(scenario) && CandidateFilter.Select(wardrobes[scenario.WardrobeSize], EvalRunner.Weather(scenario, rules), scenario.Occasion).IsComplete)
+            {
+                picked.Add(scenario);
+            }
+        }
+
+        return picked;
+    }
+}
+
+/// <summary>
+/// How closely an outfit keeps to the styles a person likes: the share of its garments that carry one of those styles
+/// (<see cref="Direct"/>), and the share that carry one of them or a style that goes with one of them by
+/// <see cref="StyleAffinity"/> (<see cref="Near"/>). A garment without style tags says nothing either way and is not counted.
+/// This is the yardstick of the evaluation alone: nothing the stylist runs on reads it, so it measures the same thing
+/// before and after a change to the stylist.
+/// </summary>
+public sealed record StyleFidelity(double Direct, double Near)
+{
+    /// <summary>Null when no garment of the outfit has a style tag.</summary>
+    public static StyleFidelity? Of(OutfitDraft outfit, IReadOnlyList<StyleTag> liked)
+    {
+        var tagged = outfit.Items.Where(garment => garment.Tags.Styles.Count > 0).ToList();
+        if (tagged.Count == 0)
+        {
+            return null;
+        }
+
+        var direct = tagged.Count(garment => garment.Tags.Styles.Any(liked.Contains));
+        var near = tagged.Count(garment => garment.Tags.Styles.Any(style => liked.Any(like => StyleAffinity.AreCompatible(style, like))));
+        return new StyleFidelity((double)direct / tagged.Count, (double)near / tagged.Count);
+    }
 }
 
 /// <summary>What one stylist did with one scenario.</summary>
@@ -43,7 +111,12 @@ public sealed record Outcome(
     bool ForgottenAmongCandidates,
     bool HasDiscovery,
     decimal CostUsd,
-    TimeSpan Elapsed)
+    TimeSpan Elapsed,
+    int Requests = 0,
+    int InputTokens = 0,
+    int OutputTokens = 0,
+    int ThoughtTokens = 0,
+    FallbackReason? Reason = null)
 {
     public bool WasAnswered => Missing.Count == 0 && MissingEither.Count == 0;
 }
@@ -59,7 +132,9 @@ public sealed record StylistResults(string Name, IReadOnlyList<Outcome> Outcomes
 /// <summary>What the image provider did with the sample outfits: how long each took, what it cost, how many were blocked or failed.</summary>
 public sealed record VisualizationResults(string Model, int Orders, int Completed, int Blocked, int Failed, IReadOnlyList<TimeSpan> Elapsed, decimal CostUsd);
 
-public sealed record EvalReport(EvalMatrix Matrix, IReadOnlyList<StylistResults> Stylists, VisualizationResults? Visualizations, string StylistName, string PromptVersion)
+/// <summary><see cref="Sample"/> is the number of scenarios the run was limited to, null when the whole matrix was run.</summary>
+public sealed record EvalReport(
+    EvalMatrix Matrix, IReadOnlyList<StylistResults> Stylists, VisualizationResults? Visualizations, string StylistName, string PromptVersion, int? Sample = null)
 {
     public int HardRuleViolations => Stylists.Sum(results => results.Violations);
 
@@ -83,24 +158,27 @@ public static class EvalRunner
         EvalMatrix matrix,
         IOutfitVisualizer? visualizer = null,
         int visualizations = DefaultVisualizations,
+        int? limit = null,
         CancellationToken cancellationToken = default)
     {
         var rules = new WeatherRules();
-        var configured = await RunStylistAsync(stylistName, stylist, matrix, rules, cancellationToken);
-        var baseline = await RunStylistAsync("Rule-based generator", null, matrix, rules, cancellationToken);
+        IReadOnlyList<Scenario> scenarios = limit is { } cases ? matrix.Sample(cases) : [.. matrix.Scenarios()];
+        var configured = await RunStylistAsync(stylistName, stylist, matrix, scenarios, rules, cancellationToken);
+        var baseline = await RunStylistAsync("Rule-based generator", null, matrix, scenarios, rules, cancellationToken);
         var pictures = visualizer is null || visualizations <= 0 ? null : await VisualizeAsync(visualizer, configured, visualizations, cancellationToken);
-        return new EvalReport(matrix, [configured, baseline], pictures, stylistName, stylist.PromptVersion);
+        return new EvalReport(matrix, [configured, baseline], pictures, stylistName, stylist.PromptVersion, limit is null ? null : scenarios.Count);
     }
 
-    private static async Task<StylistResults> RunStylistAsync(string name, IOutfitStylist? stylist, EvalMatrix matrix, WeatherRules rules, CancellationToken cancellationToken)
+    private static async Task<StylistResults> RunStylistAsync(
+        string name, IOutfitStylist? stylist, EvalMatrix matrix, IReadOnlyList<Scenario> scenarios, WeatherRules rules, CancellationToken cancellationToken)
     {
         var wardrobes = matrix.Wardrobes.ToDictionary(size => size, SampleWardrobes.Build);
         var outcomes = new List<Outcome>();
-        foreach (var scenario in matrix.Scenarios())
+        foreach (var scenario in scenarios)
         {
             var weather = Weather(scenario, rules);
             var wardrobe = wardrobes[scenario.WardrobeSize];
-            var candidates = CandidateFilter.Select(wardrobe, weather, scenario.Occasion);
+            var candidates = CandidateFilter.Select(wardrobe, weather, scenario.Occasion, styles: scenario.Profile.Styles);
             var forgotten = candidates.Items.Any(candidate => candidate.Garment.Forgotten);
             if (!candidates.IsComplete)
             {
@@ -108,15 +186,20 @@ public static class EvalRunner
                 continue;
             }
 
-            var styling = new StylingCase(weather, scenario.Occasion, null, [StyleTag.Casual, StyleTag.Smart], ThermalPreference.Normal, candidates, StylingHistory.None);
+            var styling = new StylingCase(weather, scenario.Occasion, null, scenario.Profile.Styles, ThermalPreference.Normal, candidates, StylingHistory.None);
             var watch = Stopwatch.StartNew();
-            var run = await StylistPipeline.RunAsync(stylist, styling, new Random(Seed(scenario)), cancellationToken);
+            var run = await StylistPipeline.RunAsync(stylist, styling, new Random(Seed(scenario, matrix)), cancellationToken);
             watch.Stop();
 
             var violations = Check(run.Proposals, candidates, scenario);
             outcomes.Add(new Outcome(
                 scenario, [], [], run.Fallback, run.Proposals, violations, forgotten,
-                run.Proposals.Any(proposal => proposal.Kind == OutfitKind.Discovery), run.Calls.Sum(call => call.Cost.Usd), watch.Elapsed));
+                run.Proposals.Any(proposal => proposal.Kind == OutfitKind.Discovery), run.Calls.Sum(call => call.Cost.Usd), watch.Elapsed,
+                run.Calls.Count,
+                run.Calls.Sum(call => call.Cost.InputTokens ?? 0),
+                run.Calls.Sum(call => call.Cost.OutputTokens ?? 0),
+                run.Calls.Sum(call => call.Cost.ThoughtTokens ?? 0),
+                run.Reason));
         }
 
         return new StylistResults(name, outcomes);
@@ -220,7 +303,7 @@ public static class EvalRunner
         return new VisualizationResults(visualizer.Model, outfits.Count, completed, blocked, failed, times, cost);
     }
 
-    private static WeatherProfile Weather(Scenario scenario, WeatherRules rules)
+    internal static WeatherProfile Weather(Scenario scenario, WeatherRules rules)
     {
         var from = new DateTimeOffset(2026, 10, 6, 10, 0, 0, TimeSpan.Zero);
         return new WeatherProfile(
@@ -229,10 +312,11 @@ public static class EvalRunner
     }
 
     /// <summary>The same scenario always draws the same outfits. (Not <see cref="HashCode"/>: it is seeded differently in every process.)</summary>
-    private static int Seed(Scenario scenario) => (scenario.WardrobeSize * 1009) + ((int)scenario.Band * 31) + (int)scenario.Occasion;
+    private static int Seed(Scenario scenario, EvalMatrix matrix) =>
+        (scenario.WardrobeSize * 1009) + ((int)scenario.Band * 31) + (int)scenario.Occasion + (Math.Max(0, matrix.Profiles.ToList().IndexOf(scenario.Profile)) * 7919);
 
-    private static string Describe(Scenario scenario) =>
-        string.Create(CultureInfo.InvariantCulture, $"{scenario.WardrobeSize} garments, {Label(scenario.Band)}, {scenario.Occasion}");
+    internal static string Describe(Scenario scenario) =>
+        string.Create(CultureInfo.InvariantCulture, $"{scenario.WardrobeSize} garments, {Label(scenario.Band)}, {scenario.Occasion}, {scenario.Profile.Name}");
 
     internal static string Label(TemperatureBand band) => $"{band.ToString().ToLowerInvariant()} ({EvalMatrix.FeelsIn(band).ToString(CultureInfo.InvariantCulture)} °C)";
 

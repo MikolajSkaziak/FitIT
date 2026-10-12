@@ -13,12 +13,14 @@ import { renderScreen, router } from '@/test/screen';
 
 jest.mock('expo-router', () => jest.requireActual('@/test/screen').routerModule);
 jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
+jest.mock('@/api/calendar', () => jest.requireActual('@/test/calendar').quietCalendar());
 jest.mock('@/auth/tokenStorage', () => ({
   tokenStorage: { load: jest.fn(async () => null), save: jest.fn(async () => undefined), clear: jest.fn(async () => undefined) },
 }));
 jest.mock('@/api/outfits', () => ({
   ...jest.requireActual('@/api/outfits'),
   createOutfit: jest.fn(),
+  updateOutfit: jest.fn(),
   fetchOutfitTips: jest.fn(),
 }));
 jest.mock('@/api/wardrobe', () => ({
@@ -68,7 +70,7 @@ const chosen = (id: string) => screen.getByTestId(`pick-${id}`).props.accessibil
 
 beforeEach(() => {
   jest.clearAllMocks();
-  useOutfitBuilder.setState({ items: [], note: null, bodyNoteSeen: false });
+  useOutfitBuilder.setState({ items: [], note: null, bodyNoteSeen: false, layout: null, figureLayout: null });
   useSession.setState({ status: 'signedIn', user: user(), accessToken: 'a', refreshToken: 'r' });
   garments.fetchClothes.mockResolvedValue([tee, shirt, jeans, dress, sneakers, scarf, waiting]);
   garments.fetchUsage.mockResolvedValue(usage(1));
@@ -166,11 +168,10 @@ describe('the preview', () => {
   it('shows the outfit, its pieces and the occasion, Everyday chosen', async () => {
     await open();
 
-    expect(screen.getByTestId('figure-draft')).toBeOnTheScreen();
-    expect(screen.getByRole('radio', { name: 'On figure', checked: true })).toBeOnTheScreen();
-    expect(screen.queryByRole('radio', { name: 'Try-on' })).toBeNull();
-    await fireEvent.press(screen.getByRole('radio', { name: 'Collage' }));
-    expect(await screen.findByTestId('builder-collage')).toBeOnTheScreen();
+    expect(screen.getByTestId('board-draft')).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'Board', selected: true })).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'On figure' })).toBeOnTheScreen();
+    expect(screen.queryByRole('tab', { name: 'Try-on' })).toBeNull();
     expect(within(screen.getByTestId('builder-preview-screen')).getByText('White tee')).toBeOnTheScreen();
     expect(screen.getByRole('radio', { name: 'Everyday', checked: true })).toBeOnTheScreen();
   });
@@ -200,18 +201,98 @@ describe('the preview', () => {
     expect(await screen.findByTestId('builder-tips-error')).toHaveTextContent('You’ve used today’s tips. More tomorrow.');
   });
 
-  it('saves the outfit with its name and occasion and lands on its page', async () => {
+  it('saves the outfit from the bookmark under the picture, with its name and occasion, and stays where it is', async () => {
     api.createOutfit.mockResolvedValue(outfit('built-1', { source: 'manual', name: 'Sunday brunch', isSaved: true }));
     await open();
 
+    expect(within(screen.getByTestId('visualization-tabs-row')).getByRole('button', { name: 'Save outfit' })).toBeOnTheScreen();
     await fireEvent.changeText(screen.getByTestId('builder-name'), 'Sunday brunch');
     await fireEvent.press(screen.getByRole('radio', { name: 'With friends' }));
     await fireEvent.press(screen.getByTestId('builder-save'));
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith({ pathname: '/outfit/[id]', params: { id: 'built-1' } }));
+    expect(await screen.findByRole('button', { name: 'Remove from saved' })).toBeOnTheScreen();
     expect(api.createOutfit).toHaveBeenCalledWith({ items: ['tee', 'jeans', 'sneakers'], occasion: 'friends', name: 'Sunday brunch' });
-    await act(async () => undefined);
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(useOutfitBuilder.getState().items).toHaveLength(3);
+  });
+
+  it('takes a saved outfit out of the saved ones again with the same bookmark, without storing it twice', async () => {
+    const built = outfit('built-1', { source: 'manual', isSaved: true });
+    api.createOutfit.mockResolvedValue(built);
+    api.updateOutfit.mockResolvedValue({ ...built, isSaved: false });
+    await open();
+
+    await fireEvent.press(screen.getByTestId('builder-save'));
+    await screen.findByRole('button', { name: 'Remove from saved' });
+    await fireEvent.press(screen.getByTestId('builder-save'));
+
+    expect(await screen.findByRole('button', { name: 'Save outfit' })).toBeOnTheScreen();
+    expect(api.updateOutfit).toHaveBeenCalledWith('built-1', { saved: false });
+    expect(api.createOutfit).toHaveBeenCalledTimes(1);
+  });
+
+  it('wears the outfit today: stores it, marks it worn and says so on the button', async () => {
+    const built = outfit('built-1', { source: 'manual', isSaved: true });
+    api.createOutfit.mockResolvedValue(built);
+    api.updateOutfit.mockResolvedValue({ ...built, wornOn: '2026-10-05' });
+    await open();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Wear it today' }));
+
+    expect(await screen.findByRole('button', { name: 'Worn' })).toBeOnTheScreen();
+    expect(api.createOutfit).toHaveBeenCalledWith({ items: ['tee', 'jeans', 'sneakers'], occasion: 'everyday', name: '' });
+    expect(api.updateOutfit).toHaveBeenCalledWith('built-1', { worn: true });
+    expect(screen.getByRole('button', { name: 'Remove from saved' })).toBeOnTheScreen();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('closes the whole builder from the check in the corner: a stored outfit is finished with, an unstored one waits', async () => {
+    api.createOutfit.mockResolvedValue(outfit('built-1', { source: 'manual', isSaved: true }));
+    await open();
+
+    await fireEvent.press(screen.getByTestId('builder-done'));
+    expect(router.dismiss).toHaveBeenCalledWith(2);
+    expect(useOutfitBuilder.getState().items).toHaveLength(3);
+
+    await fireEvent.press(screen.getByTestId('builder-save'));
+    await screen.findByRole('button', { name: 'Remove from saved' });
+    await fireEvent.press(screen.getByTestId('builder-done'));
     expect(useOutfitBuilder.getState().items).toEqual([]);
+  });
+
+  it('takes a piece out, opens the swap sheet for one, and goes back to the picker for more', async () => {
+    await open();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Swap White tee' }));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/builder/swap', params: { id: 'tee' } });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add a piece' }));
+    expect(router.back).toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Take out Sneakers' }));
+    expect(useOutfitBuilder.getState().items.map((item) => item.id)).toEqual(['tee', 'jeans']);
+    expect(screen.queryByTestId('builder-piece-sneakers')).toBeNull();
+
+    // One piece is not an outfit: it can be neither worn nor saved until another joins it.
+    await fireEvent.press(screen.getByRole('button', { name: 'Take out Jeans' }));
+    expect(screen.getByTestId('builder-few')).toBeOnTheScreen();
+    expect(screen.getByTestId('builder-wear')).toBeDisabled();
+    expect(screen.queryByTestId('builder-save')).toBeNull();
+  });
+
+  it('shows the pieces on the figure, each where it is worn, and keeps that arrangement apart from the board', async () => {
+    await open();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'On figure' }));
+
+    expect(await screen.findByRole('image', { name: 'Outfit on a figure: White tee, Jeans, Sneakers' })).toBeOnTheScreen();
+    expect(screen.getByTestId('figure-draft-body')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Arrange' }));
+    await fireEvent(screen.getByTestId('figure-draft-tee-handle'), 'accessibilityAction', { nativeEvent: { actionName: 'moveLeft' } });
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+
+    expect(useOutfitBuilder.getState().figureLayout?.map((placement) => placement.clothingId).sort()).toEqual(['jeans', 'sneakers', 'tee']);
+    expect(useOutfitBuilder.getState().layout).toBeNull();
   });
 
   it('keeps the outfit and says what went wrong when saving fails', async () => {
@@ -222,7 +303,28 @@ describe('the preview', () => {
 
     expect(await screen.findByText(/Can’t connect right now/)).toBeOnTheScreen();
     expect(useOutfitBuilder.getState().items).toHaveLength(3);
-    expect(router.replace).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Save outfit' })).toBeOnTheScreen();
+  });
+
+  it('saves the outfit with the board as the person arranged it, leaving out a piece taken off since', async () => {
+    api.createOutfit.mockResolvedValue(outfit('built-1', { source: 'manual', isSaved: true }));
+    await open();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Arrange' }));
+    await fireEvent(screen.getByTestId('board-draft-tee-handle'), 'accessibilityAction', { nativeEvent: { actionName: 'moveLeft' } });
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+
+    const arranged = useOutfitBuilder.getState().layout;
+    expect(arranged?.map((placement) => placement.clothingId).sort()).toEqual(['jeans', 'sneakers', 'tee']);
+    // Back in the picker the sneakers come off; what is saved places only what is still in the outfit.
+    await act(async () => useOutfitBuilder.getState().toggle(sneakers));
+    await fireEvent.press(screen.getByTestId('builder-save'));
+
+    await waitFor(() => expect(api.createOutfit).toHaveBeenCalledTimes(1));
+    expect(api.createOutfit.mock.calls[0][0]).toMatchObject({ items: ['tee', 'jeans'], layout: arranged?.filter((placement) => placement.clothingId !== 'sneakers') });
+    await screen.findByRole('button', { name: 'Remove from saved' });
+    await fireEvent.press(screen.getByTestId('builder-done'));
+    expect(useOutfitBuilder.getState().layout).toBeNull();
   });
 
   it('tries the outfit on before it is saved: stores it once as a draft, orders the picture and shows it', async () => {
@@ -235,14 +337,15 @@ describe('the preview', () => {
     await fireEvent.press(screen.getByTestId('visualization-show'));
 
     expect(await screen.findByTestId('visualization-picture')).toBeOnTheScreen();
-    expect(screen.getByRole('radio', { name: 'Try-on', checked: true })).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'Try-on', selected: true })).toBeOnTheScreen();
     expect(api.createOutfit).toHaveBeenCalledTimes(1);
     expect(api.createOutfit).toHaveBeenCalledWith({ items: ['tee', 'jeans', 'sneakers'], occasion: 'friends', saved: false });
     expect(pictures.requestVisualization.mock.calls.map(([id]) => id)).toEqual(['draft-1']);
 
-    // The figure and the collage stay one press away.
-    await fireEvent.press(screen.getByRole('radio', { name: 'Collage' }));
-    expect(await screen.findByTestId('builder-collage')).toBeOnTheScreen();
+    // The board stays one press away.
+    expect(screen.getByRole('tab', { name: 'Board' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Board' }));
+    expect(await screen.findByTestId('board-draft')).toBeOnTheScreen();
   });
 
   it('saves a tried-on outfit with its draft, so the picture comes along', async () => {
@@ -256,7 +359,7 @@ describe('the preview', () => {
     await fireEvent.changeText(screen.getByTestId('builder-name'), 'Sunday brunch');
     await fireEvent.press(screen.getByTestId('builder-save'));
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith({ pathname: '/outfit/[id]', params: { id: 'built-1' } }));
+    await screen.findByRole('button', { name: 'Remove from saved' });
     expect(api.createOutfit).toHaveBeenLastCalledWith({ items: ['tee', 'jeans', 'sneakers'], occasion: 'everyday', name: 'Sunday brunch', draftId: 'draft-1' });
   });
 

@@ -3,8 +3,8 @@ import { useState } from 'react';
 
 import type { ThermalPreference } from '@/api/account';
 import { useSession } from '@/auth/session';
-import { ThermalChoice } from '@/components/choices';
 import { EditScreen, useSaveProfile } from '@/features/profile/EditScreen';
+import { ThermalPicker } from '@/features/profile/ThermalPicker';
 
 export default function EditThermalPreference() {
   const router = useRouter();
@@ -19,11 +19,13 @@ export default function EditThermalPreference() {
   return (
     <EditScreen
       title="How you feel the cold"
+      accent={{ word: 'cold', act: 'shiver', replay: { shiver: value === 'runs_cold', rise: value === 'runs_warm' } }}
       busy={save.isPending}
+      disabled={value === user.thermalPreference}
       error={save.error}
-      onAction={() => (value === user.thermalPreference ? router.back() : save.mutate({ thermalPreference: value }))}
+      onAction={() => save.mutate({ thermalPreference: value })}
       testID="edit-thermal">
-      <ThermalChoice value={value} onChange={setValue} />
+      <ThermalPicker value={value} onChange={setValue} gender={user.gender} shapeGender={user.avatar?.gender} />
     </EditScreen>
   );
 }

@@ -16,8 +16,13 @@ namespace FitIt.Infrastructure.Gemini;
 /// </summary>
 public sealed class GeminiOutfitStylist(GeminiClient gemini) : IOutfitStylist
 {
-    private static readonly JsonObject Schema = GeminiJson.Object(("outfits", List(GeminiJson.Object(
+    /// <summary>What the model writes in <c>style</c> when an outfit is in none of the styles it may name.</summary>
+    public const string NoStyle = "none";
+
+    /// <summary>The answer's shape. The styles an outfit may be said to be in differ from person to person, so the schema is built per request.</summary>
+    internal static JsonObject Schema(IReadOnlyList<StyleTag> styles) => GeminiJson.Object(("outfits", List(GeminiJson.Object(
         ("kind", OneOf(EnumCodes.All<OutfitKind>())),
+        ("style", OneOf([.. styles.Select(EnumCodes.ToCode), NoStyle])),
         ("top", Text(nullable: true)),
         ("mid", Text(nullable: true)),
         ("bottom", Text(nullable: true)),
@@ -43,7 +48,7 @@ public sealed class GeminiOutfitStylist(GeminiClient gemini) : IOutfitStylist
             }
         }
 
-        var reply = await gemini.AskAsync(StylistPrompt.System, [GeminiPart.Of(text.ToString())], Schema, cancellationToken);
+        var reply = await gemini.AskAsync(StylistPrompt.System, [GeminiPart.Of(text.ToString())], Schema(request.Case.OutfitStyles), cancellationToken);
         return reply.Blocked ? StylistAnswer.Refusal(reply.Cost) : new StylistAnswer(Parse(reply.Json), false, reply.Cost);
     }
 
@@ -59,8 +64,13 @@ public sealed class GeminiOutfitStylist(GeminiClient gemini) : IOutfitStylist
             Alias(outfit, "shoes"),
             [.. Items(outfit, "accessories").Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!.Trim()).Where(alias => alias.Length > 0)],
             Line(Str(outfit, "reasoning"), Outfit.ReasoningMaxLength) ?? "",
-            Line(Str(outfit, "weather_note"), Outfit.WeatherNoteMaxLength))),
+            Line(Str(outfit, "weather_note"), Outfit.WeatherNoteMaxLength),
+            Style(outfit))),
     ];
+
+    /// <summary>The code the model named, cut to the length of a code; null when it named none. Whether it is a style, and an allowed one, is the validator's to say.</summary>
+    private static string? Style(JsonElement outfit) =>
+        Line(Str(outfit, "style"), 32) is { } style && !style.Equals(NoStyle, StringComparison.OrdinalIgnoreCase) && !style.Equals("null", StringComparison.OrdinalIgnoreCase) ? style : null;
 
     /// <summary>An empty slot is null however the model spelled "nothing".</summary>
     private static string? Alias(JsonElement outfit, string slot) =>

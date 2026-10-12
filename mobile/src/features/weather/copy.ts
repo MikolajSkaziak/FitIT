@@ -1,4 +1,4 @@
-import type { Sky, Weather } from '@/api/weather';
+import type { DayWeather, Sky, Weather } from '@/api/weather';
 import { formatClock, wallClock } from '@/lib/dates';
 
 /** Real minus sign: a hyphen would read as part of the range ("-4-1°C"). */
@@ -104,15 +104,23 @@ export interface HourSlot {
   label: string;
   /** "13°", with the word for what falls when something does: "13° rain". */
   value: string;
+  /** Something falls in this hour: rain or snow. */
+  wet: boolean;
 }
 
-/** The hours of the strip under the weather: what it feels like from now to the evening. */
-export const hourSlots = (weather: Pick<Weather, 'hours'>): HourSlot[] =>
+/**
+ * The hours of the strip under the weather: what it feels like from now to the evening. With `ahead` they are the hours
+ * of a day that has not come, so none of them is "Now": each is named by its clock.
+ */
+export const hourSlots = (weather: Pick<Weather, 'hours'>, ahead = false): HourSlot[] =>
   weather.hours.map((hour, index) => {
     const clock = wallClock(hour.time);
     const wet = wetWords[hour.sky];
-    return { key: hour.time, label: index === 0 || !clock ? 'Now' : formatClock(clock), value: `${formatDegrees(hour.feels)}${wet ? ` ${wet}` : ''}` };
+    return { key: hour.time, label: clock && (ahead || index > 0) ? formatClock(clock) : 'Now', value: `${formatDegrees(hour.feels)}${wet ? ` ${wet}` : ''}`, wet: Boolean(wet) };
   });
+
+/** The forecast of a day ahead: there is no "now" in it. Today's, asked for by its date, is not one of these. */
+export const isAhead = (weather: Weather | DayWeather): weather is DayWeather => 'isToday' in weather && !weather.isToday;
 
 /** How the day is greeted at this hour of the clock. */
 export function greetingAt(hour: number): 'Good morning' | 'Good afternoon' | 'Good evening' {
@@ -124,7 +132,7 @@ export function greetingAt(hour: number): 'Good morning' | 'Good afternoon' | 'G
 }
 
 /** "Gliwice", or "Gliwice, tomorrow" once the evening has come and the forecast is for the next day. */
-export const placeLine = (weather: Pick<Weather, 'place' | 'forTomorrow'>): string => (weather.forTomorrow ? `${weather.place}, tomorrow` : weather.place);
+export const placeLine = (weather: Pick<Weather, 'place'> & { forTomorrow?: boolean }): string => (weather.forTomorrow ? `${weather.place}, tomorrow` : weather.place);
 
 export const locationProblems = {
   denied: 'Location is turned off. Choose a city, or turn it on in your phone’s Settings.',

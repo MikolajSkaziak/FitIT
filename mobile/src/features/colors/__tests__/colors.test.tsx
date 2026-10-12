@@ -32,7 +32,7 @@ describe('the result view', () => {
     expect(screen.getByText(colorAnalysis.summary)).toBeOnTheScreen();
     expect(colorAnalysis.summary.match(/\./g)).toHaveLength(2);
     expect(screen.getByText('Wear more of')).toBeOnTheScreen();
-    expect(screen.getByText('Go easy on')).toBeOnTheScreen();
+    expect(screen.getByText('Wear less of')).toBeOnTheScreen();
     for (const swatch of [...colorAnalysis.best, ...colorAnalysis.soften]) {
       expect(screen.getByLabelText(swatch.name)).toBeOnTheScreen();
     }

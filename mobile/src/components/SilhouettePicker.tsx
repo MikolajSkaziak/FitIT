@@ -73,15 +73,16 @@ export function SilhouettePicker({ gender, value, onChange }: SilhouettePickerPr
             onPress={() => onChange(avatar)}
             testID={`silhouette-${avatar.bodyType}`}
             style={styles.tile}>
-            <View style={[styles.photo, { backgroundColor: theme.well, borderColor: selected ? theme.action : theme.wellLine, borderWidth: selected ? 3 : 1 }]}>
+            <View style={[styles.photo, { backgroundColor: theme.well }]}>
               <Image source={{ uri: avatar.thumbUrl }} contentFit="cover" transition={motion.exit} style={styles.image} accessible={false} />
+              {selected ? <View style={[StyleSheet.absoluteFill, styles.ring, { borderColor: theme.action }]} /> : null}
               {selected ? (
                 <Fade key="badge" pop duration={motion.exit} style={[styles.badge, { backgroundColor: theme.action }]}>
                   <Icon name="check" size={16} color="onAction" />
                 </Fade>
               ) : null}
             </View>
-            <AppText variant="secondaryStrong" align="center">
+            <AppText variant="secondaryStrong">
               {avatar.label}
             </AppText>
           </PressScale>
@@ -95,7 +96,9 @@ const styles = StyleSheet.create({
   tile: { gap: space[2] },
   photo: { height: photoHeight, borderRadius: radius.well, overflow: 'hidden' },
   image: { flex: 1 },
-  badge: { position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  skeletonLabel: { alignSelf: 'center' },
+  // Drawn over the photo, so the picture keeps its size whether it is chosen or not.
+  ring: { borderWidth: 2, borderRadius: radius.well },
+  badge: { position: 'absolute', top: 10, right: 10, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  skeletonLabel: { alignSelf: 'flex-start' },
   problem: { gap: space[3] },
 });

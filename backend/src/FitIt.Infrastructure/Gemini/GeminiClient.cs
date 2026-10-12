@@ -220,10 +220,13 @@ public sealed partial class GeminiClient(HttpClient http, IOptions<GeminiOptions
         static long Tokens(JsonElement usage, string name) =>
             usage.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var count) ? Math.Max(0, count) : 0;
 
+        static int Count(long tokens) => (int)Math.Min(int.MaxValue, tokens);
+
         var main = model == settings.Model;
-        var input = Tokens(usage, "promptTokenCount") * (main ? settings.InputUsdPerMillionTokens : settings.FallbackInputUsdPerMillionTokens);
-        var output = (Tokens(usage, "candidatesTokenCount") + Tokens(usage, "thoughtsTokenCount")) * (main ? settings.OutputUsdPerMillionTokens : settings.FallbackOutputUsdPerMillionTokens);
-        return new AiCost(model, Math.Round((input + output) / 1_000_000m, 6));
+        var (prompt, answer, thoughts) = (Tokens(usage, "promptTokenCount"), Tokens(usage, "candidatesTokenCount"), Tokens(usage, "thoughtsTokenCount"));
+        var input = prompt * (main ? settings.InputUsdPerMillionTokens : settings.FallbackInputUsdPerMillionTokens);
+        var output = (answer + thoughts) * (main ? settings.OutputUsdPerMillionTokens : settings.FallbackOutputUsdPerMillionTokens);
+        return new AiCost(model, Math.Round((input + output) / 1_000_000m, 6), Count(prompt), Count(answer), Count(thoughts));
     }
 
     /// <summary>Google's one-word status of an error ("UNAVAILABLE"), when the body has one. Its free text is never repeated.</summary>

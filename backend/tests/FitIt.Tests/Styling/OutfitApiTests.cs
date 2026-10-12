@@ -124,6 +124,177 @@ public sealed class OutfitApiTests(ApiFactory factory)
         Assert.NotNull(changed.WornOn);
     }
 
+    private static JsonObject Placement(Guid clothingId, double x = 0.5, double y = 0.5, double scale = 0.3, int z = 0) =>
+        new() { ["clothingId"] = clothingId.ToString(), ["x"] = x, ["y"] = y, ["scale"] = scale, ["z"] = z };
+
+    private static JsonObject Arranged(params JsonObject[] placements) => new() { ["layout"] = new JsonArray([.. placements]) };
+
+    [Fact]
+    public async Task The_board_can_be_arranged_is_kept_with_the_outfit_and_goes_back_to_automatic()
+    {
+        var (client, _, _) = await factory.DressedAsync(Warm, [Tee, Jeans, Sneakers]);
+        var outfit = (await client.SuggestedAsync()).Outfits[0];
+        Assert.Null(outfit.Layout);
+        var (first, second) = (outfit.Items[0].Clothing.Id, outfit.Items[1].Clothing.Id);
+
+        // Not every garment has to be placed: the rest keep their automatic place.
+        var arranged = await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", Arranged(Placement(first, 0.25, 0.3, 0.4, 1), Placement(second, 1, 0, 0.05, 0)));
+
+        Assert.Equal(HttpStatusCode.OK, arranged.StatusCode);
+        OutfitPlacementResponse[] expected = [new(first, 0.25, 0.3, 0.4, 1), new(second, 1, 0, 0.05, 0)];
+        Assert.Equal(expected, (await arranged.ReadAsync<OutfitResponse>()).Layout);
+        Assert.Equal(expected, (await (await client.GetAsync($"/api/outfits/{outfit.Id}")).ReadAsync<OutfitResponse>()).Layout);
+        Assert.Equal(expected, (await ListAsync(client)).Single(listed => listed.Id == outfit.Id).Layout);
+
+        // A change that does not name the layout leaves the board alone.
+        var kept = await (await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", new JsonObject { ["saved"] = true })).ReadAsync<OutfitResponse>();
+        Assert.Equal(expected, kept.Layout);
+
+        // Null and an empty list both go back to the automatic layout.
+        var cleared = await (await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", new JsonObject { ["layout"] = null })).ReadAsync<OutfitResponse>();
+        Assert.Null(cleared.Layout);
+        await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", Arranged(Placement(first)));
+        var emptied = await (await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", Arranged())).ReadAsync<OutfitResponse>();
+        Assert.Null(emptied.Layout);
+        Assert.True(emptied.IsSaved);
+    }
+
+    [Fact]
+    public async Task An_arrangement_that_does_not_fit_the_outfit_or_the_board_is_refused_and_changes_nothing()
+    {
+        var (client, _, wardrobe) = await factory.DressedAsync(Warm, [Tee, Jeans, Sneakers, Belt]);
+        var outfit = (await client.SuggestedAsync()).Outfits[0];
+        var ids = outfit.Items.Select(item => item.Clothing.Id).ToList();
+        var outside = wardrobe.Select(item => item.Id).Except(ids).FirstOrDefault(Guid.NewGuid());
+        await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", Arranged(Placement(ids[0], 0.2, 0.2)));
+        var before = await (await client.GetAsync($"/api/outfits/{outfit.Id}")).ReadAsync<OutfitResponse>();
+
+        async Task Refused(JsonObject body, string code)
+        {
+            var response = await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", body);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(code, await response.ProblemCodeAsync());
+        }
+
+        await Refused(Arranged(Placement(outside)), "layout_invalid");
+        await Refused(Arranged(Placement(Guid.NewGuid())), "layout_invalid");
+        await Refused(Arranged(Placement(ids[0]), Placement(ids[0], 0.7)), "layout_invalid");
+        await Refused(Arranged([.. ids.Select(id => Placement(id)), Placement(ids[0])]), "layout_invalid");
+        await Refused(Arranged(Placement(ids[0], x: -0.01)), "validation_failed");
+        await Refused(Arranged(Placement(ids[0], x: 1.01)), "validation_failed");
+        await Refused(Arranged(Placement(ids[0], y: 2)), "validation_failed");
+        await Refused(Arranged(Placement(ids[0], scale: 0.01)), "validation_failed");
+        await Refused(Arranged(Placement(ids[0], scale: 1.5)), "validation_failed");
+        await Refused(Arranged(Placement(ids[0], z: -1)), "validation_failed");
+        await Refused(Arranged(Placement(ids[0], z: 100)), "validation_failed");
+        await Refused(Arranged(new JsonObject { ["clothingId"] = ids[0].ToString(), ["x"] = 0.5, ["y"] = 0.5 }), "validation_failed");
+        // A refused arrangement takes nothing else of the change with it.
+        var mixed = Arranged(Placement(outside));
+        mixed["saved"] = true;
+        await Refused(mixed, "layout_invalid");
+
+        Assert.Equivalent(Unsigned(before), Unsigned(await (await client.GetAsync($"/api/outfits/{outfit.Id}")).ReadAsync<OutfitResponse>()), strict: true);
+    }
+
+    private static JsonObject ArrangedOnFigure(params JsonObject[] placements) => new() { ["figureLayout"] = new JsonArray([.. placements]) };
+
+    [Fact]
+    public async Task The_figure_can_be_arranged_is_kept_with_the_outfit_and_goes_back_to_automatic()
+    {
+        var (client, _, _) = await factory.DressedAsync(Warm, [Tee, Jeans, Sneakers]);
+        var outfit = (await client.SuggestedAsync()).Outfits[0];
+        Assert.Null(outfit.FigureLayout);
+        var (first, second) = (outfit.Items[0].Clothing.Id, outfit.Items[1].Clothing.Id);
+
+        var arranged = await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", ArrangedOnFigure(Placement(first, 0.25, 0.3, 0.4, 1), Placement(second, 1, 0, 0.05, 0)));
+
+        Assert.Equal(HttpStatusCode.OK, arranged.StatusCode);
+        OutfitPlacementResponse[] expected = [new(first, 0.25, 0.3, 0.4, 1), new(second, 1, 0, 0.05, 0)];
+        Assert.Equal(expected, (await arranged.ReadAsync<OutfitResponse>()).FigureLayout);
+        Assert.Equal(expected, (await (await client.GetAsync($"/api/outfits/{outfit.Id}")).ReadAsync<OutfitResponse>()).FigureLayout);
+        Assert.Equal(expected, (await ListAsync(client)).Single(listed => listed.Id == outfit.Id).FigureLayout);
+
+        // A change that does not name the figure layout leaves it alone.
+        var kept = await (await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", new JsonObject { ["saved"] = true })).ReadAsync<OutfitResponse>();
+        Assert.Equal(expected, kept.FigureLayout);
+
+        // Null and an empty list both go back to the automatic placement.
+        var cleared = await (await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", new JsonObject { ["figureLayout"] = null })).ReadAsync<OutfitResponse>();
+        Assert.Null(cleared.FigureLayout);
+        await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", ArrangedOnFigure(Placement(first)));
+        var emptied = await (await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", ArrangedOnFigure())).ReadAsync<OutfitResponse>();
+        Assert.Null(emptied.FigureLayout);
+        Assert.True(emptied.IsSaved);
+    }
+
+    [Fact]
+    public async Task The_board_and_the_figure_are_arranged_independently()
+    {
+        var (client, _, _) = await factory.DressedAsync(Warm, [Tee, Jeans, Sneakers]);
+        var outfit = (await client.SuggestedAsync()).Outfits[0];
+        var (first, second) = (outfit.Items[0].Clothing.Id, outfit.Items[1].Clothing.Id);
+        var url = $"/api/outfits/{outfit.Id}";
+        OutfitPlacementResponse[] board = [new(first, 0.2, 0.2, 0.3, 0)];
+        OutfitPlacementResponse[] figure = [new(second, 0.7, 0.6, 0.2, 1)];
+
+        await client.PatchJsonAsync(url, Arranged(Placement(first, 0.2, 0.2)));
+        var both = await (await client.PatchJsonAsync(url, ArrangedOnFigure(Placement(second, 0.7, 0.6, 0.2, 1)))).ReadAsync<OutfitResponse>();
+        Assert.Equal(board, both.Layout);
+        Assert.Equal(figure, both.FigureLayout);
+
+        var boardCleared = await (await client.PatchJsonAsync(url, new JsonObject { ["layout"] = null })).ReadAsync<OutfitResponse>();
+        Assert.Null(boardCleared.Layout);
+        Assert.Equal(figure, boardCleared.FigureLayout);
+
+        await client.PatchJsonAsync(url, Arranged(Placement(first, 0.2, 0.2)));
+        var figureCleared = await (await client.PatchJsonAsync(url, new JsonObject { ["figureLayout"] = null })).ReadAsync<OutfitResponse>();
+        Assert.Equal(board, figureCleared.Layout);
+        Assert.Null(figureCleared.FigureLayout);
+
+        // Both can be named in one change.
+        var together = new JsonObject
+        {
+            ["layout"] = new JsonArray(Placement(second, 0.4, 0.4)),
+            ["figureLayout"] = new JsonArray(Placement(first, 0.5, 0.5)),
+        };
+        var set = await (await client.PatchJsonAsync(url, together)).ReadAsync<OutfitResponse>();
+        Assert.Equal([new OutfitPlacementResponse(second, 0.4, 0.4, 0.3, 0)], set.Layout);
+        Assert.Equal([new OutfitPlacementResponse(first, 0.5, 0.5, 0.3, 0)], set.FigureLayout);
+    }
+
+    [Fact]
+    public async Task A_figure_arrangement_that_does_not_fit_the_outfit_or_the_figure_is_refused_and_changes_nothing()
+    {
+        var (client, _, wardrobe) = await factory.DressedAsync(Warm, [Tee, Jeans, Sneakers, Belt]);
+        var outfit = (await client.SuggestedAsync()).Outfits[0];
+        var ids = outfit.Items.Select(item => item.Clothing.Id).ToList();
+        var outside = wardrobe.Select(item => item.Id).Except(ids).FirstOrDefault(Guid.NewGuid());
+        await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", ArrangedOnFigure(Placement(ids[0], 0.2, 0.2)));
+        var before = await (await client.GetAsync($"/api/outfits/{outfit.Id}")).ReadAsync<OutfitResponse>();
+
+        async Task Refused(JsonObject body, string code)
+        {
+            var response = await client.PatchJsonAsync($"/api/outfits/{outfit.Id}", body);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(code, await response.ProblemCodeAsync());
+        }
+
+        await Refused(ArrangedOnFigure(Placement(outside)), "layout_invalid");
+        await Refused(ArrangedOnFigure(Placement(Guid.NewGuid())), "layout_invalid");
+        await Refused(ArrangedOnFigure(Placement(ids[0]), Placement(ids[0], 0.7)), "layout_invalid");
+        await Refused(ArrangedOnFigure([.. ids.Select(id => Placement(id)), Placement(ids[0])]), "layout_invalid");
+        await Refused(ArrangedOnFigure(Placement(ids[0], x: 1.01)), "validation_failed");
+        await Refused(ArrangedOnFigure(Placement(ids[0], scale: 1.5)), "validation_failed");
+        await Refused(ArrangedOnFigure(Placement(ids[0], z: 100)), "validation_failed");
+        // A refused figure arrangement takes nothing else of the change with it, the board included.
+        var mixed = ArrangedOnFigure(Placement(outside));
+        mixed["layout"] = new JsonArray(Placement(ids[0], 0.9, 0.9));
+        mixed["saved"] = true;
+        await Refused(mixed, "layout_invalid");
+
+        Assert.Equivalent(Unsigned(before), Unsigned(await (await client.GetAsync($"/api/outfits/{outfit.Id}")).ReadAsync<OutfitResponse>()), strict: true);
+    }
+
     [Fact]
     public async Task I_am_wearing_this_counts_once_a_day_on_the_outfit_and_on_each_of_its_garments()
     {

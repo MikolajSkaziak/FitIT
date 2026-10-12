@@ -74,19 +74,25 @@ internal static class TestApi
         return client;
     }
 
-    /// <summary>Registers a new person and returns a client signed in as them.</summary>
+    /// <summary>
+    /// Registers a new person who has agreed to their photos being processed by AI services (the app asks for that in context after
+    /// sign-up, so the helper plays that step) and returns a client signed in as them.
+    /// </summary>
     public static async Task<(HttpClient Client, AuthResponse Auth)> SignedInAsync(this ApiFactory factory, Action<JsonObject>? change = null)
+    {
+        var (client, auth) = await factory.SignedInWithoutConsentAsync(change);
+        await client.GiveConsentAsync();
+        return (client, auth);
+    }
+
+    /// <summary>The same as <see cref="SignedInAsync"/>, spelled out.</summary>
+    public static Task<(HttpClient Client, AuthResponse Auth)> SignedInWithConsentAsync(this ApiFactory factory) => factory.SignedInAsync();
+
+    /// <summary>A new person exactly as registration leaves them: no consent to AI processing yet.</summary>
+    public static async Task<(HttpClient Client, AuthResponse Auth)> SignedInWithoutConsentAsync(this ApiFactory factory, Action<JsonObject>? change = null)
     {
         var auth = await factory.CreateClient().RegisterAsync(change: change);
         return (factory.Authorized(auth.AccessToken), auth);
-    }
-
-    /// <summary>A new person who has agreed to their garment photos being processed by AI services.</summary>
-    public static async Task<(HttpClient Client, AuthResponse Auth)> SignedInWithConsentAsync(this ApiFactory factory)
-    {
-        var (client, auth) = await factory.SignedInAsync();
-        await client.GiveConsentAsync();
-        return (client, auth);
     }
 
     public static async Task GiveConsentAsync(this HttpClient client, bool consent = true)
@@ -131,6 +137,25 @@ internal static class TestApi
         var response = await client.PostJsonAsync("/api/clothes", new JsonObject { ["key"] = key });
         Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
         return await response.ReadAsync<ClothingResponse>();
+    }
+
+    /// <summary>Asks for an address for one more photo of a garment and plays the phone: puts a real JPEG under the issued key.</summary>
+    public static async Task<string> UploadExtraPhotoAsync(this HttpClient client, FitIt.Infrastructure.Storage.InMemoryImageStorage storage, Guid garmentId, byte[]? content = null)
+    {
+        var response = await client.PostAsync($"/api/clothes/{garmentId}/photos/uploads", null);
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var ticket = await response.ReadAsync<UploadResponse>();
+        storage.Put(ticket.Key, content ?? Pictures.Photo(60, 80));
+        return ticket.Key;
+    }
+
+    /// <summary>Uploads one more photo of a garment and attaches it.</summary>
+    public static async Task<ClothingPhotoResponse> AddExtraPhotoAsync(this HttpClient client, FitIt.Infrastructure.Storage.InMemoryImageStorage storage, Guid garmentId, byte[]? content = null)
+    {
+        var key = await client.UploadExtraPhotoAsync(storage, garmentId, content);
+        var response = await client.PostJsonAsync($"/api/clothes/{garmentId}/photos", new JsonObject { ["key"] = key });
+        Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
+        return await response.ReadAsync<ClothingPhotoResponse>();
     }
 
     /// <summary>Adds a garment and runs its processing job, so it is ready (unless the test scripted the AI otherwise).</summary>

@@ -10,6 +10,7 @@ namespace FitIt.Api.Endpoints;
 internal static class VisualizationEndpoints
 {
     public const string IdempotencyHeader = "Idempotency-Key";
+    public const string ReportRateLimit = "report";
 
     private static readonly ApiError KeyInvalid =
         ApiError.BadRequest("idempotency_key_invalid", $"The {IdempotencyHeader} header must hold 8 to {Visualization.IdempotencyKeyMaxLength} letters, digits, dashes or underscores.");
@@ -25,7 +26,18 @@ internal static class VisualizationEndpoints
             .WithTags("Visualizations").WithName("getVisualization").RequireAuthorization()
             .Produces<VisualizationResponse>().ProducesProblem(401).ProducesProblem(404);
 
+        app.MapPost("/api/visualizations/{id:guid}/reports", Report)
+            .WithTags("Visualizations").WithName("reportVisualization").RequireAuthorization().RequireRateLimiting(ReportRateLimit)
+            .Produces(StatusCodes.Status204NoContent).ProducesValidationProblem().ProducesProblem(401).ProducesProblem(404).ProducesProblem(409).ProducesProblem(429);
+
         return app;
+    }
+
+    /// <summary>204. The report is stored; <c>inappropriate</c> also deletes the picture, so the outfit comes back without a try-on.</summary>
+    private static async Task<IResult> Report(Guid id, ReportVisualizationRequest request, HttpContext http, VisualizationReportService reports)
+    {
+        var reported = await reports.ReportAsync(http.User.UserId(), id, request.Reason, http.RequestAborted);
+        return reported.IsOk ? TypedResults.NoContent() : reported.Error!.ToProblem();
     }
 
     /// <summary>

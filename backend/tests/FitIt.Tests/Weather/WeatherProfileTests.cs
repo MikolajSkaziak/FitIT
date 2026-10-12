@@ -84,6 +84,62 @@ public sealed class WeatherProfileTests
         Assert.False(new WeatherRules { DayEndHour = 24 }.AreConsistent());
         Assert.False(new WeatherRules { LayersAmplitude = 0 }.AreConsistent());
         Assert.False(new WeatherRules { ThermalShift = -1 }.AreConsistent());
+        Assert.False(new WeatherRules { DayStartHour = -1 }.AreConsistent());
+        Assert.False(new WeatherRules { DayStartHour = 22 }.AreConsistent());
+        Assert.True(new WeatherRules { DayStartHour = 0 }.AreConsistent());
+    }
+
+    [Fact]
+    public void A_day_ahead_is_dressed_for_from_its_morning_to_its_evening_on_the_calendar_of_the_place()
+    {
+        var forecast = Day(at => new Reading(at));
+
+        var profile = WeatherProfile.Build(forecast, new DateOnly(2026, 10, 7), ThermalPreference.Normal, Rules);
+
+        Assert.NotNull(profile);
+        Assert.False(profile.ForTomorrow);
+        Assert.Equal(new DateTimeOffset(2026, 10, 7, 7, 0, 0, Tokyo), profile.From);
+        Assert.Equal(new DateTimeOffset(2026, 10, 7, 22, 0, 0, Tokyo), profile.To);
+        // The readings equal the hour of the day: the night before seven does not count against the outfit.
+        Assert.Equal((7d, 22d), (profile.FeelsMin, profile.FeelsMax));
+        Assert.True(profile.NeedsLayers);
+
+        var own = WeatherProfile.Build(forecast, new DateOnly(2026, 10, 8), ThermalPreference.RunsCold, new WeatherRules { DayStartHour = 9, DayEndHour = 20 });
+        Assert.Equal((9, 20, 9 - Rules.ThermalShift), (own!.From.Hour, own.To.Hour, own.Reference));
+    }
+
+    [Fact]
+    public void A_day_ahead_has_its_own_rain_and_sky_and_four_hours_spread_over_it()
+    {
+        // Rain on the second day only, in the afternoon.
+        var forecast = new Forecast("Asia/Tokyo",
+        [
+            .. Enumerable.Range(0, 72).Select(index =>
+            {
+                var wet = index / 24 == 1 && index % 24 >= 15;
+                return new ForecastHour(new DateTimeOffset(2026, 10, 6, 0, 0, 0, Tokyo).AddHours(index), 12, 12, wet ? 90 : 0, wet ? 1 : 0, wet ? 61 : 0);
+            }),
+        ]);
+
+        var dry = WeatherProfile.Build(forecast, new DateOnly(2026, 10, 8), ThermalPreference.Normal, Rules)!;
+        var rainy = WeatherProfile.Build(forecast, new DateOnly(2026, 10, 7), ThermalPreference.Normal, Rules)!;
+        var slots = WeatherProfile.Slots(forecast, new DateOnly(2026, 10, 7), Rules);
+
+        Assert.Equal((false, Sky.Sun, (DateTimeOffset?)null), (dry.Rain, dry.Sky, dry.RainFrom));
+        Assert.Equal((true, Sky.Rain, (DateTimeOffset?)new DateTimeOffset(2026, 10, 7, 15, 0, 0, Tokyo)), (rainy.Rain, rainy.Sky, rainy.RainFrom));
+        Assert.Equal([7, 12, 17, 22], slots.Select(slot => slot.Time.Hour));
+        Assert.Equal([Sky.Sun, Sky.Sun, Sky.Rain, Sky.Rain], slots.Select(slot => slot.Sky));
+        Assert.All(slots, slot => Assert.Equal(new DateOnly(2026, 10, 7), DateOnly.FromDateTime(slot.Time.DateTime)));
+    }
+
+    [Fact]
+    public void A_day_the_forecast_does_not_reach_has_no_profile_and_no_hours()
+    {
+        var forecast = Day(at => new Reading(at));
+
+        Assert.Null(WeatherProfile.Build(forecast, new DateOnly(2026, 10, 9), ThermalPreference.Normal, Rules));
+        Assert.Null(WeatherProfile.Build(forecast, new DateOnly(2026, 10, 5), ThermalPreference.Normal, Rules));
+        Assert.Empty(WeatherProfile.Slots(forecast, new DateOnly(2026, 10, 9), Rules));
     }
 
     [Theory]

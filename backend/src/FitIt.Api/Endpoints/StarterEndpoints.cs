@@ -27,7 +27,7 @@ internal static class StarterEndpoints
         TypedResults.Ok<IReadOnlyList<StarterPieceResponse>>(
         [
             .. StarterCatalog.All.Select(piece => new StarterPieceResponse(
-                piece.Code, piece.Tags.Name, piece.Tags.Category, piece.Tags.Subcategory, piece.Tags.Colors, links.Absolute(piece.ImagePath))),
+                piece.Code, piece.Tags.Name, piece.Tags.Category, piece.Tags.Subcategory, GarmentCatalog.GroupOf(piece.Tags.Subcategory), piece.Audience, piece.Tags.Colors, links.Absolute(piece.ImagePath))),
         ]);
 
     private static async Task<Microsoft.AspNetCore.Http.HttpResults.Ok<IReadOnlyList<MyStarterPieceResponse>>> ListMine(
@@ -37,7 +37,7 @@ internal static class StarterEndpoints
         return TypedResults.Ok<IReadOnlyList<MyStarterPieceResponse>>(
         [
             .. StarterCatalog.All.Select(piece => new MyStarterPieceResponse(
-                piece.Code, piece.Tags.Name, piece.Tags.Category, piece.Tags.Subcategory, piece.Tags.Colors, links.Absolute(piece.ImagePath), added.Contains(piece.Code))),
+                piece.Code, piece.Tags.Name, piece.Tags.Category, piece.Tags.Subcategory, GarmentCatalog.GroupOf(piece.Tags.Subcategory), piece.Audience, piece.Tags.Colors, links.Absolute(piece.ImagePath), added.Contains(piece.Code))),
         ]);
     }
 

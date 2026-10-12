@@ -9,11 +9,10 @@ import { Button } from '@/components/Button';
 import { LegFigures } from '@/components/LegFigures';
 import { legDetails, legsNotSet } from '@/copy/labels';
 import { EditScreen, useSaveProfile } from '@/features/profile/EditScreen';
-import { radius, space, useTheme } from '@/theme';
+import { space } from '@/theme';
 
 export default function EditLegs() {
   const router = useRouter();
-  const theme = useTheme();
   const user = useSession((session) => session.user);
   const [value, setValue] = useState<LegLength | null>(user?.legLength ?? null);
   const save = useSaveProfile(() => router.back(), { weather: false });
@@ -27,28 +26,26 @@ export default function EditLegs() {
   return (
     <EditScreen
       title="Leg length"
+      accent={{ word: 'length', act: 'rise' }}
+      lead="Where does your waist sit?"
+      leadIcon="height"
       busy={save.isPending}
       error={save.error}
       onAction={() => (unchanged ? router.back() : save.mutate(value ? { legLength: value } : { clearLegLength: true }))}
       secondary={<Button kind="text" compact label="I’d rather not say" onPress={() => setValue(null)} style={styles.clear} testID="legs-none" />}
       testID="edit-legs">
-      <View style={styles.ask}>
-        <AppText variant="label">Where does your waist sit?</AppText>
-        <AppText variant="secondary" color="textSecondary">
-          Only used so try-on pictures fit the way your clothes do.
-        </AppText>
-      </View>
       <LegFigures value={value} onChange={setValue} />
-      <View accessibilityLiveRegion="polite" style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} testID="legs-card">
-        <AppText variant="subheading">{title}</AppText>
-        <AppText color="textSecondary">{hint}</AppText>
+      <View accessibilityLiveRegion="polite" style={styles.about} testID="legs-card">
+        <AppText variant="heading">{title}</AppText>
+        <AppText variant="secondary" color="textSecondary">
+          {hint}
+        </AppText>
       </View>
     </EditScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  ask: { gap: 2 },
-  card: { borderWidth: 1, borderRadius: radius.well, paddingVertical: 14, paddingHorizontal: space[4], gap: 2 },
+  about: { gap: space[1] },
   clear: { alignSelf: 'center' },
 });

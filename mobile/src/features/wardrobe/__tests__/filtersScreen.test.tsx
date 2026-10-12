@@ -40,19 +40,19 @@ beforeEach(() => {
 });
 
 describe('the wardrobe screen', () => {
-  it('has the filters button beside Add, and no chips or Filters button under the search box', async () => {
+  it('has the filters button, with Add left to the tab bar, and no chips or Filters button under the search box', async () => {
     await renderScreen(<Wardrobe />);
 
-    expect(await screen.findByText('3 items')).toBeOnTheScreen();
+    expect(await screen.findByText('3 pieces')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Filters' })).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Add clothes' })).toBeOnTheScreen();
+    expect(screen.queryByTestId('wardrobe-add')).toBeNull();
     expect(screen.queryByTestId('wardrobe-types-row')).toBeNull();
     expect(screen.queryByTestId('wardrobe-filter-bar')).toBeNull();
   });
 
   it('shows plainly that a filter is set, and how many', async () => {
     await renderScreen(<Wardrobe />);
-    await screen.findByText('3 items');
+    await screen.findByText('3 pieces');
     expect(screen.getByRole('button', { name: 'Filters' })).not.toBeSelected();
 
     await act(async () => {
@@ -63,9 +63,26 @@ describe('the wardrobe screen', () => {
     expect(await screen.findByRole('button', { name: 'Filters, 2 active' })).toBeSelected();
   });
 
+  it('has a tab for All and for each group, and choosing one narrows the list to it', async () => {
+    await renderScreen(<Wardrobe />);
+    await screen.findByText('3 pieces');
+    expect(screen.getByRole('tab', { name: 'All' })).toBeSelected();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Pants' }));
+    expect(store().groups).toEqual(['pants']);
+    expect(screen.getByRole('tab', { name: 'All' })).not.toBeSelected();
+    await waitFor(() => expect(lastAsked()).toMatchObject({ groups: ['pants'] }));
+
+    // Another tab replaces the group instead of adding to it; All takes the choice off.
+    await fireEvent.press(screen.getByRole('tab', { name: 'Jeans' }));
+    expect(store().groups).toEqual(['jeans']);
+    await fireEvent.press(screen.getByRole('tab', { name: 'All' }));
+    expect(store().groups).toEqual([]);
+  });
+
   it('shows no row of types with no group chosen, or with several', async () => {
     await renderScreen(<Wardrobe />);
-    await screen.findByText('3 items');
+    await screen.findByText('3 pieces');
 
     await act(async () => {
       store().toggleGroup('pants');
@@ -78,7 +95,7 @@ describe('the wardrobe screen', () => {
 
   it('shows every type of the one chosen group, and a type is applied by pressing it and taken off by pressing it again', async () => {
     await renderScreen(<Wardrobe />);
-    await screen.findByText('3 items');
+    await screen.findByText('3 pieces');
 
     await act(async () => store().toggleGroup('pants'));
 
@@ -100,7 +117,7 @@ describe('the wardrobe screen', () => {
 
   it('drops the chosen types, and the row, when the chosen groups change', async () => {
     await renderScreen(<Wardrobe />);
-    await screen.findByText('3 items');
+    await screen.findByText('3 pieces');
     await act(async () => store().toggleGroup('pants'));
     await fireEvent.press(await screen.findByRole('checkbox', { name: 'Chinos' }));
     expect(store().types).toEqual(['chinos']);
@@ -117,7 +134,7 @@ describe('the wardrobe screen', () => {
 
   it('lists the clothes under a heading for each value when grouped, and sorts them', async () => {
     await renderScreen(<Wardrobe />);
-    await screen.findByText('3 items');
+    await screen.findByText('3 pieces');
     expect(screen.queryAllByRole('header').map((heading) => heading.props.children)).toEqual(['Wardrobe']);
 
     await act(async () => store().setGroupBy('group'));
@@ -147,13 +164,13 @@ describe('the filters sheet', () => {
     expect(await screen.findByRole('checkbox', { name: 'Pants' })).toBeOnTheScreen();
     expect(screen.getAllByRole('header').map((heading) => heading.props.children)).toEqual([
       'Filters',
-      'Groups',
-      'Colors',
-      'Seasons',
-      'Materials',
+      'Group',
+      'Season',
+      'Material',
       'Usage',
       'Sort by',
       'Group by',
+      'Color',
     ]);
     expect(screen.getByRole('switch', { name: 'Forgotten clothes only' })).toBeOnTheScreen();
     expect(screen.getAllByRole('checkbox').map((option) => option.props.accessibilityLabel)).toEqual([
@@ -163,15 +180,15 @@ describe('the filters sheet', () => {
       'Jeans',
       'Pants',
       'Suits and blazers',
-      'White',
-      'Navy',
-      'Light blue',
       'Spring',
       'Summer',
       'Fall',
       'Winter',
       'Cotton',
       'Wool',
+      'White',
+      'Navy',
+      'Light blue',
     ]);
     expect(screen.getAllByRole('radio').map((option) => option.props.accessibilityLabel)).toEqual([
       'All',

@@ -1,3 +1,5 @@
+import * as Haptics from 'expo-haptics';
+
 import { ApiError, networkProblem } from '@/api/problem';
 import type { Clothing, UploadTicket } from '@/api/wardrobe';
 import { createUploadQueue, type UploadDeps, type UploadEntry } from '@/features/wardrobe/uploadQueue';
@@ -269,5 +271,63 @@ describe('the upload queue', () => {
 
     expect(entries()).toEqual([]);
     expect(deps.onWardrobeChanged).not.toHaveBeenCalled();
+  });
+});
+
+describe('feeling a photo that did not get through', () => {
+  const notification = jest.mocked(Haptics.notificationAsync);
+  beforeEach(() => jest.clearAllMocks());
+
+  it('gives the error cue once for a batch that fails together, not once for each photo', async () => {
+    const { queue, entries } = setup({
+      createUpload: jest.fn(async () => {
+        throw new ApiError({ status: 500, code: 'server_error' });
+      }),
+    });
+
+    queue.add([photo('a'), photo('b'), photo('c')]);
+    await settle();
+
+    expect(statuses(entries())).toEqual(['failed', 'failed', 'failed']);
+    expect(notification.mock.calls).toEqual([['error']]);
+  });
+
+  it('gives the warning, and not the error, when the day’s limit is what refused it', async () => {
+    const { queue } = setup({
+      createUpload: jest.fn(async () => {
+        throw new ApiError({ status: 429, code: 'limit_reached' });
+      }),
+    });
+
+    queue.add([photo('a'), photo('b')]);
+    await settle();
+
+    expect(notification.mock.calls).toEqual([['warning']]);
+  });
+
+  it('gives the cue again when a photo sent again fails again', async () => {
+    const { queue, entries } = setup({
+      createUpload: jest.fn(async () => {
+        throw new ApiError({ status: 500, code: 'server_error' });
+      }),
+    });
+    queue.add([photo('a')]);
+    await settle();
+    expect(notification).toHaveBeenCalledTimes(1);
+
+    queue.retry(entries()[0]?.id ?? '');
+    await settle();
+
+    expect(notification.mock.calls).toEqual([['error'], ['error']]);
+  });
+
+  it('is silent for photos that go through', async () => {
+    const { queue, entries } = setup();
+
+    queue.add([photo('a')]);
+    await settle();
+
+    expect(statuses(entries())).toEqual(['processing']);
+    expect(notification).not.toHaveBeenCalled();
   });
 });

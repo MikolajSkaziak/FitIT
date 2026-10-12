@@ -9,8 +9,8 @@ import Create from '@/app/(app)/create';
 import { useSession } from '@/auth/session';
 import { TabBar } from '@/components/TabBar';
 import { useWardrobeFilters } from '@/features/wardrobe/filters';
-import { clothing, user, wardrobeDictionaries } from '@/test/fixtures';
-import { renderScreen, router } from '@/test/screen';
+import { clothing, myStarterPiece, user, wardrobeDictionaries } from '@/test/fixtures';
+import { expectAccent, renderScreen, router } from '@/test/screen';
 
 jest.mock('expo-router', () => jest.requireActual('@/test/screen').routerModule);
 jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
@@ -28,15 +28,7 @@ jest.mock('@/api/wardrobe', () => ({
 
 const api = jest.mocked(wardrobe);
 
-const piece = (code: string, name: string, added = false): wardrobe.MyStarterPiece => ({
-  code,
-  name,
-  category: 'top',
-  type: 't_shirt',
-  colors: ['white'],
-  imageUrl: `http://api.test/starter/${code}.png`,
-  added,
-});
+const piece = (code: string, name: string, added = false): wardrobe.MyStarterPiece => myStarterPiece(code, name, 'top', added, { type: 't_shirt' });
 const tee = piece('white_tshirt', 'White T-shirt');
 const jeans = piece('blue_jeans', 'Blue jeans');
 const sneakers = piece('white_sneakers', 'White sneakers', true);
@@ -97,7 +89,8 @@ describe('the basics picker', () => {
   it('lists only the pieces not added yet and sends the ticked ones', async () => {
     await renderScreen(<AddBasics />);
 
-    expect(screen.getByText('Pieces you might own')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Pieces you might own' })).toBeOnTheScreen();
+    expectAccent('drop', 'Pieces');
     expect(await screen.findByTestId('starter-white_tshirt')).toBeOnTheScreen();
     expect(screen.getByTestId('starter-blue_jeans')).toBeOnTheScreen();
     expect(screen.queryByTestId('starter-white_sneakers')).toBeNull();
@@ -112,6 +105,45 @@ describe('the basics picker', () => {
 
     await waitFor(() => expect(api.addStarterPieces).toHaveBeenCalledWith(['white_tshirt', 'blue_jeans']));
     await waitFor(() => expect(router.back).toHaveBeenCalled());
+  });
+});
+
+describe('the basics picker by the gender in the profile', () => {
+  const mixed = [
+    myStarterPiece('white_tshirt', 'White T-shirt', 'top'),
+    myStarterPiece('little_black_dress', 'Little black dress', 'one_piece', false, { type: 'dress', audience: 'women' }),
+    myStarterPiece('black_midi_skirt', 'Black midi skirt', 'bottom', false, { type: 'skirt', group: 'skirts', audience: 'women' }),
+    myStarterPiece('navy_blazer', 'Navy blazer', 'mid_layer', false, { type: 'blazer', group: 'suits_and_blazers', audience: 'men' }),
+  ];
+  const tiles = () => screen.getAllByTestId(/^starter-/).map((tile) => tile.props.testID as string);
+
+  beforeEach(() => {
+    api.fetchMyStarterPieces.mockResolvedValue(mixed);
+  });
+
+  it.each([
+    ['female', ['starter-white_tshirt', 'starter-little_black_dress', 'starter-black_midi_skirt']],
+    ['male', ['starter-white_tshirt', 'starter-navy_blazer']],
+    ['non_binary', ['starter-white_tshirt', 'starter-little_black_dress', 'starter-black_midi_skirt', 'starter-navy_blazer']],
+    ['unspecified', ['starter-white_tshirt', 'starter-little_black_dress', 'starter-black_midi_skirt', 'starter-navy_blazer']],
+  ] as const)('shows %s only what suits them, with the count and the tabs to match', async (gender, expected) => {
+    useSession.setState({ user: user({ gender }) });
+    await renderScreen(<AddBasics />);
+
+    await screen.findByTestId('starter-white_tshirt');
+    expect(tiles()).toEqual(expected);
+    expect(screen.getByTestId('basics-count')).toHaveTextContent(`0 of ${expected.length} selected`);
+    const tabs = screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel);
+    expect(tabs.includes('Suits and blazers')).toBe(gender !== 'female');
+    expect(tabs.includes('Dresses and jumpsuits')).toBe(gender !== 'male');
+  });
+
+  it('narrows the strip in the wardrobe the same way', async () => {
+    useSession.setState({ user: user({ gender: 'male' }) });
+    await renderScreen(<Wardrobe />);
+
+    expect(await screen.findByTestId('starter-tile-navy_blazer')).toBeOnTheScreen();
+    expect(screen.queryByTestId('starter-tile-little_black_dress')).toBeNull();
   });
 });
 
@@ -152,7 +184,7 @@ describe('the starter strip in the wardrobe', () => {
     api.fetchMyStarterPieces.mockResolvedValue([piece('white_tshirt', 'White T-shirt', true), sneakers]);
     await renderScreen(<Wardrobe />);
 
-    expect(await screen.findByText('1 item')).toBeOnTheScreen();
+    expect(await screen.findByText('1 piece')).toBeOnTheScreen();
     await waitFor(() => expect(api.fetchMyStarterPieces).toHaveBeenCalled());
     expect(screen.queryByTestId('wardrobe-starters')).toBeNull();
   });

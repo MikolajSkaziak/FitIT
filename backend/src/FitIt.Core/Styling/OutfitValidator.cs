@@ -37,8 +37,12 @@ public enum ViolationCode
 
     /// <summary>Differs from an earlier proposal of the same answer in too few places.</summary>
     TooSimilar,
+
+    /// <summary>The style the outfit is said to be in is neither one the person likes nor one near those.</summary>
+    StyleNotAllowed,
 }
 
+/// <summary><paramref name="Alias"/> is the garment at fault, or for <see cref="ViolationCode.StyleNotAllowed"/> the styles that may be named.</summary>
 public sealed record Violation(ViolationCode Code, string? Alias = null)
 {
     /// <summary>One sentence for the model, sent back with the retry.</summary>
@@ -56,12 +60,13 @@ public sealed record Violation(ViolationCode Code, string? Alias = null)
         ViolationCode.NoRainOuterwear => $"{Alias} does not stand rain; rain-proof outerwear is required.",
         ViolationCode.MissingBaseItem => $"The base item {Alias} must be part of every outfit.",
         ViolationCode.TooSimilar => "Differs from an earlier outfit in fewer than two items.",
+        ViolationCode.StyleNotAllowed => $"The style must be one of: {Alias}, or none.",
         _ => throw new InvalidOperationException($"No sentence for {Code}."),
     };
 }
 
 /// <summary>One outfit of the stylist's answer after the check: usable as <see cref="Draft"/>, or the list of what is wrong with it.</summary>
-public sealed record CheckedOutfit(StylistOutfit Source, OutfitDraft? Draft, IReadOnlyList<Violation> Violations)
+public sealed record CheckedOutfit(StylistOutfit Source, OutfitDraft? Draft, IReadOnlyList<Violation> Violations, StyleTag? Style = null)
 {
     public bool IsValid => Draft is not null;
 }
@@ -76,7 +81,8 @@ public static class OutfitValidator
     /// Checks the outfits in the order given; one that is too close to an earlier valid one is the one that goes. The same
     /// outfit twice is too close however small the wardrobe.
     /// </summary>
-    public static IReadOnlyList<CheckedOutfit> Check(IReadOnlyList<StylistOutfit> outfits, CandidateSet candidates)
+    /// <param name="styles">The styles an outfit may be said to be in. Null: whatever style is named is dropped unchecked.</param>
+    public static IReadOnlyList<CheckedOutfit> Check(IReadOnlyList<StylistOutfit> outfits, CandidateSet candidates, IReadOnlyList<StyleTag>? styles = null)
     {
         var results = new List<CheckedOutfit>(outfits.Count);
         var accepted = new List<OutfitDraft>();
@@ -116,6 +122,20 @@ public static class OutfitValidator
             string?[] named = [outfit.Top, outfit.Mid, outfit.Bottom, outfit.OnePiece, outfit.Outerwear, outfit.Shoes, .. outfit.Accessories];
             violations.AddRange(named.OfType<string>().GroupBy(alias => alias).Where(group => group.Count() > 1).Select(group => new Violation(ViolationCode.Repeated, group.Key)));
 
+            // The word the model used is not repeated back: only the styles it may choose from are.
+            StyleTag? style = null;
+            if (styles is not null && outfit.Style is { } claimed)
+            {
+                if (Common.EnumCodes.TryParse<StyleTag>(claimed, out var known) && styles.Contains(known))
+                {
+                    style = known;
+                }
+                else
+                {
+                    violations.Add(new Violation(ViolationCode.StyleNotAllowed, string.Join(", ", styles.Select(Common.EnumCodes.ToCode))));
+                }
+            }
+
             // What follows is judged only on an outfit whose every name was understood: a wrong alias would otherwise be reported twice, once as itself and once as the gap it leaves.
             if (violations.Count == 0)
             {
@@ -135,7 +155,7 @@ public static class OutfitValidator
                     if (violations.Count == 0)
                     {
                         accepted.Add(draft);
-                        results.Add(new CheckedOutfit(outfit, draft, []));
+                        results.Add(new CheckedOutfit(outfit, draft, [], style));
                         continue;
                     }
                 }

@@ -149,6 +149,7 @@ builder.Services.AddAuthorization();
 
 var authPerMinute = builder.Configuration.GetValue("RateLimits:AuthPerMinute", 10);
 var passwordResetPer15Minutes = builder.Configuration.GetValue("RateLimits:PasswordResetPer15Minutes", 10);
+var reportsPerHour = builder.Configuration.GetValue("RateLimits:ReportsPerHour", 10);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -173,6 +174,9 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(AccountEndpoints.PasswordResetRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
         "reset:" + (http.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = passwordResetPer15Minutes, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
+    options.AddPolicy(VisualizationEndpoints.ReportRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        "report:" + (http.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = reportsPerHour, Window = TimeSpan.FromHours(1), QueueLimit = 0 }));
 });
 
 var app = builder.Build();
@@ -241,6 +245,7 @@ app.MapColorEndpoints();
 app.MapStarterEndpoints();
 app.MapWeatherEndpoints();
 app.MapOutfitEndpoints();
+app.MapCalendarEndpoints();
 app.MapVisualizationEndpoints();
 
 if (backgroundWorker)

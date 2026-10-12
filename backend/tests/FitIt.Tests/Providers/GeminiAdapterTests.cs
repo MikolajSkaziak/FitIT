@@ -60,7 +60,7 @@ public sealed class GeminiAdapterTests
         Assert.Equal(new GarmentTags(Category.Bottom, Subcategory.Jeans, "Black jeans", [Color.Black], Pattern.Plain, Material.Denim, 2, 3, false, [StyleTag.Casual, StyleTag.Streetwear], [Season.Spring, Season.Fall]), outcome.Tags, TagsComparer.Instance);
         Assert.Equal("Black straight-leg denim jeans with five pockets.", outcome.Description);
         // 1000 tokens in at 0.75 and 300 out (thinking included) at 3.75 dollars a million.
-        Assert.Equal(new AiCost("gemini-main", 0.001875m), outcome.Cost);
+        Assert.Equal(new AiCost("gemini-main", 0.001875m, 1000, 200, 100), outcome.Cost);
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public sealed class GeminiAdapterTests
             ["gemini-main", "gemini-main", "gemini-main", "gemini-spare"],
             http.Requests.Select(request => request.Uri.AbsolutePath.Split('/')[^1].Split(':')[0]));
         // The fallback model has its own price: 1000 in at 0.30 and 300 out at 2.50.
-        Assert.Equal(new AiCost("gemini-spare", 0.00105m), outcome.Cost);
+        Assert.Equal(new AiCost("gemini-spare", 0.00105m, 1000, 200, 100), outcome.Cost);
     }
 
     [Fact]
@@ -339,7 +339,7 @@ public sealed class GeminiAdapterTests
         Assert.Equal(["The white tee and blue jeans are an easy, calm pair."], critique.Positives);
         Assert.Equal([new Improvement("no_shoes", "Add white sneakers to finish the look."), new Improvement("style_tip", "Roll the hems once for a lighter line.")], critique.Improvements);
         Assert.Equal(rules.Score, critique.Score);
-        Assert.Equal(new AiCost("gemini-main", 0.001875m), critique.Cost);
+        Assert.Equal(new AiCost("gemini-main", 0.001875m, 1000, 200, 100), critique.Cost);
 
         var body = JsonNode.Parse(Assert.Single(http.Requests).Body)!;
         Assert.Equal(GeminiPrompts.Critic, (string?)body["systemInstruction"]!["parts"]![0]!["text"]);

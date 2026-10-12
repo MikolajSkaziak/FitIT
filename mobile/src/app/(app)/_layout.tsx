@@ -27,6 +27,13 @@ export default function AppLayout() {
       <Stack.Screen name="occasion" options={sheet('fitToContents')} />
       <Stack.Screen name="create" options={sheet('fitToContents')} />
       <Stack.Screen name="basics" options={sheet([0.9])} />
+      <Stack.Screen name="consent" options={sheet('fitToContents')} />
+      <Stack.Screen name="report" options={sheet('fitToContents')} />
+      <Stack.Screen name="plan" options={sheet([0.5, 0.94])} />
+      <Stack.Screen name="pick-outfit" options={sheet([0.72, 0.94])} />
+      <Stack.Screen name="builder/swap" options={sheet([0.72, 0.94])} />
+      {/* The camera covers everything, the sheet it was opened from included. */}
+      <Stack.Screen name="camera" options={{ presentation: 'fullScreenModal' }} />
     </Stack>
   );
 }

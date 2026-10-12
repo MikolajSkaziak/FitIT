@@ -2,22 +2,26 @@ import { StyleSheet, View } from 'react-native';
 
 import type { Clothing } from '@/api/wardrobe';
 import { AppText } from '@/components/AppText';
+import { CareLabel } from '@/components/CareLabel';
 import { GarmentImage } from '@/components/garments';
-import { Icon } from '@/components/Icon';
 import { PressScale, ToggleFade } from '@/components/motion';
 import { radius, space, useTheme } from '@/theme';
 
-export const choiceWidth = 112;
-const imageHeight = 104;
+export const choiceWidth = 150;
+const imageHeight = 188;
 
 interface GarmentChoiceProps {
   item: Clothing;
   selected: boolean;
+  /** What kind of garment it is, in the words of the wardrobe ("Sweaters and hoodies"), when they are known. */
+  kind: string | null;
+  /** Takes the width of what it stands in (a cell of a grid) instead of the width of a tile in a row. */
+  fill?: boolean;
   onPress: () => void;
 }
 
-/** One garment in a row of the picker. Chosen: a green ring and a check over the picture; the picture and the name never move. */
-export function GarmentChoice({ item, selected, onPress }: GarmentChoiceProps) {
+/** One garment in a row of the picker. Chosen: a green ring and a "Wearing" care label over the picture; the picture and the name never move. */
+export function GarmentChoice({ item, selected, kind, fill = false, onPress }: GarmentChoiceProps) {
   const theme = useTheme();
   const name = item.name ?? 'Item without details';
   return (
@@ -27,23 +31,31 @@ export function GarmentChoice({ item, selected, onPress }: GarmentChoiceProps) {
       accessibilityLabel={name}
       onPress={onPress}
       testID={`pick-${item.id}`}
-      style={styles.choice}>
+      style={[styles.choice, fill ? styles.fill : null]}>
       <View>
-        <GarmentImage url={item.imageUrl} cacheKey={item.imageKey} height={imageHeight} inset={8} />
+        <GarmentImage url={item.imageUrl} cacheKey={item.imageKey} height={imageHeight} />
         <ToggleFade on={selected} style={[StyleSheet.absoluteFill, styles.ring, { borderColor: theme.action }]} />
-        <ToggleFade on={selected} style={[styles.check, { backgroundColor: theme.action }]}>
-          <Icon name="check" size={16} color="onAction" />
+        <ToggleFade on={selected} style={StyleSheet.absoluteFill}>
+          <CareLabel label="Wearing" icon="check" corner="topLeft" />
         </ToggleFade>
       </View>
-      <AppText variant="meta" numberOfLines={1}>
-        {name}
-      </AppText>
+      <View style={styles.words}>
+        <AppText variant="title" numberOfLines={1}>
+          {name}
+        </AppText>
+        {kind ? (
+          <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+            {kind}
+          </AppText>
+        ) : null}
+      </View>
     </PressScale>
   );
 }
 
 const styles = StyleSheet.create({
-  choice: { width: choiceWidth, gap: space[1] },
+  choice: { width: choiceWidth, gap: space[2] },
+  fill: { width: '100%' },
   ring: { borderWidth: 2, borderRadius: radius.well },
-  check: { position: 'absolute', top: space[1], right: space[1], width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  words: { gap: 2 },
 });

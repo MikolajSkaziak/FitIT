@@ -71,7 +71,7 @@ public sealed class SuggestionApiTests(ApiFactory factory)
         var brief = request.Case.Brief().ToJson();
         Assert.Contains("\"note\":\"open-air concert\"", brief, StringComparison.Ordinal);
         Assert.Contains("\"name\":\"Out with friends\"", brief, StringComparison.Ordinal);
-        Assert.Contains("\"styles\":[\"casual\",\"smart casual\"]", brief, StringComparison.Ordinal);
+        Assert.Contains("\"styles\":[\"casual\",\"smart\"]", brief, StringComparison.Ordinal);
         Assert.Contains("\"nearby_styles\":[\"minimalist\",\"preppy\"]", brief, StringComparison.Ordinal);
         Assert.All(wardrobe, garment => Assert.DoesNotContain(garment.Id.ToString(), brief, StringComparison.Ordinal));
         Assert.Equal(9, request.Case.Candidates.Items.Count);
@@ -469,6 +469,96 @@ public sealed class SuggestionApiTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Outfits_for_a_day_ahead_are_dressed_for_that_days_forecast_and_count_against_todays_limit()
+    {
+        // Warm today, sixteen degrees colder in four days.
+        var (client, auth, _) = await factory.DressedAsync(Warm, Basics);
+        factory.Weather.Trend = -4;
+        var today = factory.DayIn();
+
+        var now = await client.SuggestedAsync();
+        var ahead = await client.SuggestedAsync("work", date: today.AddDays(4));
+
+        Assert.Equal((today, TemperatureBand.Warm), (now.Date, now.Weather.Band));
+        Assert.Equal(SuggestionStatus.Proposed, ahead.Status);
+        Assert.Equal((today.AddDays(4), 4, TemperatureBand.Cold), (ahead.Date, ahead.Weather.FeelsMin, ahead.Weather.Band));
+        Assert.Equal((today.AddDays(4), 7, 22), (DateOnly.FromDateTime(ahead.Weather.From.DateTime), ahead.Weather.From.Hour, ahead.Weather.To.Hour));
+        // The cold of that day asks for the jacket; today's warmth did not.
+        Assert.All(ahead.Outfits, outfit =>
+        {
+            Assert.Contains(outfit.Items, item => item.Slot == Category.Outerwear);
+            Assert.Equal((Occasion.Work, TemperatureBand.Cold, (DateOnly?)null), (outfit.Occasion, outfit.Weather!.Band, outfit.WornOn));
+            Assert.Equal(today.AddDays(4), DateOnly.FromDateTime(outfit.Weather.From.DateTime));
+        });
+
+        // Ordinary proposals: counted on the day they were asked for, on nobody's calendar, and not today's picks.
+        Assert.Equal(2, (await (await client.GetAsync("/api/me/usage")).ReadAsync<UsageResponse>()).Suggestions.Used);
+        Assert.Equal(0, await factory.WithDatabaseAsync(db => db.CalendarEntries.CountAsync(entry => entry.UserId == auth.User.Id)));
+        Assert.Equal(0, await factory.WithDatabaseAsync(db => db.Outfits.CountAsync(outfit => outfit.UserId == auth.User.Id && outfit.DailyOn != null)));
+        var picks = await client.TodaysAsync("work");
+        Assert.Empty(picks.Outfits.Select(outfit => outfit.Id).Intersect(ahead.Outfits.Select(outfit => outfit.Id)));
+        Assert.Equal(TemperatureBand.Warm, picks.Weather.Band);
+
+        // Built around a garment, for that day too.
+        var jeans = ahead.Outfits.SelectMany(outfit => outfit.Items).First(item => item.Slot == Category.Bottom).Clothing;
+        var around = await client.SuggestedAsync(baseItemId: jeans.Id, date: today.AddDays(4));
+        Assert.Equal(today.AddDays(4), around.Date);
+        Assert.All(around.Outfits, outfit => Assert.Contains(jeans.Id, outfit.Items.Select(item => item.Clothing.Id)));
+        factory.FreshWeather();
+    }
+
+    [Fact]
+    public async Task Today_named_by_its_date_is_the_same_as_no_date_and_a_day_past_the_horizon_is_refused_and_not_counted()
+    {
+        var (client, auth, _) = await factory.DressedAsync(Warm, Basics);
+        var today = factory.DayIn();
+
+        var named = await client.SuggestedAsync(date: today);
+        Assert.Equal((today, named.Weather.From.Hour), (named.Date, TimeZoneInfo.ConvertTime(factory.Clock.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw")).Hour));
+        Assert.Equal(1, (await (await client.GetAsync("/api/me/usage")).ReadAsync<UsageResponse>()).Suggestions.Used);
+
+        foreach (var day in new[] { today.AddDays(-1), today.AddDays(7), today.AddDays(30) })
+        {
+            var refused = await client.SuggestAsync(date: day);
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Equal("date_out_of_range", await refused.ProblemCodeAsync());
+        }
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostJsonAsync("/api/outfits/suggestions", new JsonObject { ["occasion"] = "everyday", ["date"] = "next week" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.SuggestAsync(date: today.AddDays(6))).StatusCode);
+        Assert.Equal(2, (await (await client.GetAsync("/api/me/usage")).ReadAsync<UsageResponse>()).Suggestions.Used);
+        Assert.Equal(2, await factory.WithDatabaseAsync(db => db.Outfits.Where(outfit => outfit.UserId == auth.User.Id).Select(outfit => outfit.RequestId).Distinct().CountAsync()));
+    }
+
+    [Fact]
+    public async Task The_limit_of_the_day_of_asking_refuses_outfits_for_any_day()
+    {
+        factory.Ai.Reset();
+        factory.Stylist.Reset();
+        using var limited = factory.WithWebHostBuilder(builder => builder.UseSetting("Limits:SuggestionsPerDay", "1"));
+        var weather = limited.Services.GetRequiredService<FakeWeather>();
+        (weather.Low, weather.High) = (Warm, Warm);
+        var auth = await limited.CreateClient().RegisterAsync();
+        var client = limited.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", auth.AccessToken);
+        await client.GiveConsentAsync();
+        foreach (var tags in (GarmentTags[])[Tee, Jeans, Sneakers])
+        {
+            factory.Ai.TaggingReturns(tags);
+            var added = await client.AddGarmentAsync(limited.Services.GetRequiredService<FitIt.Infrastructure.Storage.InMemoryImageStorage>());
+            await factory.ProcessAsync(added.Id, limited.Services);
+        }
+
+        var today = factory.DayIn();
+        Assert.Equal(HttpStatusCode.OK, (await client.SuggestAsync(date: today.AddDays(2))).StatusCode);
+
+        var refused = await client.SuggestAsync(date: today.AddDays(3));
+        Assert.Equal(HttpStatusCode.TooManyRequests, refused.StatusCode);
+        Assert.Equal("limit_reached", await refused.ProblemCodeAsync());
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await client.SuggestAsync()).StatusCode);
+    }
+
+    [Fact]
     public async Task The_daily_limit_of_requests_holds_however_many_arrive_at_once()
     {
         factory.Ai.Reset();
@@ -591,10 +681,10 @@ public sealed class SuggestionApiTests(ApiFactory factory)
     {
         var prompt = StylistPrompt.System;
 
-        Assert.Equal("stylist-v3", StylistPrompt.Version);
+        Assert.Equal("stylist-v4", StylistPrompt.Version);
         Assert.Equal(StylistPrompt.Version, new FakeOutfitStylist().PromptVersion);
         // The three kinds under the names of the answer schema, the reasoning in English, and the rules of tone.
-        string[] expected = ["sure_bet", "discovery", "new_pairing", "one_piece", "weather_note", "base_item", "in English", "second person", "gender", "No emoji"];
+        string[] expected = ["sure_bet", "discovery", "new_pairing", "one_piece", "weather_note", "base_item", "in English", "second person", "gender", "No emoji", "style_notes", "flatters", "nearby_styles"];
         Assert.All(expected, words => Assert.Contains(words, prompt, StringComparison.Ordinal));
         Assert.DoesNotContain('—', prompt);
     }

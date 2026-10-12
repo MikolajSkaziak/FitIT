@@ -6,8 +6,9 @@ namespace FitIt.Core.Styling;
 /// <summary>
 /// The fallback of product spec 6.7: outfits from the rules alone. It draws valid outfits at random from the
 /// candidates, scores them with the same function the model's outfits get, and returns the best, the best with a
-/// forgotten garment and the best that differs from both. It keeps the app working when the model does not, and it is
-/// the yardstick the model is measured against.
+/// forgotten garment and the best that differs from both. When the person likes some styles, garments that fit them
+/// are drawn more often, and the score, which counts style too, does the rest. It keeps the app working when the model
+/// does not, and it is the yardstick the model is measured against.
 /// </summary>
 public static class RuleBasedStylist
 {
@@ -19,16 +20,22 @@ public static class RuleBasedStylist
     /// <summary>Draws repeat in a small wardrobe; this many tries are enough to find every outfit it can make, or twenty of them.</summary>
     private const int MaxTries = 400;
 
+    /// <summary>How many times likelier a garment that fits the person's styles fully is drawn than one that does not fit at all, less one.</summary>
+    private const double StylePull = 3;
+
     /// <summary>
     /// Up to three proposals, best first by the order of spec 6.7. Empty only when the candidates cannot make a single
     /// valid outfit, which a complete <see cref="CandidateSet"/> always can.
     /// </summary>
-    public static IReadOnlyList<Proposal> Compose(CandidateSet candidates, WeatherProfile weather, IReadOnlySet<(Guid Top, Guid Bottom)> wornPairs, Random random)
+    /// <param name="styles">The styles the person likes, strongest first; none leaves style out of the draw.</param>
+    public static IReadOnlyList<Proposal> Compose(
+        CandidateSet candidates, WeatherProfile weather, IReadOnlySet<(Guid Top, Guid Bottom)> wornPairs, Random random, IReadOnlyList<StyleTag>? styles = null)
     {
+        styles ??= [];
         var drawn = new List<OutfitDraft>();
         for (var tries = 0; tries < MaxTries && drawn.Count < Drawn; tries++)
         {
-            if (Draw(candidates, random) is { } outfit && drawn.TrueForAll(earlier => earlier.DifferenceFrom(outfit) > 0)
+            if (Draw(candidates, random, styles) is { } outfit && drawn.TrueForAll(earlier => earlier.DifferenceFrom(outfit) > 0)
                 && OutfitValidator.Check(outfit, candidates).Count == 0)
             {
                 drawn.Add(outfit);
@@ -36,7 +43,7 @@ public static class RuleBasedStylist
         }
 
         // A stable sort: among equals the earlier draw wins, so one seed always gives one answer.
-        var ranked = drawn.Select(outfit => (Outfit: outfit, Score: CoherenceScore.Of(outfit, weather.Rule))).OrderByDescending(entry => entry.Score).ToList();
+        var ranked = drawn.Select(outfit => (Outfit: outfit, Score: CoherenceScore.Of(outfit, weather.Rule, styles))).OrderByDescending(entry => entry.Score).ToList();
         var picked = new List<(OutfitDraft Outfit, int Score, OutfitKind Claimed)>();
 
         // What is wanted comes first, then as much difference from what is already picked as the wardrobe allows.
@@ -66,18 +73,41 @@ public static class RuleBasedStylist
             .. picked.Take(Proposals).Select(entry =>
             {
                 var kind = entry.Outfit.Confirm(entry.Claimed, wornPairs);
-                return new Proposal(entry.Outfit, kind, entry.Score, Reasoning(kind, entry.Outfit), WeatherNote(entry.Outfit, weather));
+                var style = StyleFit.Named(entry.Outfit, styles);
+                return new Proposal(entry.Outfit, kind, entry.Score, Reasoning(kind, entry.Outfit, style), WeatherNote(entry.Outfit, weather), style);
             }),
         ];
     }
 
     /// <summary>One outfit that honours what the weather demands, or null when the candidates cannot dress anybody.</summary>
-    private static OutfitDraft? Draw(CandidateSet candidates, Random random)
+    private static OutfitDraft? Draw(CandidateSet candidates, Random random, IReadOnlyList<StyleTag> styles)
     {
         Garment? Any(Category role)
         {
             var garments = candidates.Of(role);
-            return garments.Count == 0 ? null : garments[random.Next(garments.Count)];
+            if (garments.Count == 0)
+            {
+                return null;
+            }
+
+            if (styles.Count == 0)
+            {
+                return garments[random.Next(garments.Count)];
+            }
+
+            // Every garment keeps a chance, so a wardrobe with little in the person's styles is still used whole.
+            var weights = garments.Select(garment => 1 + (StylePull * (StyleFit.Of(garment, styles) ?? StyleFit.Compatible))).ToList();
+            var point = random.NextDouble() * weights.Sum();
+            for (var index = 0; index < garments.Count - 1; index++)
+            {
+                point -= weights[index];
+                if (point < 0)
+                {
+                    return garments[index];
+                }
+            }
+
+            return garments[^1];
         }
 
         bool Must(Category role) => candidates.BaseItem?.Role == role;
@@ -124,13 +154,21 @@ public static class RuleBasedStylist
     }
 
     // Template sentences shown as the stylist's reasoning: second person, plain English.
-    private static string Reasoning(OutfitKind? kind, OutfitDraft outfit) => kind switch
+    private static string Reasoning(OutfitKind? kind, OutfitDraft outfit, StyleTag? style)
     {
-        OutfitKind.SureBet => "These are the pieces you reach for most. They suit the weather and the occasion.",
-        OutfitKind.Discovery => $"There is something here you have not worn in a while: {outfit.Items.First(garment => garment.Forgotten).Tags.Name}. The rest of the outfit suits the weather and the occasion.",
-        OutfitKind.NewPairing => "You have not worn this top and bottom together yet. It suits the weather and the occasion.",
-        _ => "An outfit chosen for the weather and the occasion, with colors and style that go together.",
-    };
+        var sentences = kind switch
+        {
+            OutfitKind.SureBet => "These are the pieces you reach for most. They suit the weather and the occasion.",
+            OutfitKind.Discovery => $"There is something here you have not worn in a while: {outfit.Items.First(garment => garment.Forgotten).Tags.Name}. The rest of the outfit suits the weather and the occasion.",
+            OutfitKind.NewPairing => "You have not worn this top and bottom together yet. It suits the weather and the occasion.",
+            _ => "An outfit chosen for the weather and the occasion, with colors and style that go together.",
+        };
+
+        // "Y2K" keeps its capitals; every other style is an ordinary word in the middle of a sentence.
+        return style is { } named
+            ? $"{sentences} Together the pieces read as {(named == StyleTag.Y2k ? GarmentCatalog.Label(named) : GarmentCatalog.Label(named).ToLowerInvariant())}."
+            : sentences;
+    }
 
     private static string? WeatherNote(OutfitDraft outfit, WeatherProfile weather)
     {

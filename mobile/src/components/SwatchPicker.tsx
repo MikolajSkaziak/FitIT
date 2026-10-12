@@ -31,7 +31,7 @@ const disc = 36;
 /**
  * One question answered by round swatches. The row holds as many 44 point targets as fit; more than that and the
  * swatches are split into rows of equal length, never one short orphan. The chosen swatch wears a ring in the action
- * color with a gap between ring and color, and its name shows in one quiet line under the row, whose height is
+ * color tight around it, and its name shows in one quiet line under the row, whose height is
  * reserved so that choosing never moves anything.
  */
 export function SwatchPicker<T extends string | number>({ label, options, value, onChange, testID }: SwatchPickerProps<T>) {
@@ -90,8 +90,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
   cell: { flex: 1, alignItems: 'center' },
   target: { width: size.touch, height: size.touch, alignItems: 'center', justifyContent: 'center' },
-  // 36 point disc inside a 2 point ring on a 44 point box: a 2 point gap between the ring and the color.
+  // A 36 point disc with a 3 point ring tight around it, both inside the 44 point target.
   disc: { width: disc, height: disc, borderRadius: disc / 2, borderWidth: 1 },
-  ring: { position: 'absolute', width: size.touch, height: size.touch, borderRadius: size.touch / 2, borderWidth: 2 },
+  ring: { position: 'absolute', width: disc + 6, height: disc + 6, borderRadius: disc / 2 + 3, borderWidth: 3 },
   caption: { minHeight: typography.secondary.lineHeight, marginTop: 4 },
 });

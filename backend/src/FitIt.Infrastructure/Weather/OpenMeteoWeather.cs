@@ -13,13 +13,16 @@ public sealed class OpenMeteoWeather(HttpClient http, ILogger<OpenMeteoWeather> 
 {
     public const string BaseAddress = "https://api.open-meteo.com/";
 
+    /// <summary>The days a person can dress for and one to spare: a forecast kept past midnight still reaches the last of them.</summary>
+    public const int ForecastDays = WeatherProfile.HorizonDays + 1;
+
     private const string Fields = "temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code";
 
     public async Task<Result<Forecast>> ForecastAsync(double lat, double lon, CancellationToken cancellationToken)
     {
         // The zone is the provider's answer for the coordinates ("auto"); times come as instants and are turned into that zone's clock here.
         var url = string.Create(CultureInfo.InvariantCulture,
-            $"v1/forecast?latitude={lat:0.0###}&longitude={lon:0.0###}&hourly={Fields}&forecast_days=3&timezone=auto&timeformat=unixtime");
+            $"v1/forecast?latitude={lat:0.0###}&longitude={lon:0.0###}&hourly={Fields}&forecast_days={ForecastDays}&timezone=auto&timeformat=unixtime");
         try
         {
             var response = await http.GetFromJsonAsync<Response>(url, cancellationToken);
@@ -85,7 +88,7 @@ public sealed class OpenMeteoWeather(HttpClient http, ILogger<OpenMeteoWeather> 
 
 /// <summary>
 /// Made-up weather for tests and for work without a network: the same day everywhere, coldest before dawn and warmest
-/// in mid afternoon. A test or the evaluation tool sets the numbers it needs.
+/// in mid afternoon, for as many days as the real provider is asked for. A test or the evaluation tool sets the numbers it needs.
 /// </summary>
 public sealed class FakeWeather(TimeProvider time) : IWeatherProvider
 {
@@ -100,12 +103,15 @@ public sealed class FakeWeather(TimeProvider time) : IWeatherProvider
 
     public int WeatherCode { get; set; } = 2;
 
+    /// <summary>Degrees each day is warmer (or, below zero, colder) than the day before it, so a day ahead can differ from today.</summary>
+    public double Trend { get; set; }
+
     /// <summary>While true the provider fails, the way the real one does when it cannot be reached.</summary>
     public bool Down { get; set; }
 
     public int Calls { get; private set; }
 
-    public void Reset() => (Low, High, RainProbability, RainMm, WeatherCode, Down, Calls) = (12, 17, 10, 0, 2, false, 0);
+    public void Reset() => (Low, High, RainProbability, RainMm, WeatherCode, Trend, Down, Calls) = (12, 17, 10, 0, 2, 0, false, 0);
 
     public Task<Result<Forecast>> ForecastAsync(double lat, double lon, CancellationToken cancellationToken)
     {
@@ -117,11 +123,11 @@ public sealed class FakeWeather(TimeProvider time) : IWeatherProvider
 
         var zone = PlaceZones.At(lat, lon) ?? TimeZoneInfo.Utc;
         var today = TimeZoneInfo.ConvertTime(time.GetUtcNow(), zone).Date;
-        var hours = Enumerable.Range(0, 72).Select(index =>
+        var hours = Enumerable.Range(0, 24 * OpenMeteoWeather.ForecastDays).Select(index =>
         {
             var local = today.AddHours(index);
             // A cosine through the day: lowest at 03:00, highest at 15:00.
-            var feels = Low + ((High - Low) * (1 - Math.Cos((local.Hour - 3) * Math.PI / 12)) / 2);
+            var feels = Low + (Trend * (index / 24)) + ((High - Low) * (1 - Math.Cos((local.Hour - 3) * Math.PI / 12)) / 2);
             return new ForecastHour(new DateTimeOffset(local, zone.GetUtcOffset(local)), Math.Round(feels, 1), Math.Round(feels, 1), RainProbability, RainMm, WeatherCode);
         });
         return Task.FromResult(Result.Ok(new Forecast(zone.Id, [.. hours])));

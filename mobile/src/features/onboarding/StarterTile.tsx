@@ -2,48 +2,61 @@ import { StyleSheet, View } from 'react-native';
 
 import type { StarterPiece } from '@/api/wardrobe';
 import { AppText } from '@/components/AppText';
+import { CareLabel } from '@/components/CareLabel';
 import { GarmentImage } from '@/components/garments';
 import { Icon } from '@/components/Icon';
 import { PressScale, ToggleFade } from '@/components/motion';
-import { radius, space, useTheme } from '@/theme';
+import * as haptics from '@/lib/haptics';
+import { space, useTheme } from '@/theme';
 
-const imageHeight = 108;
-const badge = 24;
+export const tileImageHeight = 212;
+const disc = 32;
 
 interface StarterTileProps {
   piece: StarterPiece;
+  /** The quiet line under the name: where the piece belongs. */
+  caption: string;
   selected: boolean;
   onPress: () => void;
 }
 
-/** One common piece on its sage tile. Chosen: a green ring and a check, so color is never the only sign. */
-export function StarterTile({ piece, selected, onPress }: StarterTileProps) {
+/** One common piece on its well. Left alone it wears a white plus; chosen, a care label that says "Added", so color is never the only sign. */
+export function StarterTile({ piece, caption, selected, onPress }: StarterTileProps) {
   const theme = useTheme();
   return (
     <PressScale
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
       accessibilityLabel={piece.name}
-      onPress={onPress}
+      haptic="none"
+      onPress={() => {
+        haptics.select();
+        onPress();
+      }}
       testID={`starter-${piece.code}`}
       style={styles.tile}>
-      <View>
-        <GarmentImage url={piece.imageUrl} cacheKey={`starter-${piece.code}`} height={imageHeight} inset={space[2]} />
-        <ToggleFade on={selected} style={[StyleSheet.absoluteFill, styles.ring, { borderColor: theme.action }]} />
-        <ToggleFade on={selected} style={[styles.badge, { backgroundColor: theme.action }]}>
-          <Icon name="check" size={16} color="onAction" />
+      <GarmentImage url={piece.imageUrl} cacheKey={`starter-${piece.code}`} height={tileImageHeight} inset={space[4]}>
+        <ToggleFade on={selected} style={StyleSheet.absoluteFill}>
+          <CareLabel label="Added" icon="check" corner="topLeft" />
         </ToggleFade>
+        <ToggleFade on={!selected} style={[styles.plus, { backgroundColor: theme.wellChip }]}>
+          <Icon name="plus" size={16} color="onWellChip" />
+        </ToggleFade>
+      </GarmentImage>
+      <View style={styles.words}>
+        <AppText variant="title" numberOfLines={1}>
+          {piece.name}
+        </AppText>
+        <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+          {caption}
+        </AppText>
       </View>
-      <AppText variant="secondaryStrong" numberOfLines={2} style={styles.name}>
-        {piece.name}
-      </AppText>
     </PressScale>
   );
 }
 
 const styles = StyleSheet.create({
   tile: { gap: space[2] },
-  ring: { borderWidth: 2, borderRadius: radius.well },
-  badge: { position: 'absolute', top: space[1], right: space[1], width: badge, height: badge, borderRadius: badge / 2, alignItems: 'center', justifyContent: 'center' },
-  name: { paddingHorizontal: space[1], minHeight: 42 },
+  words: { gap: 2 },
+  plus: { position: 'absolute', top: 10, right: 10, width: disc, height: disc, borderRadius: disc / 2, alignItems: 'center', justifyContent: 'center' },
 });

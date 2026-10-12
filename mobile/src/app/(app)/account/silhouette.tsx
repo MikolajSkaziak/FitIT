@@ -26,6 +26,7 @@ export default function EditSilhouette() {
   return (
     <EditScreen
       title="Body shape"
+      accent={{ word: 'shape', act: 'stretch' }}
       lead="It’s only used for the try-on picture. Choose the closest match."
       busy={save.isPending}
       error={save.error}

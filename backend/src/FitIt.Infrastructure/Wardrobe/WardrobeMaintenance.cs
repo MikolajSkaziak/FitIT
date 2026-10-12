@@ -89,7 +89,7 @@ public sealed class WardrobeMaintenance(AppDbContext db, IImageStorage storage, 
         return moved;
     }
 
-    /// <summary>Deletes stored files that no garment or visualization points to and that are older than a day, and the rows of long-refused photos.</summary>
+    /// <summary>Deletes stored files that no garment, garment photo or visualization points to and that are older than a day, and the rows of long-refused photos.</summary>
     public async Task<int> RemoveOrphansAsync()
     {
         var now = clock.UtcNow;
@@ -140,7 +140,8 @@ public sealed class WardrobeMaintenance(AppDbContext db, IImageStorage storage, 
             .Where(visualization => visualization.ImageKey != null && keys.Contains(visualization.ImageKey))
             .Select(visualization => visualization.ImageKey)
             .ToListAsync();
-        var referenced = used.SelectMany(pair => new[] { pair.OriginalKey, pair.CutoutKey }).Concat(pictures).Where(key => key is not null).ToHashSet(StringComparer.Ordinal);
+        var extras = await db.ClothingPhotos.AsNoTracking().Where(photo => keys.Contains(photo.Key)).Select(photo => photo.Key).ToListAsync();
+        var referenced = used.SelectMany(pair => new[] { pair.OriginalKey, pair.CutoutKey }).Concat(pictures).Concat(extras).Where(key => key is not null).ToHashSet(StringComparer.Ordinal);
         var orphans = keys.Where(key => !referenced.Contains(key)).ToList();
         await storage.DeleteAsync(orphans, CancellationToken.None);
         return orphans.Count;

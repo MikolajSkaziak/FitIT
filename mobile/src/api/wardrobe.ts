@@ -2,6 +2,8 @@ import { api, type Schemas } from './client';
 import { unwrap } from './problem';
 
 export type Clothing = Schemas['ClothingResponse'];
+/** One more photo of a garment besides its main picture, as it was taken. */
+export type ClothingPhoto = Schemas['ClothingPhotoResponse'];
 export type Category = Schemas['Category'];
 export type GarmentGroup = Schemas['GarmentGroup'];
 export type Subcategory = Schemas['Subcategory'];
@@ -16,6 +18,8 @@ export type WardrobeStats = Schemas['WardrobeStatsResponse'];
 export type Usage = Schemas['UsageResponse'];
 export type Dictionaries = Schemas['DictionariesResponse'];
 export type StarterPiece = Schemas['StarterPieceResponse'];
+/** Who a common piece is cut for: women, men or everyone. */
+export type StarterAudience = Schemas['StarterAudience'];
 /** A common piece with whether the signed-in person already has it in the wardrobe. */
 export type MyStarterPiece = Schemas['MyStarterPieceResponse'];
 
@@ -93,6 +97,19 @@ export const deleteClothing = async (id: string): Promise<void> => {
 };
 
 export const reprocessClothing = (id: string): Promise<Clothing> => unwrap(api.POST('/api/clothes/{id}/reprocess', { params: { path: { id } } }));
+
+/** How many extra photos one garment can hold; the server enforces it (`photo_limit_reached`). */
+export const maxExtraPhotos = 4;
+
+/** Where to send one more photo of this garment. It travels like the main one: PUT it there, then confirm with the key. */
+export const createPhotoUpload = (id: string): Promise<UploadTicket> => unwrap(api.POST('/api/clothes/{id}/photos/uploads', { params: { path: { id } } }));
+
+export const addClothingPhoto = (id: string, key: string): Promise<ClothingPhoto> =>
+  unwrap(api.POST('/api/clothes/{id}/photos', { params: { path: { id } }, body: { key } }));
+
+export const deleteClothingPhoto = async (id: string, photoId: string): Promise<void> => {
+  await unwrap(api.DELETE('/api/clothes/{id}/photos/{photoId}', { params: { path: { id, photoId } } }));
+};
 
 export const wardrobeKeys = {
   all: ['clothes'] as const,

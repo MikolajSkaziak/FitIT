@@ -7,6 +7,7 @@ using FitIt.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace FitIt.Infrastructure.Persistence;
 
@@ -20,11 +21,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
 
     public DbSet<Visualization> Visualizations => Set<Visualization>();
 
+    public DbSet<VisualizationReport> VisualizationReports => Set<VisualizationReport>();
+
     public DbSet<ClothingItem> Clothes => Set<ClothingItem>();
+
+    public DbSet<ClothingPhoto> ClothingPhotos => Set<ClothingPhoto>();
 
     public DbSet<Outfit> Outfits => Set<Outfit>();
 
     public DbSet<OutfitItem> OutfitItems => Set<OutfitItem>();
+
+    public DbSet<CalendarEntry> CalendarEntries => Set<CalendarEntry>();
 
     public DbSet<UsageCounter> UsageCounters => Set<UsageCounter>();
 
@@ -48,6 +55,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
         configurationBuilder.Properties<OutfitSource>().HaveConversion<EnumCodeConverter<OutfitSource>>().HaveMaxLength(16);
         configurationBuilder.Properties<OutfitRating>().HaveConversion<EnumCodeConverter<OutfitRating>>().HaveMaxLength(16);
         configurationBuilder.Properties<VisualizationStatus>().HaveConversion<EnumCodeConverter<VisualizationStatus>>().HaveMaxLength(16);
+        configurationBuilder.Properties<ReportReason>().HaveConversion<EnumCodeConverter<ReportReason>>().HaveMaxLength(16);
         configurationBuilder.Properties<UsageKind>().HaveConversion<EnumCodeConverter<UsageKind>>().HaveMaxLength(16);
         configurationBuilder.Properties<AiOperation>().HaveConversion<EnumCodeConverter<AiOperation>>().HaveMaxLength(32);
     }
@@ -125,13 +133,35 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
             item.HasOne<AppUser>().WithMany().HasForeignKey(i => i.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<ClothingPhoto>(photo =>
+        {
+            photo.ToTable("clothing_photos");
+            photo.Property(p => p.Id).ValueGeneratedNever();
+            photo.Property(p => p.Key).HasMaxLength(120);
+            photo.HasIndex(p => p.Key).IsUnique();
+            // One garment's photos in the order they were added.
+            photo.HasIndex(p => new { p.ClothingItemId, p.CreatedAt });
+            // The rows go with the garment; the files go first, in code (the wardrobe service reads their keys before it deletes).
+            photo.HasOne<ClothingItem>().WithMany().HasForeignKey(p => p.ClothingItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<Outfit>(outfit =>
         {
             outfit.ToTable("outfits", table => table.HasCheckConstraint("ck_outfits_score", "score BETWEEN 0 AND 100"));
             outfit.Property(o => o.Id).ValueGeneratedNever();
             outfit.Property(o => o.OccasionNote).HasMaxLength(Outfit.NoteMaxLength);
             outfit.Property(o => o.Name).HasMaxLength(Outfit.NameMaxLength);
+            outfit.Property(o => o.Style).HasConversion<EnumCodeConverter<StyleTag>>().HasMaxLength(16);
             outfit.Property(o => o.Weather).HasColumnName("weather_snapshot").HasColumnType("jsonb").HasConversion<JsonDocumentConverter<WeatherSnapshot>>();
+            // Replaced as a whole when the person rearranges the board, and compared by its placements.
+            outfit.Property(o => o.Layout).HasColumnType("jsonb").HasConversion<JsonDocumentConverter<List<OutfitPlacement>>>(new ValueComparer<List<OutfitPlacement>>(
+                (left, right) => left!.SequenceEqual(right!),
+                layout => layout.Aggregate(0, (hash, placement) => HashCode.Combine(hash, placement)),
+                layout => layout.ToList()));
+            outfit.Property(o => o.FigureLayout).HasColumnType("jsonb").HasConversion<JsonDocumentConverter<List<OutfitPlacement>>>(new ValueComparer<List<OutfitPlacement>>(
+                (left, right) => left!.SequenceEqual(right!),
+                layout => layout.Aggregate(0, (hash, placement) => HashCode.Combine(hash, placement)),
+                layout => layout.ToList()));
             outfit.Property(o => o.Reasoning).HasMaxLength(Outfit.ReasoningMaxLength);
             outfit.Property(o => o.WeatherNote).HasMaxLength(Outfit.WeatherNoteMaxLength);
             outfit.Property(o => o.PromptVersion).HasMaxLength(40);
@@ -151,6 +181,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
             item.HasIndex(i => i.ClothingItemId);
             // The row goes with the garment; the outfit it belonged to is deleted by the wardrobe service, which knows an outfit with a hole is no outfit.
             item.HasOne<ClothingItem>().WithMany().HasForeignKey(i => i.ClothingItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CalendarEntry>(entry =>
+        {
+            entry.ToTable("calendar_entries");
+            entry.Property(e => e.Id).ValueGeneratedNever();
+            // One person's days in order, and an outfit stands on a day once, also when two requests arrive at the same time.
+            entry.HasIndex(e => new { e.UserId, e.Day, e.OutfitId }).IsUnique();
+            // "Which days is this outfit on": asked on the outfit's own page.
+            entry.HasIndex(e => e.OutfitId);
+            entry.HasOne<AppUser>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+            // A deleted outfit leaves the calendar with it.
+            entry.HasOne<Outfit>().WithMany().HasForeignKey(e => e.OutfitId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<Visualization>(visualization =>
@@ -174,6 +217,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
             // The files go first, in code: the row only follows its outfit.
             visualization.HasOne<Outfit>().WithMany().HasForeignKey(v => v.OutfitId).OnDelete(DeleteBehavior.Cascade);
             visualization.HasOne<Avatar>().WithMany().HasForeignKey(v => v.AvatarId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<VisualizationReport>(report =>
+        {
+            report.ToTable("visualization_reports");
+            report.Property(r => r.Id).ValueGeneratedNever();
+            report.HasIndex(r => r.VisualizationId);
+            report.HasIndex(r => r.CreatedAt);
+            report.HasOne<AppUser>().WithMany().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<UsageCounter>(counter =>

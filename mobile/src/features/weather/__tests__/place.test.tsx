@@ -1,14 +1,17 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { AppState, Linking } from 'react-native';
+import { withTiming } from 'react-native-reanimated';
 
 import * as account from '@/api/account';
+import { ApiError, networkProblem } from '@/api/problem';
 import EditPlace from '@/app/(app)/account/place';
 import EditThermalPreference from '@/app/(app)/account/thermal';
 import { useSession } from '@/auth/session';
 import { hasMoved, useKeepPlaceCurrent } from '@/features/weather/place';
 import * as location from '@/lib/location';
+import { motion } from '@/theme';
 import { user } from '@/test/fixtures';
-import { renderScreen, router } from '@/test/screen';
+import { expectAccent, renderScreen, router } from '@/test/screen';
 
 jest.mock('expo-router', () => jest.requireActual('@/test/screen').routerModule);
 jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
@@ -86,7 +89,7 @@ describe('the place screen', () => {
 
     await fireEvent.changeText(screen.getByTestId('place-search'), 'Osaka');
     await fireEvent.press(await screen.findByTestId('place-0'));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save city' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(router.back).toHaveBeenCalled());
     expect(updateProfile).toHaveBeenCalledWith({ location: { source: 'manual', name: 'Osaka', lat: 34.7, lon: 135.5 } });
@@ -95,7 +98,7 @@ describe('the place screen', () => {
   it('asks for a city from the list instead of saving nothing', async () => {
     await renderScreen(<EditPlace />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Save city' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     expect(screen.getByText('Pick a place from the list.')).toBeOnTheScreen();
     expect(updateProfile).not.toHaveBeenCalled();
@@ -103,19 +106,109 @@ describe('the place screen', () => {
 });
 
 describe('the thermal preference screen', () => {
-  it('saves the new preference and goes back, and leaves the server alone when nothing changed', async () => {
-    updateProfile.mockResolvedValue(user({ thermalPreference: 'runs_cold' }));
+  it('starts on what is saved, with Save waiting until something changes', async () => {
     await renderScreen(<EditThermalPreference />);
+
+    expect(screen.getByRole('radio', { name: 'About average' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByText('Profile')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'How you feel the cold' })).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
     expect(updateProfile).not.toHaveBeenCalled();
-    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  describe('the word "cold" in its title', () => {
+    // How many steps of a given size were timed since the last clear: 1.5 is a shiver (two of the five steps), a move of 1 over the exit duration is the out-step of a rise.
+    const shivers = () => jest.mocked(withTiming).mock.calls.filter(([to]) => to === 1.5).length;
+    const rises = () => jest.mocked(withTiming).mock.calls.filter(([to, config]) => to === 1 && (config as { duration: number }).duration === motion.exit).length;
+
+    it('is the green italic accent, and shivers when the screen has arrived', async () => {
+      await renderScreen(<EditThermalPreference />);
+
+      expectAccent('shiver', 'cold');
+      expect(screen.getByRole('header', { name: 'How you feel the cold' })).toBeOnTheScreen();
+      expect(shivers()).toBe(2);
+    });
+
+    it('shivers again when Cold is chosen: the word, the care label and the sentence', async () => {
+      await renderScreen(<EditThermalPreference />);
+      jest.mocked(withTiming).mockClear();
+
+      await fireEvent.press(screen.getByRole('radio', { name: 'I get cold easily' }));
+
+      expect(shivers()).toBe(6);
+      expect(rises()).toBe(0);
+    });
+
+    it('rises when Warm is chosen (the word, the care label and the sentence), and does not shiver', async () => {
+      await renderScreen(<EditThermalPreference />);
+      jest.mocked(withTiming).mockClear();
+
+      await fireEvent.press(screen.getByRole('radio', { name: 'I run warm' }));
+
+      expect(shivers()).toBe(0);
+      expect(rises()).toBe(3);
+    });
+
+    it('does nothing for About average, whatever was chosen before, other than the thermometer of its own stop', async () => {
+      await renderScreen(<EditThermalPreference />);
+      await fireEvent.press(screen.getByRole('radio', { name: 'I run warm' }));
+      jest.mocked(withTiming).mockClear();
+
+      await fireEvent.press(screen.getByRole('radio', { name: 'About average' }));
+
+      expect(shivers()).toBe(0);
+      expect(rises()).toBe(1);
+    });
+
+    it('does not play again for the answer already chosen when the screen opened', async () => {
+      useSession.setState({ user: user({ thermalPreference: 'runs_cold' }) });
+      await renderScreen(<EditThermalPreference />);
+
+      expect(shivers()).toBe(2);
+      jest.mocked(withTiming).mockClear();
+      await fireEvent.press(screen.getByRole('radio', { name: 'I get cold easily' }));
+      expect(shivers()).toBe(0);
+    });
+  });
+
+  it('saves the new preference and goes back', async () => {
+    updateProfile.mockResolvedValue(user({ thermalPreference: 'runs_cold' }));
+    await renderScreen(<EditThermalPreference />);
 
     await fireEvent.press(screen.getByRole('radio', { name: 'I get cold easily' }));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ thermalPreference: 'runs_cold' }));
-    await waitFor(() => expect(router.back).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(router.back).toHaveBeenCalledTimes(1));
+    expect(useSession.getState().user?.thermalPreference).toBe('runs_cold');
+  });
+
+  it('puts the answer back to disabled when the person returns to what was saved', async () => {
+    await renderScreen(<EditThermalPreference />);
+
+    await fireEvent.press(screen.getByRole('radio', { name: 'I run warm' }));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    await fireEvent.press(screen.getByRole('radio', { name: 'About average' }));
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('keeps the saved preference and the person’s choice when saving fails, says so, and can try again', async () => {
+    updateProfile.mockRejectedValueOnce(new ApiError(networkProblem));
+    await renderScreen(<EditThermalPreference />);
+
+    await fireEvent.press(screen.getByRole('radio', { name: 'I run warm' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('alert')).toBeOnTheScreen();
+    expect(useSession.getState().user?.thermalPreference).toBe('normal');
+    expect(screen.getByRole('radio', { name: 'I run warm' })).toBeChecked();
+    expect(router.back).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 });
 

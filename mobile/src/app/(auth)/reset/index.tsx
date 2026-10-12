@@ -1,19 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 
 import { requestPasswordReset } from '@/api/account';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { FormError } from '@/components/forms';
-import { BackHeader } from '@/components/headers';
-import { Screen } from '@/components/Screen';
-import { AppText } from '@/components/AppText';
 import { resetMessageFor } from '@/copy/errors';
 import { useResetDraft } from '@/features/profile/passwordReset';
+import { AuthScreen } from '@/features/registration/AuthScreen';
 import { emailError } from '@/features/registration/validation';
-import { space } from '@/theme';
 
 /** Step one of a forgotten password: the address the code goes to. The answer is the same for every address. */
 export default function ResetRequest() {
@@ -35,42 +31,38 @@ export default function ResetRequest() {
   };
 
   return (
-    <Screen
+    <AuthScreen
       testID="reset-request"
+      eyebrow="Forgot it?"
+      title={'Reset your\npassword'}
+      lead="Enter the email you signed up with. If there’s an account, we’ll send it a six-digit code."
+      onBack={() => router.back()}
       footer={
         <>
           <FormError message={send.isError ? resetMessageFor(send.error) : null} />
           <Button label="Send code" busy={send.isPending} onPress={submit} testID="reset-send" />
         </>
       }>
-      <View style={styles.content}>
-        <BackHeader title="Forgot your password?" onBack={() => router.back()} />
-        <AppText color="textSecondary">Enter the email you signed up with. If there’s an account, we’ll send it a six-digit code.</AppText>
-        <Field
-          label="Email"
-          value={email}
-          onChangeText={(text) => {
-            setEmail(text);
-            setError(null);
-            send.reset();
-          }}
-          error={error}
-          autoFocus
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="email"
-          textContentType="emailAddress"
-          maxLength={254}
-          returnKeyType="send"
-          onSubmitEditing={submit}
-          testID="reset-email"
-        />
-      </View>
-    </Screen>
+      <Field
+        label="Email"
+        value={email}
+        onChangeText={(text) => {
+          setEmail(text);
+          setError(null);
+          send.reset();
+        }}
+        error={error}
+        autoFocus
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        textContentType="emailAddress"
+        maxLength={254}
+        returnKeyType="send"
+        onSubmitEditing={submit}
+        testID="reset-email"
+      />
+    </AuthScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  content: { gap: space[4] },
-});

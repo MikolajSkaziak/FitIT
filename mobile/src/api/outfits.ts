@@ -6,14 +6,17 @@ export type OutfitItem = Schemas['OutfitItemResponse'];
 export type OutfitKind = NonNullable<Schemas['OutfitKind']>;
 export type Occasion = Schemas['Occasion'];
 export type Relaxation = Schemas['RelaxationResponse'];
-export type SuggestionRequest = { occasion: Occasion; note?: string; baseItemId?: string };
+/** `date` ("2026-10-15") asks for outfits for that day's forecast, within the seven days it reaches; left out, they are for today. */
+export type SuggestionRequest = { occasion: Occasion; note?: string; baseItemId?: string; date?: string };
 export type OutfitChange = Schemas['UpdateOutfitRequest'];
+/** Where one garment lies on the outfit's board, as the person arranged it (see `features/styling/board`). */
+export type OutfitPlacement = Schemas['OutfitPlacementResponse'];
 
 /** The answer to a request for proposals. `missingEither` is "any one of these would do" (a mid layer or outerwear on a mild day). */
 export type Suggestions = Schemas['SuggestionsResponse'];
 
 export const suggestOutfits = (request: SuggestionRequest): Promise<Suggestions> =>
-  unwrap(api.POST('/api/outfits/suggestions', { body: { occasion: request.occasion, note: request.note ?? null, baseItemId: request.baseItemId ?? null } }));
+  unwrap(api.POST('/api/outfits/suggestions', { body: { occasion: request.occasion, note: request.note ?? null, baseItemId: request.baseItemId ?? null, date: request.date ?? null } }));
 
 /**
  * Today's picks for an occasion. The server makes them on the first visit of the day and hands the same ones back
@@ -24,12 +27,15 @@ export const fetchTodaysOutfits = (occasion: Occasion, fresh = false): Promise<S
 
 /** Tips on a combination: what works, up to three things to improve (the sentences come from the server), and a score. */
 export type OutfitTips = Schemas['OutfitTipsResponse'];
-/** `saved: false` stores a draft, enough to order a try-on picture of it; `draftId` names the draft a saved outfit replaces, whose pictures it inherits. */
-export type OutfitBuild = { items: readonly string[]; occasion?: Occasion; name?: string; saved?: boolean; draftId?: string | null };
+/**
+ * `saved: false` stores a draft, enough to order a try-on picture of it; `draftId` names the draft a saved outfit replaces,
+ * whose pictures it inherits; `layout` and `figureLayout` are how the person arranged the board and the figure, if they did.
+ */
+export type OutfitBuild = { items: readonly string[]; occasion?: Occasion; name?: string; saved?: boolean; draftId?: string | null; layout?: readonly OutfitPlacement[] | null; figureLayout?: readonly OutfitPlacement[] | null };
 
 /** Saves an outfit the person put together; it comes back saved, with `source: manual`. */
 export const createOutfit = (build: OutfitBuild): Promise<Outfit> =>
-  unwrap(api.POST('/api/outfits', { body: { items: [...build.items], occasion: build.occasion ?? null, name: build.name?.trim() ? build.name.trim() : null, saved: build.saved ?? null, draftId: build.draftId ?? null } }));
+  unwrap(api.POST('/api/outfits', { body: { items: [...build.items], occasion: build.occasion ?? null, name: build.name?.trim() ? build.name.trim() : null, saved: build.saved ?? null, draftId: build.draftId ?? null, layout: build.layout?.length ? [...build.layout] : null, figureLayout: build.figureLayout?.length ? [...build.figureLayout] : null } }));
 
 export const fetchOutfitTips = (build: Pick<OutfitBuild, 'items' | 'occasion'>): Promise<OutfitTips> =>
   unwrap(api.POST('/api/outfits/tips', { body: { items: [...build.items], occasion: build.occasion ?? null } }));

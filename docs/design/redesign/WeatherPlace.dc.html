@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Weather and place</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./fitit.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,500;1,500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="s" style="height: 920px">
+<div class="prog"><i style="width: 66%"></i></div>
+<div class="p g10"><div class="la">Step 6 of 9</div><h1 class="dl">Weather and<br>place</h1><div class="mu">We check the forecast where you are, so every outfit suits the day.</div></div>
+<div class="p g0">
+<div class="row on" style="padding: 12px 0"><svg class="i gr" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.200-7-11a7 7 0 0114 0c0 4.800-7 11-7 11zM12 12.500a2.500 2.500 0 100-5 2.500 2.500 0 000 5z"></path></svg><div class="col grow"><div class="ti">Use my location</div><div class="ca mu">Kraków, Poland</div></div><svg class="i gr" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+</div>
+<div class="p"><label class="fld"><span class="ca mu">Or choose a city</span><span class="r mu" style="gap: 8px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.500-3.500"></path></svg>Search for a city</span></label></div>
+<div class="p g0" role="radiogroup" aria-label="Thermal comfort">
+<div class="ti" style="padding-bottom: 4px">How do you usually feel?</div>
+<div class="row"><svg class="i mu" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M4.200 7.500l15.600 9M19.800 7.500l-15.600 9"></path></svg><span class="grow">I get cold easily</span></div>
+<div class="row on"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.500V5a2 2 0 014 0v9.500a4 4 0 11-4 0z"></path></svg><span class="ti grow">About average</span><svg class="i gr" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+<div class="row"><svg class="i mu" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zM12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"></path></svg><span class="grow">I run warm</span></div>
+</div>
+<div class="foot"><button class="btn">Create account</button><div class="ca">Creating an account covers AI processing of your photos. See Terms and Privacy Policy.</div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":393,"height":920}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

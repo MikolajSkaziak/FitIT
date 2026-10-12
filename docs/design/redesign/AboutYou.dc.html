@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>About you</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./fitit.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,500;1,500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="s" style="height: 852px">
+<div class="prog"><i style="width: 22%"></i></div>
+<div class="p g10"><div class="la">Step 2 of 9</div><h1 class="dl">About you</h1><div class="mu">This helps us pick the right fits and silhouettes.</div></div>
+<div class="p"><label class="fld"><span class="ca mu">Birth date</span><span class="r" style="gap: 8px"><svg class="i mu" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v14H5zM5 10h14M9 3.5v4M15 3.5v4"></path></svg>May 6, 2004</span></label></div>
+<div class="p g0" role="radiogroup" aria-label="Gender">
+<div class="la">Gender</div>
+<div class="row">Woman</div>
+<div class="row on"><span class="ti grow">Man</span><svg class="i gr" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+<div class="row">Non-binary</div>
+<div class="row">Prefer not to say</div>
+</div>
+<div class="foot"><button class="btn">Continue</button></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":393,"height":852}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

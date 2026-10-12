@@ -35,10 +35,14 @@ public sealed class WeatherRules
     /// <summary>The hour an outfit is worn until. Asked later than this, the rest of the evening counts.</summary>
     public int DayEndHour { get; set; } = 22;
 
+    /// <summary>The hour an outfit planned for another day is worn from: the night before it does not count against it.</summary>
+    public int DayStartHour { get; set; } = 7;
+
     public bool AreConsistent() =>
         HotFrom > WarmFrom && WarmFrom > MildFrom && MildFrom > ColdFrom
         && ThermalShift >= 0 && LayersAmplitude > 0
-        && DayEndHour is > 0 and < 24;
+        && DayEndHour is > 0 and < 24
+        && DayStartHour >= 0 && DayStartHour < DayEndHour;
 
     public TemperatureBand BandOf(double reference) =>
         reference >= HotFrom ? TemperatureBand.Hot

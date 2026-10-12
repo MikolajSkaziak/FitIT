@@ -1,6 +1,6 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 
 import * as account from '@/api/account';
 import { ApiError, networkProblem } from '@/api/problem';
@@ -15,7 +15,7 @@ import { useSession } from '@/auth/session';
 import { useResetDraft } from '@/features/profile/passwordReset';
 import { messages } from '@/features/registration/validation';
 import { user } from '@/test/fixtures';
-import { renderScreen, router } from '@/test/screen';
+import { expectNoAccent, renderScreen, router } from '@/test/screen';
 
 jest.mock('expo-router', () => jest.requireActual('@/test/screen').routerModule);
 jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
@@ -220,6 +220,8 @@ describe('forgotten password: using the code', () => {
 describe('login', () => {
   it('offers the reset and takes the typed address along', async () => {
     await renderScreen(<Login />);
+    expect(screen.getByRole('header', { name: 'Log in' })).toBeOnTheScreen();
+    expectNoAccent();
     await fireEvent.changeText(screen.getByTestId('login-email'), ' ola@example.com ');
 
     await fireEvent.press(screen.getByTestId('login-forgot'));
@@ -251,14 +253,27 @@ describe('deleting the account', () => {
     shop.fetchWardrobeStats.mockResolvedValue({ total: 62, wornLast30Days: 10, forgotten: 5, processing: 0, needsTags: 0 });
     await renderScreen(<DeleteAccount />);
 
-    expect(await screen.findByText('We’ll delete your account, 62 items, saved outfits and images. This can’t be undone.')).toBeOnTheScreen();
+    const removed = within(screen.getByTestId('delete-summary'));
+    expect(await removed.findByText('62 items')).toBeOnTheScreen();
+    expect(removed.getByText('Wardrobe')).toBeOnTheScreen();
+    expect(screen.getByText('This can’t be undone')).toBeOnTheScreen();
     expect(screen.getByText('Type DELETE to confirm')).toBeOnTheScreen();
   });
 
   it('still names what will be removed while the count is not known', async () => {
     await renderScreen(<DeleteAccount />);
 
-    expect(screen.getByText('We’ll delete your account, all your clothes, saved outfits and images. This can’t be undone.')).toBeOnTheScreen();
+    const removed = within(screen.getByTestId('delete-summary'));
+    for (const label of ['Wardrobe', 'Saved outfits', 'Try-on pictures', 'Profile, colors and preferences']) {
+      expect(removed.getByText(label)).toBeOnTheScreen();
+    }
+    expect(removed.queryByText(/items?$/)).toBeNull();
+  });
+
+  it('says since when the account has existed', async () => {
+    await renderScreen(<DeleteAccount />);
+
+    expect(screen.getByText('Member since October 2026')).toBeOnTheScreen();
   });
 
   it('cannot be used until the word and the password are both there', async () => {
@@ -338,18 +353,12 @@ describe('deleting the account', () => {
 
 describe('profile', () => {
   const usage = { items: { used: 12, limit: 50 }, suggestions: { used: 3, limit: 20 }, visualizations: { used: 1, limit: 5 }, resetsAt: '2026-10-08T00:00:00Z' };
-  const consentSwitch = () => screen.getByLabelText('Send clothing photos to AI services');
-  // The switch is locked while the change is on its way; waiting for it to open lets the screen finish updating.
-  const saved = () => waitFor(() => expect(consentSwitch().props.disabled).toBeFalsy());
-
   beforeEach(() => shop.fetchUsage.mockReturnValue(unanswered()));
 
-  it('shows the consent with its date, and the limits including visualizations', async () => {
+  it('shows the limits including visualizations', async () => {
     shop.fetchUsage.mockResolvedValue(usage);
     await renderScreen(<Profile />);
 
-    expect(screen.getByText(/^Used to describe your clothes and show outfits on you\. You agreed on October 2, 2026\.$/)).toBeOnTheScreen();
-    expect(consentSwitch().props.value).toBe(true);
     expect(await screen.findByText('1 of 5')).toBeOnTheScreen();
     expect(screen.getByText('casual')).toBeOnTheScreen();
   });
@@ -359,15 +368,14 @@ describe('profile', () => {
 
     expect(screen.getByText('March 14, 1999')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Birth date, March 14, 1999' })).toBeOnTheScreen();
-    expect(screen.getByText('Send clothing photos to AI services')).toBeOnTheScreen();
-    expect(screen.getByText('Feel the cold')).toBeOnTheScreen();
+    expect(screen.getByText('Thermal comfort')).toBeOnTheScreen();
   });
 
   it('opens the styles screen from the row that shows the chosen styles', async () => {
     useSession.setState({ user: user({ styles: ['casual', 'sporty'] }) });
     await renderScreen(<Profile />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Favorite styles, casual, sporty' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Styles, casual, sporty' }));
 
     expect(router.push).toHaveBeenCalledWith('/account/styles');
   });
@@ -401,75 +409,120 @@ describe('profile', () => {
     expect(screen.getByTestId('profile-row-name')).toBeOnTheScreen();
   });
 
-  it('withdraws consent at once and says what stops working', async () => {
-    api.updateProfile.mockResolvedValue(user({ aiConsentAt: null }));
+  it('opens the confirmation from a row like the others, in the last section', async () => {
     await renderScreen(<Profile />);
 
-    await fireEvent(consentSwitch(), 'valueChange', false);
-
-    expect(await screen.findByText('Off. Without it, you can’t add clothes or try outfits on.')).toBeOnTheScreen();
-    expect(api.updateProfile).toHaveBeenCalledWith({ aiConsent: false });
-    await saved();
-    expect(consentSwitch().props.value).toBe(false);
-  });
-
-  it('gives consent again from the same switch', async () => {
-    useSession.setState({ user: user({ aiConsentAt: null }) });
-    api.updateProfile.mockResolvedValue(user());
-    await renderScreen(<Profile />);
-
-    await fireEvent(consentSwitch(), 'valueChange', true);
-
-    await waitFor(() => expect(consentSwitch().props.value).toBe(true));
-    await saved();
-    expect(api.updateProfile).toHaveBeenCalledWith({ aiConsent: true });
-  });
-
-  it('leaves the switch as it was and says why when the change is not saved', async () => {
-    api.updateProfile.mockRejectedValue(offline());
-    await renderScreen(<Profile />);
-
-    await fireEvent(consentSwitch(), 'valueChange', false);
-
-    expect(await screen.findByText('Can’t connect right now. Check your internet connection and try again.')).toBeOnTheScreen();
-    await saved();
-    expect(consentSwitch().props.value).toBe(true);
-  });
-
-  it('opens the confirmation from the last section', async () => {
-    await renderScreen(<Profile />);
-
-    expect(screen.getByText('We’ll delete your account, clothes, outfits and images. This can’t be undone.')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByTestId('profile-delete-account'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete account' }));
 
     expect(router.push).toHaveBeenCalledWith('/account/delete');
   });
 
-  describe('privacy policy', () => {
-    const before = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL;
-    afterEach(() => {
-      if (before === undefined) {
-        delete process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL;
-      } else {
-        process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL = before;
-      }
+  describe('sending photos to AI services', () => {
+    const toggle = () => screen.getByLabelText('Send photos to AI services');
+
+    it('is on with what the photos are used for and since when, for somebody who allowed it', async () => {
+      useSession.setState({ user: user({ aiConsentAt: '2026-10-02T08:00:00Z' }) });
+      await renderScreen(<Profile />);
+
+      expect(toggle().props.value).toBe(true);
+      expect(screen.getByText('Used to cut out and describe your clothes, make try-on pictures and read a selfie. Since October 2, 2026.')).toBeOnTheScreen();
     });
 
-    it('has no row until the published address is known', async () => {
-      delete process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL;
+    it('is off for somebody who has not allowed it, and says what stops working', async () => {
+      useSession.setState({ user: user({ aiConsentAt: null }) });
+      await renderScreen(<Profile />);
+
+      expect(toggle().props.value).toBe(false);
+      expect(screen.getByText('Off. You can’t add clothes by photo, try outfits on or use a selfie for your colors. Nothing already saved is deleted.')).toBeOnTheScreen();
+    });
+
+    it('withdraws the consent at once, and keeps the answer of the server', async () => {
+      api.updateProfile.mockResolvedValue(user({ aiConsentAt: null }));
+      await renderScreen(<Profile />);
+
+      await fireEvent(toggle(), 'valueChange', false);
+
+      expect(toggle().props.value).toBe(false);
+      await waitFor(() => expect(api.updateProfile).toHaveBeenCalledWith({ aiConsent: false }));
+      expect(useSession.getState().user?.aiConsentAt).toBeNull();
+    });
+
+    it('gives the consent again from the switch', async () => {
+      useSession.setState({ user: user({ aiConsentAt: null }) });
+      api.updateProfile.mockResolvedValue(user({ aiConsentAt: '2026-10-11T08:00:00Z' }));
+      await renderScreen(<Profile />);
+
+      await fireEvent(toggle(), 'valueChange', true);
+
+      await waitFor(() => expect(api.updateProfile).toHaveBeenCalledWith({ aiConsent: true }));
+      await waitFor(() => expect(toggle().props.value).toBe(true));
+      expect(useSession.getState().user?.aiConsentAt).toBe('2026-10-11T08:00:00Z');
+    });
+
+    it('goes back to what it was when the server says no, and says so', async () => {
+      api.updateProfile.mockRejectedValue(offline());
+      await renderScreen(<Profile />);
+
+      await fireEvent(toggle(), 'valueChange', false);
+
+      expect(await screen.findByText('Can’t connect right now. Check your internet connection and try again.')).toBeOnTheScreen();
+      expect(toggle().props.value).toBe(true);
+      expect(useSession.getState().user?.aiConsentAt).toBe('2026-10-02T08:00:00Z');
+    });
+  });
+
+  describe('the weather credit', () => {
+    it('names Open-Meteo in About and opens its site in the in-app browser', async () => {
+      const open = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.CANCEL });
+      await renderScreen(<Profile />);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Weather data by Open-Meteo' }));
+
+      expect(open).toHaveBeenCalledWith('https://open-meteo.com/', expect.anything());
+    });
+  });
+
+  describe('legal documents', () => {
+    const names = ['EXPO_PUBLIC_SITE_URL', 'EXPO_PUBLIC_PRIVACY_POLICY_URL', 'EXPO_PUBLIC_TERMS_URL'] as const;
+    const before = names.map((name) => process.env[name]);
+    beforeEach(() => names.forEach((name) => delete process.env[name]));
+    afterEach(() =>
+      names.forEach((name, index) => {
+        if (before[index] === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = before[index];
+        }
+      }),
+    );
+
+    it('has no rows until the website address is known', async () => {
       await renderScreen(<Profile />);
 
       expect(screen.queryByTestId('profile-row-privacy')).not.toBeOnTheScreen();
+      expect(screen.queryByTestId('profile-row-terms')).not.toBeOnTheScreen();
     });
 
-    it('opens the published document', async () => {
-      process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL = 'https://fitit.test/privacy';
-      const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    it('opens the privacy policy and the terms of service on the website', async () => {
+      process.env.EXPO_PUBLIC_SITE_URL = 'https://fitit.test/';
+      const open = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.CANCEL });
+      await renderScreen(<Profile />);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Privacy Policy' }));
+      expect(open).toHaveBeenLastCalledWith('https://fitit.test/privacy', expect.anything());
+      await fireEvent.press(screen.getByRole('button', { name: 'Terms of Service' }));
+      expect(open).toHaveBeenLastCalledWith('https://fitit.test/terms', expect.anything());
+    });
+
+    it('lets one document live somewhere else', async () => {
+      process.env.EXPO_PUBLIC_SITE_URL = 'https://fitit.test';
+      process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL = 'https://legal.test/policy';
+      const open = jest.spyOn(WebBrowser, 'openBrowserAsync').mockResolvedValue({ type: WebBrowser.WebBrowserResultType.CANCEL });
       await renderScreen(<Profile />);
 
       await fireEvent.press(screen.getByTestId('profile-row-privacy'));
 
-      expect(open).toHaveBeenCalledWith('https://fitit.test/privacy');
+      expect(open).toHaveBeenLastCalledWith('https://legal.test/policy', expect.anything());
     });
   });
 });

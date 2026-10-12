@@ -148,6 +148,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/weather/day": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWeatherForDay"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/outfits/suggestions": {
         parameters: {
             query?: never;
@@ -180,6 +196,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/outfits/{id}/days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listOutfitDays"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/outfits/{id}/visualizations": {
         parameters: {
             query?: never;
@@ -206,6 +238,22 @@ export interface paths {
         get: operations["getVisualization"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/visualizations/{id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reportVisualization"];
         delete?: never;
         options?: never;
         head?: never;
@@ -420,6 +468,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clothes/{id}/photos/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createClothingPhotoUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clothes/{id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addClothingPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clothes/{id}/photos/{photoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteClothingPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/color-analysis/upload": {
         parameters: {
             query?: never;
@@ -500,10 +596,52 @@ export interface paths {
         patch: operations["updateOutfit"];
         trace?: never;
     };
+    "/api/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCalendar"];
+        put?: never;
+        post: operations["addCalendarEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calendar/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["removeCalendarEntry"];
+        options?: never;
+        head?: never;
+        patch: operations["updateCalendarEntry"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AddCalendarEntryRequest: {
+            /** Format: date */
+            date: null | string;
+            /** Format: uuid */
+            outfitId: null | string;
+            worn?: null | boolean;
+        };
+        AddClothingPhotoRequest: {
+            key: string;
+        };
         AddClothingRequest: {
             key: string;
         };
@@ -531,6 +669,30 @@ export interface components {
             thumbUrl: string;
             figureUrl: string;
         };
+        CalendarDayResponse: {
+            /** Format: date */
+            date: string;
+            entries: components["schemas"]["CalendarEntryResponse"][];
+        };
+        CalendarEntryResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            date: string;
+            worn: boolean;
+            outfit: components["schemas"]["OutfitResponse"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CalendarResponse: {
+            /** Format: date */
+            today: string;
+            /** Format: date */
+            forecastUntil: string;
+            /** Format: int32 */
+            maxPerDay: number;
+            days: components["schemas"]["CalendarDayResponse"][];
+        };
         /** @enum {unknown} */
         Category: "top" | "mid_layer" | "bottom" | "one_piece" | "outerwear" | "shoes" | "accessory";
         CategoryEntry: {
@@ -542,6 +704,16 @@ export interface components {
             currentPassword: string;
             newPassword: string;
             refreshToken?: null | string;
+        };
+        ClothingPhotoResponse: {
+            /** Format: uuid */
+            id: string;
+            imageUrl: string;
+            imageKey: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
         };
         ClothingResponse: {
             /** Format: uuid */
@@ -573,6 +745,8 @@ export interface components {
             imageKey: null | string;
             /** Format: date-time */
             createdAt: string;
+            photos: components["schemas"]["ClothingPhotoResponse"][];
+            describedByAi: boolean;
         };
         /** @enum {unknown} */
         ClothingSize: "xs" | "s" | "m" | "l" | "xl" | "xxl" | null;
@@ -619,6 +793,37 @@ export interface components {
             saved?: null | boolean;
             /** Format: uuid */
             draftId?: null | string;
+            layout?: null | components["schemas"]["OutfitPlacementRequest"][];
+            figureLayout?: null | components["schemas"]["OutfitPlacementRequest"][];
+        };
+        DayWeatherResponse: {
+            /** Format: date */
+            date: string;
+            isToday: boolean;
+            /** Format: int32 */
+            now: null | number;
+            place: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: int32 */
+            feelsMin: number;
+            /** Format: int32 */
+            feelsMax: number;
+            /** Format: date-time */
+            coldestAt: string;
+            /** Format: date-time */
+            warmestAt: string;
+            sky: components["schemas"]["Sky"];
+            rain: boolean;
+            /** Format: int32 */
+            rainProbability: number;
+            /** Format: date-time */
+            rainFrom: null | string;
+            needsLayers: boolean;
+            band: components["schemas"]["TemperatureBand"];
+            hours: components["schemas"]["WeatherHourResponse"][];
         };
         DeleteAccountRequest: {
             password: string;
@@ -702,12 +907,21 @@ export interface components {
             name: string;
             category: components["schemas"]["Category"];
             type: components["schemas"]["Subcategory"];
+            group: components["schemas"]["GarmentGroup"];
+            audience: components["schemas"]["StarterAudience"];
             colors: components["schemas"]["Color"][];
             imageUrl: string;
             added: boolean;
         };
         /** @enum {unknown} */
         Occasion: "everyday" | "work" | "business" | "date" | "friends" | "workout";
+        OutfitDayResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            date: string;
+            worn: boolean;
+        };
         OutfitImprovementResponse: {
             code: string;
             text: string;
@@ -718,6 +932,30 @@ export interface components {
         };
         /** @enum {unknown} */
         OutfitKind: "sure_bet" | "discovery" | "new_pairing" | null;
+        OutfitPlacementRequest: {
+            /** Format: uuid */
+            clothingId: null | string;
+            /** Format: double */
+            x: null | number;
+            /** Format: double */
+            y: null | number;
+            /** Format: double */
+            scale: null | number;
+            /** Format: int32 */
+            z: null | number;
+        };
+        OutfitPlacementResponse: {
+            /** Format: uuid */
+            clothingId: string;
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+            /** Format: double */
+            scale: number;
+            /** Format: int32 */
+            z: number;
+        };
         /** @enum {unknown} */
         OutfitRating: "none" | "like" | "dislike";
         OutfitResponse: {
@@ -743,6 +981,8 @@ export interface components {
             weather: null | components["schemas"]["OutfitWeatherResponse"];
             items: components["schemas"]["OutfitItemResponse"][];
             visualization: null | components["schemas"]["OutfitVisualizationResponse"];
+            layout: null | components["schemas"]["OutfitPlacementResponse"][];
+            figureLayout: null | components["schemas"]["OutfitPlacementResponse"][];
             /** Format: date-time */
             createdAt: string;
         };
@@ -823,9 +1063,9 @@ export interface components {
             displayName: string;
             /** Format: date */
             birthDate: null | string;
-            gender: null | components["schemas"]["Gender"];
+            gender?: null | components["schemas"]["Gender"];
             /** Format: uuid */
-            avatarId: null | string;
+            avatarId?: null | string;
             styles?: null | components["schemas"]["StyleTag"][];
             thermalPreference?: null | components["schemas"]["ThermalPreference"];
             clothingSize?: null | components["schemas"]["ClothingSize"];
@@ -840,6 +1080,11 @@ export interface components {
         };
         /** @enum {unknown} */
         RelaxedRule: "formality" | "style" | "warmth";
+        /** @enum {unknown} */
+        ReportReason: "wrong_clothes" | "distorted" | "inappropriate" | "other";
+        ReportVisualizationRequest: {
+            reason: components["schemas"]["ReportReason"];
+        };
         ScaleEntry: {
             /** Format: int32 */
             value: number;
@@ -861,11 +1106,15 @@ export interface components {
             /** Format: int32 */
             alreadyThere: number;
         };
+        /** @enum {unknown} */
+        StarterAudience: "women" | "men" | "everyone";
         StarterPieceResponse: {
             code: string;
             name: string;
             category: components["schemas"]["Category"];
             type: components["schemas"]["Subcategory"];
+            group: components["schemas"]["GarmentGroup"];
+            audience: components["schemas"]["StarterAudience"];
             colors: components["schemas"]["Color"][];
             imageUrl: string;
         };
@@ -881,6 +1130,8 @@ export interface components {
         Subcategory: "t_shirt" | "shirt" | "blouse" | "polo" | "tank_top" | "longsleeve" | "turtleneck" | "sweater" | "sweatshirt" | "hoodie" | "cardigan" | "blazer" | "suit_jacket" | "vest" | "track_jacket" | "jeans" | "trousers" | "chinos" | "shorts" | "skirt" | "leggings" | "sweatpants" | "dress" | "jumpsuit" | "tracksuit" | "coat" | "jacket" | "down_jacket" | "trench_coat" | "raincoat" | "parka" | "bomber_jacket" | "denim_jacket" | "leather_jacket" | "sneakers" | "boots" | "winter_boots" | "loafers" | "dress_shoes" | "heels" | "flats" | "sandals" | "flip_flops" | "sports_shoes" | "rain_boots" | "scarf" | "hat" | "cap" | "gloves" | "belt" | "bag" | "backpack" | "tie" | "sunglasses";
         SuggestionsResponse: {
             status: components["schemas"]["SuggestionStatus"];
+            /** Format: date */
+            date: string;
             missing: components["schemas"]["Category"][];
             missingEither: components["schemas"]["Category"][];
             fallback: boolean;
@@ -897,6 +1148,8 @@ export interface components {
             note?: null | string;
             /** Format: uuid */
             baseItemId?: null | string;
+            /** Format: date */
+            date?: null | string;
         };
         /** @enum {unknown} */
         TemperatureBand: "hot" | "warm" | "mild" | "cold" | "freezing";
@@ -915,6 +1168,9 @@ export interface components {
         TypeEntry: {
             code: components["schemas"]["Subcategory"];
             label: string;
+        };
+        UpdateCalendarEntryRequest: {
+            worn: null | boolean;
         };
         UpdateClothingRequest: {
             category?: null | components["schemas"]["Category"];
@@ -937,6 +1193,8 @@ export interface components {
             saved?: null | boolean;
             rating?: null | components["schemas"]["OutfitRating"];
             worn?: null | boolean;
+            layout?: null | components["schemas"]["OutfitPlacementRequest"][];
+            figureLayout?: null | components["schemas"]["OutfitPlacementRequest"][];
         };
         UpdateProfileRequest: {
             displayName?: null | string;
@@ -1410,6 +1668,64 @@ export interface operations {
             };
         };
     };
+    getWeatherForDay: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DayWeatherResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     suggestOutfits: {
         parameters: {
             query?: never;
@@ -1438,7 +1754,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description Unauthorized */
@@ -1539,6 +1855,46 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listOutfitDays: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutfitDayResponse"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1675,6 +2031,75 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    reportVisualization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportVisualizationRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2468,6 +2893,165 @@ export interface operations {
             };
         };
     };
+    createClothingPhotoUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    addClothingPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddClothingPhotoRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClothingPhotoResponse"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClothingPhotoResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deleteClothingPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     createSelfieUpload: {
         parameters: {
             query?: never;
@@ -2873,6 +3457,207 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OutfitResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listCalendar: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    addCalendarEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCalendarEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEntryResponse"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEntryResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    removeCalendarEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    updateCalendarEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCalendarEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEntryResponse"];
                 };
             };
             /** @description Bad Request */

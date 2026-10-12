@@ -110,3 +110,11 @@ Drugi argument: `tagger`, `stylist` albo `all`. Narzędzie czyta klucz tak samo 
 ## Uwaga o bezpłatnym poziomie Gemini
 
 Według cennika Google treści wysyłane w bezpłatnym poziomie są używane do ulepszania produktów Google; w płatnym nie. Zanim z aplikacji skorzysta ktokolwiek poza autorem, klucz powinien pochodzić z projektu z włączonym rozliczeniem.
+
+## Open-Meteo: podanie źródła pogody
+
+Prognoza i wyszukiwarka miejscowości pochodzą z Open-Meteo (`OpenMeteoWeather.cs`, `LocationSearch.cs`), który prosi o wskazanie źródła (licencja CC BY 4.0). Aplikacja robi to w Profilu, w grupie „About”: wiersz „Weather data by Open-Meteo” otwiera `https://open-meteo.com/` w przeglądarce w aplikacji. Nic nowego nie jest przy tym pobierane. Open-Meteo nie wymaga klucza, ale przy użyciu komercyjnym (płatna subskrypcja w aplikacji) jego warunki wymagają planu komercyjnego: do sprawdzenia przed wprowadzeniem płatności.
+
+## Zgoda a dostawcy
+
+Zdjęcia idą do dostawców dopiero po wyraźnej zgodzie (arkusz przed pierwszym zdjęciem ubrania i przed selfie; do wycofania w Profilu). Zdjęcie ubrania trafia do fal.ai (usunięcie tła), a jego wycinek do Google Gemini (opis) i znowu do fal.ai (obraz na sylwetce). Selfie trafia tylko do Google Gemini i jest usuwane z naszego magazynu w tym samym żądaniu. Ubrania startowe z katalogu nie mają zdjęć użytkownika i zgody nie wymagają. Okresy przechowywania u dostawców zależą od ich warunków (zob. `docs/prawne/README.md`), więc arkusz zgody mówi tylko, że usługi działają na własnych warunkach.

@@ -1,7 +1,7 @@
 # FitIt — specyfikacja MVP i architektura
 
-- **Wersja:** 2.4, 6 października 2026
-- **Zmiany:** 2.1 — sylwetka wybierana z gotowych przy zakładaniu konta, bez zdjęć użytkownika; 2.2 — produkt zdefiniowany przez problem „pełna szafa, a nie mam się w co ubrać”, stąd typy propozycji i zapomniane ubrania; 2.3 — język wizualny aplikacji i wzorce ekranów (sekcja 10.1, plik `.ux-profile.md`); 2.4 — zgodnie z zaakceptowanymi makietami (`docs/design`): rejestracja w pięciu krokach z imieniem, datą urodzenia i płcią, dziesięć typów sylwetek dobieranych do płci, pogoda z lokalizacji telefonu z miastem jako wyjściem zapasowym, jeden kolor (szałwia)
+- **Wersja:** 2.9, 11 października 2026
+- **Zmiany:** 2.1 — sylwetka wybierana z gotowych przy zakładaniu konta, bez zdjęć użytkownika; 2.2 — produkt zdefiniowany przez problem „pełna szafa, a nie mam się w co ubrać”, stąd typy propozycji i zapomniane ubrania; 2.3 — język wizualny aplikacji i wzorce ekranów (sekcja 10.1, plik `.ux-profile.md`); 2.4 — zgodnie z zaakceptowanymi makietami (`docs/design`): rejestracja w pięciu krokach z imieniem, datą urodzenia i płcią, dziesięć typów sylwetek dobieranych do płci, pogoda z lokalizacji telefonu z miastem jako wyjściem zapasowym, jeden kolor (szałwia); 2.5 — nowa kolejność rejestracji i onboardingu: najpierw style, podstawowe ubrania, miejsce i pierwszy zestaw, dopiero potem konto; płeć, sylwetka, rozmiar i kolory po założeniu konta; 2.6 — płeć pytana na samym początku rejestracji (przed stylami), żeby kolejne kroki pokazywały zdjęcia dla tej płci; po koncie zostaje sylwetka, rozmiar i kolory; 2.7 — ubranie może mieć do czterech dodatkowych zdjęć (sekcja 5.1a), które nie trafiają do usług AI; 2.8 — gotowość do App Store: zgoda na wysyłanie zdjęć do usług AI znowu jest wyraźna, udzielana w kontekście i do wycofania w profilu (sekcja 12), zgłaszanie problemu z obrazem na sylwetce (sekcja 7.6), oznaczenie, że opis ubrania napisało AI (sekcja 5.3), podanie Open-Meteo jako źródła pogody; 2.9 — kalendarz zestawów: zestaw można zaplanować na inny dzień i zobaczyć, co było noszone którego dnia; pogoda i propozycje są dla wybranego dnia w horyzoncie 7 dni, domyślnie dla dziś (sekcje 6.2, 6.10, 8, 9, 10)
 - **Zastępuje:** `FitIt_Specyfikacja_Techniczna_v2.md` w zakresie pierwszej wersji produktu
 - **Dokumenty towarzyszące:** [FitIt_Plan_MVP.md](FitIt_Plan_MVP.md) (plan działania: etapy, zadania, harmonogram, budżet) i [FitIt_Krytyka_Specyfikacji.md](FitIt_Krytyka_Specyfikacji.md) (krytyka poprzedniej specyfikacji)
 
@@ -37,10 +37,10 @@ Hipoteza do sprawdzenia w becie: osoba z pełną szafą, która w ok. 10 minut d
 ## 2. Zakres MVP
 
 **Konto**
-- Rejestracja w pięciu krokach: e-mail i hasło; imię, data urodzenia i płeć; typ sylwetki (pięć gotowych dla wybranej płci); preferowane style; pogoda. Do tego logowanie, automatyczne odświeżanie sesji, wylogowanie, usunięcie konta z aplikacji.
+- Rejestracja, w której użytkownik najpierw coś dostaje, a dopiero potem jest o coś proszony. Przed kontem (dane tylko w telefonie): 1. płeć (pierwsze pytanie, bez domyślnej odpowiedzi, nie do pominięcia; „wolę nie podawać” jest pełnoprawną odpowiedzią i pokazuje wszystkie typy sylwetek), 2. style ze zdjęć dla wybranej płci (można pominąć), 3. podstawowe ubrania, które już ma (każda pozycja katalogu ma pole „odbiorca”: `women`, `men` albo `everyone`; telefon pokazuje kobiecie pozycje `women` i `everyone`, mężczyźnie `men` i `everyone`, a osobom niebinarnym, „wolę nie podawać” i przy nieznanej płci cały katalog; to samo filtrowanie działa w oknie „Pieces you might own” po zakupie, według płci z profilu; zakładki kategorii pokazują tylko grupy, w których dla danej osoby są ubrania, np. sukienki i spódnice; lista `GET /api/starter-pieces` pozostaje publiczna i zwraca wszystkie pozycje z polami `audience` i `group`), 4. miejsce pogody (lokalizacja telefonu jednym dotknięciem albo miasto; można pominąć), 5. pierwszy zestaw złożony w telefonie z wybranych ubrań, 6. konto: imię, data urodzenia, e-mail, hasło; płeć wybrana w kroku 1 idzie razem z rejestracją. Po założeniu konta (krok zapamiętany na serwerze): 7. typ sylwetki z zestawu wybranej płci (wymagane; płeć można tu zmienić linkiem „Change gender”), 8. rozmiar i długość nóg z podpowiedzią M i „przeciętne” (można pominąć), 9. kolory (można pominąć), 10. podsumowanie. Preferencja termiczna startuje od „normalnie” i zmienia się ją w profilu. Do tego logowanie, automatyczne odświeżanie sesji, wylogowanie, usunięcie konta z aplikacji.
 - Profil: imię, data urodzenia, płeć, preferowane style, źródło pogody (lokalizacja telefonu albo wpisane miasto), preferencja termiczna („zwykle marznę”, „normalnie”, „zwykle mi ciepło”), zmiana sylwetki.
 - Data urodzenia służy do potwierdzenia wieku: konto może założyć osoba, która ukończyła 16 lat (próg z konfiguracji).
-- Zgoda na przetwarzanie zdjęć ubrań przez zewnętrzne AI.
+- Zgoda na wysyłanie zdjęć do zewnętrznych usług AI: wyraźna, udzielana w kontekście (arkusz „Before your photos leave your phone” przed pierwszym zdjęciem ubrania i przed selfie), jedna dla obu rodzajów zdjęć, do wycofania w profilu (przełącznik „Send photos to AI services”). Założenie konta jej nie daje (sekcja 12).
 
 **Szafa**
 - Dodawanie zdjęć z aparatu lub galerii, wiele naraz; zmniejszanie na telefonie; wysyłka przez pre-signed URL.
@@ -50,7 +50,7 @@ Hipoteza do sprawdzenia w becie: osoba z pełną szafą, która w ok. 10 minut d
 
 **Stylista**
 - Ekran „Dziś”: pogoda, wybór okazji (sześć gotowych), opcjonalna notatka („prezentacja przed klientem”) i opcjonalne ubranie bazowe.
-- Trzy propozycje z własnej szafy, dobrane pod pogodę i okazję: pewniak, odkrycie z zapomnianym ubraniem i nowe połączenie. Każda jako kolaż wyciętych zdjęć z uzasadnieniem po polsku.
+- Trzy propozycje z własnej szafy, dobrane pod pogodę i okazję: pewniak, odkrycie z zapomnianym ubraniem i nowe połączenie. Każda jako tablica z wyciętymi zdjęciami ubrań i uzasadnieniem po polsku.
 - Zapis do „Moje outfity”, ocena kciukiem, „Zakładam to”.
 
 **Wizualizacja**
@@ -60,7 +60,7 @@ Hipoteza do sprawdzenia w becie: osoba z pełną szafą, która w ok. 10 minut d
 **Fundament**
 - Dzienne limity i dziennik kosztów AI, tryby awaryjne dla każdej usługi zewnętrznej, testy, CI, rejestrowanie błędów, wdrożenie na jeden serwer.
 
-MVP to wyłącznie aplikacja mobilna na iOS i Androida, budowana z jednego kodu. Poza MVP zostają świadomie: własne zdjęcie sylwetki, płatności i kredyty, panel administratora, strona promująca, afiliacja, asystent walizki, kalendarz, logowanie społecznościowe, powiadomienia push. Uzasadnienie w sekcji 15.
+MVP to wyłącznie aplikacja mobilna na iOS i Androida, budowana z jednego kodu. Poza MVP zostają świadomie: własne zdjęcie sylwetki, płatności i kredyty, panel administratora, strona promująca, afiliacja, asystent walizki, logowanie społecznościowe, powiadomienia push (także przypomnienia o zaplanowanych zestawach). Kalendarz zestawów wszedł do zakresu w wersji 2.9 (sekcja 6.10). Uzasadnienie w sekcji 15.
 
 ---
 
@@ -139,6 +139,16 @@ Jeden wdrażany proces, trzy projekty (`FitIt.Api`, `FitIt.Core`, `FitIt.Infrast
 5. Aplikacja pokazuje ubranie od razu jako „w trakcie” i odpytuje listę co 2–3 sekundy, dopóki coś się przetwarza.
 6. Raz na dobę zadanie cykliczne usuwa pliki bez rekordu starsze niż 24 godziny.
 
+### 5.1a. Dodatkowe zdjęcia ubrania
+
+Poza zdjęciem głównym (wycinkiem bez tła, który trafia na tablice, kafle, do przymiarki i do tagowania) ubranie może mieć do **czterech dodatkowych zdjęć**: nadruk z tyłu, detal, to, jak leży na osobie.
+
+- Zdjęcie dodatkowe zostaje takie, jak je zrobiono: **bez usuwania tła i bez wysyłania do jakiejkolwiek usługi AI**. Telefon zmniejsza je i kompresuje tak samo jak zdjęcie główne.
+- Droga jest ta sama co dla zdjęcia głównego: `POST /api/clothes/{id}/photos/uploads` zwraca pre-signed URL (klucz `u/{użytkownik}/extra/{id}.jpg`), telefon wysyła plik prosto do magazynu, a `POST /api/clothes/{id}/photos` z kluczem dopina zdjęcie. Backend sprawdza obecność, rozmiar i to, czy plik jest czytelnym JPEG-iem, i z samego pliku odczytuje wymiary.
+- Limit czterech zdjęć na ubranie pilnuje serwer (409 `photo_limit_reached`), także przy równoczesnych żądaniach. Dodatkowe zdjęcia **nie liczą się do dziennego limitu nowych ubrań** i nie wymagają zgody na AI, bo nic nie kosztują i nigdzie nie wychodzą.
+- Kolejność to kolejność dodania. Bez zmiany kolejności, podpisów i bez „ustaw jako główne” (główne musi być wycinkiem).
+- Pliki znikają razem ze zdjęciem (`DELETE /api/clothes/{id}/photos/{photoId}`), z ubraniem (także odrzuconym po analizie) i z kontem (prefiks użytkownika). Nocne sprzątanie plików bez rekordu zna tabelę `clothing_photos`, więc dopiętych zdjęć nie rusza, a porzucone usuwa po dobie.
+
 ### 5.2. Schemat tagów
 
 Wszystkie listy są zamknięte. Dzięki temu filtry działają, a reguły stylisty mają na czym się oprzeć.
@@ -185,6 +195,8 @@ Wymuszona schematem JSON (structured outputs), więc zawsze da się ją sparsowa
 
 `is_supported` ma wartość `false`, gdy na zdjęciu nie ma ubrania, jest kilka ubrań naraz albo jest to bielizna lub strój kąpielowy. Takie zdjęcie nie trafia do szafy, a użytkownik dostaje wyjaśnienie.
 
+**Oznaczenie.** Opis napisany przez model jest w aplikacji nazwany: na ekranie ubrania i na ekranie edycji stoi jedna cicha linia z ikoną iskry, „Described by AI — check it and change anything that’s off.”. Linia pokazuje się tylko, gdy odpowiedź serwera ma `describedByAi: true`, czyli dopóki nazwy i tagów nie zmienił użytkownik (pierwszy zapis edycji zdejmuje oznaczenie). Ubrania startowe z katalogu nigdy go nie mają.
+
 ---
 
 ## 6. Stylista: dobór pod pogodę i okazję
@@ -215,7 +227,7 @@ Cel doboru wynika wprost z problemu. Zestaw ma nadawać się do założenia dzi�
 
 ### 6.2. Profil pogody
 
-Prognoza godzinowa dla miejsca z profilu, pobierana z Open-Meteo i zapamiętywana na godzinę. Miejsce to domyślnie lokalizacja telefonu: aplikacja prosi o zgodę systemową, zaokrągla współrzędne do 0,1° i zapisuje je w profilu razem z nazwą miejscowości. Gdy zgody nie ma albo użytkownik woli, podaje miasto ręcznie (wyszukiwarka miejscowości Open-Meteo). Okno czasu: od teraz do 22:00, a po 20:00 jutrzejszy dzień od 7:00 do 22:00.
+Prognoza godzinowa dla miejsca z profilu, pobierana z Open-Meteo i zapamiętywana na godzinę. Miejsce to domyślnie lokalizacja telefonu: aplikacja prosi o zgodę systemową, zaokrągla współrzędne do 0,1° i zapisuje je w profilu razem z nazwą miejscowości. Gdy zgody nie ma albo użytkownik woli, podaje miasto ręcznie (wyszukiwarka miejscowości Open-Meteo). **Zestaw i pogoda są dla wybranego dnia w horyzoncie 7 dni (dziś i sześć kolejnych); domyślnie dla dziś.** Dla dziś okno czasu to godziny od teraz do 22:00 (po 22:00 to, co zostało z wieczoru). Dla dnia z przodu okno to cały ten dzień od 7:00 do 22:00 (`Weather:DayStartHour`, `Weather:DayEndHour`), bez „teraz”. Prognozę pobieramy na 8 dni (horyzont i jeden dzień zapasu, bo zapamiętana prognoza może przetrwać północ). Dzień spoza horyzontu jest odrzucany kodem `date_out_of_range`. Dni liczy się w strefie czasowej miejsca z profilu.
 
 Z prognozy powstają: `feelsMin` i `feelsMax` (temperatura odczuwalna), `rainProb` (najwyższe prawdopodobieństwo opadu) i `rainMm` (suma opadu). Temperatura odniesienia to `T = feelsMin` z korektą profilu: minus 3°C dla „zwykle marznę”, plus 3°C dla „zwykle mi ciepło”.
 
@@ -335,6 +347,17 @@ Ma dwie funkcje. Aplikacja działa, gdy model jest niedostępny. I jest punktem 
 
 Bez trenowania własnego modelu. Do zapytania trafia pięć ostatnich polubionych i pięć ostatnich odrzuconych zestawów jako przykłady. Ubrania z zestawów założonych w ostatnich dwóch dniach mają niższy priorytet. Preferencja termiczna przesuwa progi pogody. Liczniki noszenia i oznaczenie „rzadko noszę” decydują o tym, co jest pewniakiem, a co odkryciem. Każda ocena i każde „Zakładam to” są zapisywane razem z pogodą i okazją, więc dane do późniejszej, lepszej personalizacji zbierają się od pierwszego dnia.
 
+### 6.10. Kalendarz zestawów
+
+Wpis kalendarza to (osoba, dzień, zestaw, `worn`, czas utworzenia). Zestaw może stać na wielu dniach; na jeden dzień można zaplanować do trzech zestawów (np. praca i wieczór). Dzień to zwykła data kalendarzowa w strefie miejsca z profilu.
+
+- **Planowanie:** wpis na dziś albo na przyszły dzień ma `worn = false`. Gdy dzień nadejdzie, osoba potwierdza go („I wore this”) albo zdejmuje. Zaplanowany dzień, który minął bez potwierdzenia, zostaje „Planned”: nie uznajemy go po cichu za noszony.
+- **Historia:** wpis dodany na dzień miniony jest od razu noszony, żeby dało się uzupełnić historię. „Zakładam to” zapisuje noszony wpis na dziś (istniejący plan na dziś staje się noszony); ponieważ noszenie jest faktem, limit trzech zestawów go nie blokuje.
+- **`outfits.worn_on`** zostaje i jest najnowszym noszonym dniem zestawu (listy i historia stylisty pytają tylko „kiedy ostatnio”). Po cofnięciu potwierdzenia albo zdjęciu noszonego wpisu jest liczone na nowo. Liczniki noszenia ubrań rosną raz na ubranie i dzień, bez względu na liczbę zestawów; cofnięcie ich nie zmniejsza.
+- **Propozycje na inny dzień:** `POST /api/outfits/suggestions` przyjmuje opcjonalne `date` z horyzontu; stylista ubiera pod prognozę tego dnia, a wynik to zwykłe propozycje. Żądanie liczy się do limitu dnia, w którym je wysłano. Automatyczne „propozycje dnia” są tylko dla dziś; dla przyszłych dni nic nie powstaje, dopóki osoba nie poprosi (koszt).
+- **Zakres dat:** do 365 dni naprzód i do 5 lat wstecz; lista wpisów najwyżej dla 62 dni naraz.
+- **Bramka pod przyszłą subskrypcję:** w aplikacji każde wejście do planowania pyta `useCanPlan()` (`features/calendar/useCalendar.ts`), które dziś zawsze odpowiada „tak”.
+
 ### 6.9. Jak sprawdzić, że dobiera sensownie
 
 Projekt konsolowy `FitIt.Eval` uruchamia silnik na macierzy scenariuszy: trzy przykładowe szafy (12, 30 i 60 ubrań) × pięć przedziałów pogody × sześć okazji.
@@ -351,9 +374,11 @@ Ten sam zestaw scenariuszy uruchamia się przed każdą zmianą promptu lub mode
 
 ### 7.1. Zasada: obraz na żądanie
 
-Propozycje są widoczne natychmiast jako kolaże. Obraz powstaje dopiero po dotknięciu „Pokaż na sylwetce” przy wybranym zestawie. Użytkownik zwykle przegląda kilka propozycji, zanim którąś wybierze, a obraz kosztuje ok. 31 gr i powstaje kilkanaście do kilkudziesięciu sekund. Generowanie go dla każdej propozycji pomnożyłoby koszt bez korzyści.
+Propozycje są widoczne natychmiast jako tablice. Obraz powstaje dopiero po dotknięciu „Pokaż na sylwetce” przy wybranym zestawie. Użytkownik zwykle przegląda kilka propozycji, zanim którąś wybierze, a obraz kosztuje ok. 31 gr i powstaje kilkanaście do kilkudziesięciu sekund. Generowanie go dla każdej propozycji pomnożyłoby koszt bez korzyści.
 
-Kolaż zostaje widoczny także obok gotowego obrazu. Pokazuje prawdziwe zdjęcia ubrań, więc jest wiernym odniesieniem, a obraz jest podpisany jako wizualizacja poglądowa.
+Tablica zostaje dostępna także obok gotowego obrazu. Pokazuje prawdziwe zdjęcia ubrań, więc jest wiernym odniesieniem, a obraz jest podpisany jako wizualizacja poglądowa.
+
+Zestaw ma dwa widoki: tablicę („Board”) i wizualizację („Try-on”, gdy została zamówiona). Kolaż zdjęć został usunięty: tablica zastępuje go wszędzie, także na kafelkach w zakładce Outfits (mała tablica w proporcji 3:4, z układem ręcznym, jeśli jest). Zestaw z gotową wizualizacją otwiera się na niej, każdy inny na tablicy; dopóki nie ma wizualizacji, jest tylko tablica i zakładek nie ma. Tablica to wycinki ubrań rozłożone na tle, bez sylwetki, rysowane od razu w telefonie. Aplikacja układa je sama tak, żeby żadne dwa się nie stykały: góra albo sukienka pośrodku u góry, okrycie obok góry, dół pod górą, buty na dole, torba i dodatki w wolnych rogach, w proporcjach zbliżonych do prawdziwych. Użytkownik może ułożyć je po swojemu (przycisk „Arrange”: przesuwanie palcem, zmiana rozmiaru dwoma palcami, dotknięcie wysuwa ubranie na wierzch; czytnik ekranu dostaje te same czynności jako akcje na każdym ubraniu). „Done” zapisuje układ przy zestawie, „Reset” wraca do układu automatycznego; wyjście bez „Done” niczego nie zmienia. Układ ręczny może zawierać nakładające się ubrania.
 
 ### 7.2. Dlaczego Nano Banana, a nie klasyczny Try-On
 
@@ -371,7 +396,7 @@ Dostęp przez fal.ai, a nie bezpośrednio przez API Google, bo fal.ai przyjmuje 
 
 ### 7.3. Sylwetka
 
-Użytkownik podaje płeć, a potem wybiera jeden z pięciu gotowych typów sylwetki dla tej płci; może go zmienić w profilu. Aplikacja nie przyjmuje zdjęć użytkownika.
+Użytkownik podaje płeć na pierwszym ekranie rejestracji, a jeden z pięciu gotowych typów sylwetki dla tej płci wybiera na pierwszym ekranie po założeniu konta (krok wymagany); oba może zmienić w profilu. Aplikacja nie przyjmuje zdjęć użytkownika.
 
 - **Pochodzenie.** Sylwetki to obrazy wygenerowane raz, tym samym modelem, więc nie przedstawiają żadnej prawdziwej osoby. Nie zawierają danych użytkownika, dlatego są zwykłymi publicznymi plikami.
 - **Zestaw startowy.** Dziesięć sylwetek. Damskie: klepsydra, gruszka, jabłko, kolumna, kielich. Męskie: trójkąt, odwrócony trójkąt, prostokąt, owal, trapez. To zwykłe wiersze w tabeli `avatars` (z płcią i typem) i pliki statyczne, więc dodanie kolejnych nie wymaga zmian w kodzie. Do czasu przygotowania docelowych renderów używane są miniatury zastępcze z `docs/design/zasoby`.
@@ -423,9 +448,10 @@ Gdy w przyszłości pojawią się płatne kredyty, licznik dzienny zostanie zast
 ### 7.6. Znane ograniczenia
 
 - **Filtry bezpieczeństwa.** Google w 2026 roku zaostrzył klasyfikator obrazów i blokuje część zwykłych zdjęć modowych (stroje kąpielowe, bielizna, odsłonięta skóra). Dlatego MVP nie obsługuje bielizny i strojów kąpielowych, a `Blocked` jest zwykłym wynikiem z czytelnym komunikatem, a nie błędem.
-- **Wierność.** Drobne wzory, napisy i logotypy mogą wyjść inaczej niż na zdjęciu, a postać może nieznacznie różnić się od wybranej sylwetki. Stąd kolaż obok obrazu i podpis „wizualizacja poglądowa”.
+- **Wierność.** Drobne wzory, napisy i logotypy mogą wyjść inaczej niż na zdjęciu, a postać może nieznacznie różnić się od wybranej sylwetki. Stąd tablica obok obrazu i podpis „wizualizacja poglądowa”.
 - **Nadużycia.** Do generatora nie trafia zdjęcie żadnej prawdziwej osoby ani tekst wpisany przez użytkownika, a bielizna i stroje kąpielowe są odrzucane przy tagowaniu. Zostaje ryzyko wgrania jako „ubrania” czegoś, co ubraniem nie jest; ogranicza je odrzucanie przy tagowaniu i filtr dostawcy.
 - **Oznaczenie.** Obrazy z modeli Google zawierają niewidoczny znak wodny SynthID.
+- **Zgłaszanie problemu.** Pod podpisem obrazu jest cicha opcja „Report a problem”. Otwiera arkusz z czterema powodami (`wrong_clothes`, `distorted`, `inappropriate`, `other`) i przyciskiem „Send report”; po wysłaniu zamiast opcji pojawia się „Thanks — reported.”. Serwer (`POST /api/visualizations/{id}/reports`, tylko właściciel i tylko gotowy obraz, limit 10 zgłoszeń na godzinę z jednego adresu) zapisuje zgłoszenie w tabeli `visualization_reports` i wpisuje je do dziennika. Zgłoszenie `inappropriate` dodatkowo od razu usuwa obraz (rekord i plik), żeby obraźliwy wynik nie został na ekranie; dzienny limit nie wraca.
 
 ---
 
@@ -435,11 +461,14 @@ Gdy w przyszłości pojawią się płatne kredyty, licznik dzienny zostanie zast
 |---|---|
 | `users` (Identity) | `display_name`, `birth_date`, `gender`, `style_preferences`, `thermal_preference`, `location_source` (Device, Manual), `location_name`, `lat`, `lon`, `avatar_id`, `ai_consent_at` |
 | `refresh_tokens` | `user_id`, `token_hash`, `expires_at`, `revoked_at` |
-| `clothing_items` | `user_id`, `status`, `original_key`, `cutout_key`, atrybuty z sekcji 5.2, `in_laundry`, `rarely_worn`, `wear_count`, `last_worn_on` |
+| `clothing_items` | `user_id`, `status`, `original_key`, `cutout_key`, atrybuty z sekcji 5.2, `described_by_ai` (prawda, dopóki nazwę i tagi napisał model; własna edycja je zdejmuje, ubrania startowe nigdy go nie mają), `in_laundry`, `rarely_worn`, `wear_count`, `last_worn_on` |
+| `clothing_photos` | `clothing_item_id` (kaskada), `key`, `width`, `height`, `created_at`; kolejność po `created_at` i `id`; najwyżej cztery na ubranie |
 | `avatars` | `gender`, `body_type`, `label`, `image_path`, `thumb_path`, `sort_order`, `is_active`; dziesięć wierszy wgrywanych przy starcie |
-| `outfits` | `user_id`, `request_id` (łączy trzy propozycje z jednego żądania), `occasion`, `occasion_note`, `weather_snapshot`, `relaxations`, `source` (Model, Rules), `kind` (pewniak, odkrycie, nowe połączenie albo brak), `score`, `reasoning`, `weather_note`, `rating`, `is_saved`, `worn_on`, `prompt_version`, `model` |
+| `outfits` | `user_id`, `request_id` (łączy trzy propozycje z jednego żądania), `occasion`, `occasion_note`, `weather_snapshot`, `relaxations`, `source` (Model, Rules), `kind` (pewniak, odkrycie, nowe połączenie albo brak), `score`, `reasoning`, `weather_note`, `rating`, `is_saved`, `worn_on`, `prompt_version`, `model`, `layout` (jsonb, własny układ tablicy: lista `{clothingId, x, y, scale, z}` w ułamkach tablicy; puste, gdy układ jest automatyczny) |
 | `outfit_items` | `outfit_id`, `clothing_item_id`, `slot` |
+| `calendar_entries` | `user_id` (kaskada), `outfit_id` (kaskada: usunięty zestaw znika z kalendarza), `day` (data), `worn`, `created_at`; unikalne (`user_id`, `day`, `outfit_id`). Migracja `OutfitCalendar` zakłada po jednym noszonym wpisie dla każdego zestawu z `worn_on` |
 | `visualizations` | `user_id`, `outfit_id`, `avatar_id`, `status` (Pending, Running, Completed, Failed, Blocked), `model`, `provider_request_id`, `image_key`, `error_code`, `idempotency_key`, `cost_usd` |
+| `visualization_reports` | `user_id` (kaskada), `visualization_id` i `outfit_id` (zwykłe wartości, bez klucza obcego: obraz „inappropriate” jest usuwany, a zgłoszenie zostaje), `reason` (WrongClothes, Distorted, Inappropriate, Other), `created_at` |
 | `usage_counters` | `user_id`, `day`, `kind` (ItemAdded, Suggestion, Visualization), `count` |
 | `ai_usage_log` | `user_id`, `operation`, `model`, `cost_usd`, `duration_ms`, `success` |
 
@@ -453,8 +482,10 @@ Gdy w przyszłości pojawią się płatne kredyty, licznik dzienny zostanie zast
 Konto
 GET    /api/avatars?gender=   lista gotowych sylwetek dla płci; dostępna bez logowania
 GET    /api/dictionaries      kody i polskie nazwy słowników; dostępne bez logowania
-POST   /api/auth/email-check  czy adres jest wolny (pierwszy krok rejestracji)
-POST   /api/auth/register     e-mail, hasło, imię, data urodzenia, płeć, sylwetka, style, preferencja termiczna, miejsce pogody
+POST   /api/auth/email-check  czy adres jest wolny (aplikacja już go nie woła: zajęty adres zgłasza rejestracja kodem 409)
+POST   /api/auth/register     e-mail, hasło, imię, data urodzenia, style, preferencja termiczna, miejsce pogody; płeć i sylwetka opcjonalne
+                              (aplikacja wysyła płeć z kroku 1; bez sylwetki konto dostaje zastępczą do pierwszego kroku po rejestracji,
+                              a bez płci „unspecified”)
 POST   /api/auth/login | refresh | logout
 GET    /api/locations?query=  wyszukiwanie miejscowości, gdy nie ma lokalizacji telefonu
 GET    /api/me                PATCH /api/me              DELETE /api/me
@@ -466,13 +497,25 @@ POST   /api/clothes           GET /api/clothes?q=&category=&forgotten=
 GET    /api/clothes/stats     wykorzystanie szafy w ostatnich 30 dniach
 GET    /api/clothes/{id}      PATCH /api/clothes/{id}    DELETE /api/clothes/{id}
 POST   /api/clothes/{id}/reprocess
+POST   /api/clothes/{id}/photos/uploads   pre-signed URL dla dodatkowego zdjęcia ubrania
+POST   /api/clothes/{id}/photos           dopięcie wysłanego zdjęcia (klucz); 409 photo_limit_reached po czterech
+DELETE /api/clothes/{id}/photos/{photoId}
+                              odpowiedź ubrania niesie `photos: [{ id, imageUrl, imageKey, width, height }]`
 
 Stylista
 GET    /api/weather/today     profil pogody dla miejsca z profilu
-POST   /api/outfits/suggestions    okazja, notatka, ubranie bazowe → trzy propozycje
+GET    /api/weather/day?date=      pogoda wybranego dnia z horyzontu (dziś + 6); dla przyszłego dnia cały dzień i `now: null`; poza horyzontem 400 `date_out_of_range`
+POST   /api/outfits/suggestions    okazja, notatka, ubranie bazowe, opcjonalnie `date` z horyzontu → trzy propozycje (odpowiedź niesie `date`)
 GET    /api/outfits?saved=true     GET /api/outfits/{id}
-PATCH  /api/outfits/{id}           zapis, ocena, „Zakładam to”
+PATCH  /api/outfits/{id}           zapis, ocena, „Zakładam to”, układ tablicy (`layout`; null albo pusta lista przywraca automatyczny)
 DELETE /api/outfits/{id}
+
+Kalendarz
+GET    /api/calendar?from=&to=     dni z wpisami (do 62 dni): `today`, `forecastUntil`, `maxPerDay`, `days[{date, entries[{id, date, worn, outfit, createdAt}]}]`
+POST   /api/calendar               `{date, outfitId, worn?}`: dziś i przyszłość to plan, dzień miniony to noszone; 201, a dla tego samego zestawu i dnia 200 z istniejącym wpisem; pełny dzień 409 `calendar_day_full`
+PATCH  /api/calendar/{id}          `{worn}`: potwierdzenie (dziś albo dzień miniony, inaczej 400 `calendar_day_ahead`) albo jego cofnięcie
+DELETE /api/calendar/{id}          zdjęcie zestawu z dnia
+GET    /api/outfits/{id}/days      dni, na których stoi zestaw
 
 Wizualizacja
 POST   /api/outfits/{id}/visualizations    202 i rekord Pending
@@ -493,14 +536,15 @@ Cztery zakładki: Dziś, Szafa, Outfity, Profil. Wygląd każdego ekranu i jego 
 |---|---|
 | Start | Mozaika ubrań, znak, hasło, „Załóż konto” i „Mam już konto” |
 | Logowanie | Formularz e-mail i hasło |
-| Rejestracja | Pięć kroków: konto; imię, data urodzenia i płeć; typ sylwetki; styl (można pominąć); pogoda z lokalizacji i odczuwanie temperatury, z ekranem zapasowym do wpisania miasta |
-| Dziś | Pogoda bez ramki (miejsce, temperatura, jedno zdanie, ikona nieba), kafle okazji, notatka, „Zaproponuj zestawy”; stan bez lokalizacji i stan „brakuje w szafie” |
-| Propozycje | Trzy zakładki, po jednej na propozycję: etykieta typu, kolaż, uzasadnienie, notka pogodowa, kciuki, „Zapisz”, „Zakładam to”, „Pokaż na sylwetce” z postępem i wynikiem |
+| Rejestracja | Przed kontem: płeć; style (zdjęcia dla płci); podstawowe ubrania; miejsce pogody; pierwszy zestaw z wybranych ubrań (albo zdjęcie, gdy ubrań jest mniej niż dwa); konto. Po koncie: sylwetka (płeć z kroku 1, do zmiany na miejscu); rozmiar i nogi; kolory; podsumowanie z tablicą zestawu. Pasek postępu nie liczy kroków, tylko odlicza do najbliższej nagrody („Four steps to your first look”, „Two more steps to your first look”, „Almost done — 2 left”) |
+| Dziś | Pod powitaniem pasek tygodnia (dziś i sześć kolejnych dni, grupa radiowa; kropka oznacza plan, znaczek noszone). Wybór dnia zamienia stronę w ten dzień: pogoda tego dnia (dla przyszłego dnia duża liczba to „High”, bez „teraz”), sekcja „Planned for Thursday” z zestawami dnia („I wore this”, „Remove from this day”), a zamiast propozycji dnia okazje, jeden przycisk „Suggest looks for Thursday” i „Pick from saved outfits”. Dla dziś wszystko jak dotąd: pogoda bez ramki, okazje, propozycje dnia; stan bez lokalizacji i stan „brakuje w szafie”. Powrót na zakładkę albo do aplikacji wraca do dziś |
+| Propozycje | Trzy zakładki, po jednej na propozycję: etykieta typu, tablica, uzasadnienie, notka pogodowa, kciuki, „Zapisz”, „Zakładam to”, „Pokaż na sylwetce” z postępem i wynikiem. Pod głównym przyciskiem „Plan for a day”. Propozycje zamówione dla przyszłego dnia mają tytuł „Looks for Thursday”, a główny przycisk to „Plan for Thursday” |
+| Arkusz „Wear it when?” | Najbliższe 14 dni jako siatka dni (dzień, na którym zestaw już stoi, jest oznaczony; dzień z trzema zestawami wyłączony z podaniem powodu) i „Pick another date” z siatką miesiąca. Wybór zapisuje od razu, zamyka arkusz i zostawia na ekranie cichą linię „Planned for Thursday.” z „Undo” na kilka sekund |
 | Szafa | Siatka ubrań, wyszukiwanie po nazwie, filtr kategorii i zapomnianych, wskaźnik wykorzystania szafy, stany „w trakcie” i „błąd” |
 | Dodawanie | Aparat lub galeria, wiele zdjęć, kolejka wysyłania |
-| Ubranie | Wycinek, edycja tagów, „w praniu”, „rzadko noszę”, „Dobierz do tego”, usuwanie |
-| Outfity | Zapisane zestawy z miniaturami obrazów |
-| Profil | Imię, data urodzenia, płeć, źródło pogody, preferencja termiczna, style, zmiana sylwetki, limity, zgoda na AI, usuwanie konta |
+| Ubranie | Wycinek, edycja tagów, „w praniu”, „rzadko noszę”, „Dobierz do tego”, usuwanie. Gdy są dodatkowe zdjęcia, zdjęcie u góry przewija się w bok (wycinek, potem zdjęcia na całą ramkę, z metką „Photo 2 of 3”; stuknięcie otwiera zdjęcie na pełnym ekranie). Pod faktami sekcja „More photos”: miniatury i kafel „Add photo” (aparat aplikacji albo galeria), dopóki zdjęć jest mniej niż cztery; nowe zdjęcie widać od razu, z postępem wysyłania i ponowieniem po błędzie. Usuwanie zdjęć na ekranie edycji, od razu, z cofnięciem przy błędzie |
+| Outfity | Dwa widoki: „Saved” (zapisane zestawy z miniaturami) i „Calendar” (zastąpił „Worn”: kalendarz jest historią). Kalendarz to siatka miesiąca z poprzednim i następnym miesiącem oraz „Today”; dziś w obwódce, wybrany dzień wypełniony, dzień z zestawem ma znaczek (kropka plan, znaczek noszone, „+1” przy kolejnych). Pod siatką wybrany dzień: wpisy z miniaturą tablicy, metką „Worn” albo „Planned”, potwierdzeniem i zdjęciem z dnia oraz „Add an outfit to this day” (arkusz zapisanych zestawów; dla dni z horyzontu także „Suggest looks”). Szczegóły zestawu pokazują linię jego dni („Planned for Thu, Oct 15”, „Worn Oct 6 and 2 more”), która otwiera kalendarz na tym miesiącu |
+| Profil | Imię, data urodzenia, płeć, źródło pogody, preferencja termiczna, style, zmiana sylwetki, limity, w grupie „About”: przełącznik zgody na wysyłanie zdjęć do AI, polityka prywatności, regulamin i podanie „Weather data by Open-Meteo” (otwiera open-meteo.com w przeglądarce w aplikacji), usuwanie konta |
 
 Aplikacja jest cienkim klientem: wyświetla dane i wysyła żądania. Cała logika doboru, limitów i walidacji jest na backendzie.
 
@@ -528,7 +572,7 @@ Każdy ekran ma jeden nazwany wzorzec z katalogu VectorLab:
 | Ekran | Wzorzec |
 |---|---|
 | Start, logowanie, reset hasła | Formularz uwierzytelniania, bez paska zakładek |
-| Rejestracja (pięć kroków) | Formularz w krokach z paskiem postępu |
+| Rejestracja i onboarding (dziesięć kroków, konto w szóstym) | Kroki prowadzone obrazem: siatka albo zdjęcie na górze, najwyżej jedno zdanie wyjaśnienia; formularz tylko na ekranie konta |
 | Dziś | Formularz: pogoda jako opis, okazja, notatka, jedno działanie |
 | Propozycje | Szczegóły rekordu z trzema zakładkami, po jednej na propozycję |
 | Szafa, Outfity | Lista: wyszukiwanie, jeden filtr, siatka kafli w ramce, licznik pozycji |
@@ -547,6 +591,8 @@ Każdy ekran ma jeden nazwany wzorzec z katalogu VectorLab:
 | Nowe ubrania | 50 |
 | Prośby o propozycje | 20 |
 | Wizualizacje | 5 |
+
+Poza limitami dziennymi: dodatkowe zdjęcia ubrania (sekcja 5.1a) nie zużywają żadnego z nich; obowiązuje stały limit czterech na ubranie.
 
 Do tego globalny dzienny budżet AI (startowo 10 USD). Po jego przekroczeniu tagowanie czeka do następnego dnia, stylista przechodzi w tryb awaryjny, a wizualizacje są wstrzymane. Limity i budżet są w konfiguracji.
 
@@ -573,7 +619,7 @@ Pełna szafa to raczej 150 ubrań niż 60. Jednorazowy koszt jej zbudowania roś
 
 ## 12. Prywatność i bezpieczeństwo
 
-**Dane.** E-mail, imię, data urodzenia (do potwierdzenia wieku), płeć (do doboru typów sylwetki), zdjęcia ubrań, miejsce pogody (współrzędne z telefonu albo wybranego miasta, zaokrąglone do 0,1°, bez historii miejsc), zestawy i oceny. Aplikacja nie przyjmuje zdjęć użytkownika, więc nie przetwarza niczyjego wizerunku.
+**Dane.** E-mail, imię, data urodzenia (do potwierdzenia wieku), płeć (do doboru typów sylwetki), zdjęcia ubrań, miejsce pogody (współrzędne z telefonu albo wybranego miasta, zaokrąglone do 0,1°, bez historii miejsc), zestawy i oceny. Aplikacja nie przyjmuje zdjęć użytkownika, więc nie przetwarza niczyjego wizerunku. Wyjątek od 2.7: dodatkowe zdjęcia ubrania (sekcja 5.1a) mogą pokazywać osobę („jak leży”); są przechowywane w magazynie jak inne pliki użytkownika, widzi je tylko właściciel i nie są wysyłane do żadnego dostawcy AI.
 
 **Odbiorcy.**
 
@@ -584,7 +630,7 @@ Pełna szafa to raczej 150 ubrań niż 60. Jednorazowy koszt jej zbudowania roś
 | Anthropic | Wycinki ubrań (tagowanie); opisy tekstowe ubrań i kontekst (dobór) |
 | Open-Meteo | Zaokrąglone współrzędne, bez identyfikatora użytkownika |
 
-**Zgoda.** Jedna, przed pierwszym wysłaniem zdjęcia ubrania, z nazwami odbiorców, z datą w profilu i możliwością wycofania. Spełnia to wytyczną Apple 5.1.2(i).
+**Zgoda.** Wyraźna i udzielana w kontekście (wytyczna Apple 5.1.2(i)). Założenie konta jej nie daje: nowe konto nie ma `ai_consent_at`, a zdanie pod „Create account” mówi tylko o zgodzie na regulamin i politykę. Przed pierwszym zdjęciem ubrania (w „Add clothes”) i przed selfie do analizy kolorów aplikacja pokazuje arkusz „Before your photos leave your phone” z trzema wierszami: co wychodzi („Photos of your clothes” albo „One photo of your face”), kto to dostaje (zdjęcia ubrań: Google i fal.ai; selfie: tylko Google) i co się z tym dzieje (ubrania zostają w szafie do usunięcia; selfie jest usuwane z naszego magazynu zaraz po analizie, zostaje paleta), z odnośnikiem do polityki prywatności. „Allow and continue” zapisuje zgodę (`PATCH /api/me`, `aiConsent: true`) i wznawia akcję; „Not now” zamyka arkusz i nic nie wysyła. To jedna zgoda dla obu rodzajów zdjęć: po jej udzieleniu żaden arkusz nie wraca. Komunikat „potrzebna zgoda” przy obrazie na sylwetce otwiera ten sam arkusz. Wycofać (i dać znowu) można w Profilu, w grupie „About”, przełącznikiem „Send photos to AI services” (bez usuwania czegokolwiek). Serwer sprawdza zgodę przy każdym wysłaniu, a ubrania startowe z katalogu (bez zdjęć) jej nie wymagają.
 
 **Minimalizacja u dostawców.** W wywołaniach fal.ai wyłączone jest przechowywanie treści żądań, a czas życia plików skrócony do minimum (nagłówki `X-Fal-Store-IO` i `X-Fal-Object-Lifecycle-Preference`).
 
@@ -614,7 +660,7 @@ Pełna szafa to raczej 150 ubrań niż 60. Jednorazowy koszt jej zbudowania roś
 | Tagowanie | Ubranie czeka na ręczne tagi; można ponowić |
 | Prognoza pogody | Ostatnia zapamiętana prognoza; bez niej propozycje z notką „brak danych o pogodzie” |
 | Model stylisty | Tryb awaryjny z reguł |
-| Generator obrazu | Zwrot limitu, komunikat, kolaż zostaje |
+| Generator obrazu | Zwrot limitu, komunikat, tablica zostaje |
 | Przekroczony budżet AI | Jak w sekcji 11.1 |
 
 ---
@@ -639,7 +685,8 @@ Pełna szafa to raczej 150 ubrań niż 60. Jednorazowy koszt jej zbudowania roś
 | Poranna propozycja z powiadomieniem push | Wymaga konfiguracji powiadomień i zadań cyklicznych na użytkownika. |
 | Kalibracja ciepła z pytania „jak było?” | Dobre rozwinięcie preferencji termicznej, ale potrzebuje danych z bety. |
 | Automatyczna kontrola jakości obrazu | Drugi model oceniający wynik podwaja koszt. Decyzja po zmierzeniu odsetka nieudanych obrazów. |
-| Asystent walizki, kalendarz, logowanie społecznościowe | Osobne przypadki użycia albo wygoda. |
+| Asystent walizki, logowanie społecznościowe | Osobne przypadki użycia albo wygoda. |
+| Przypomnienia o zaplanowanym zestawie, kalendarz jako funkcja płatna | Powiadomienia push są poza MVP; bramka `useCanPlan()` czeka na subskrypcję. |
 | Redis, RabbitMQ, pgvector | Żadna funkcja MVP ich nie potrzebuje. |
 
 ---

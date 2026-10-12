@@ -6,7 +6,7 @@ import { motion, space } from '@/theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
 import { BackdropIcon, type IconName } from './Icon';
-import { Fade } from './motion';
+import { Fade, Sway } from './motion';
 
 interface EmptyStateProps {
   /** The icon of the tab this screen belongs to. */
@@ -29,14 +29,16 @@ const rise = 8;
 
 /**
  * What a tab shows while it has nothing of its own: its icon, large and blended into the page, with a title,
- * one sentence and the next step. It fills the free space under the screen title and sits a little above centre.
+ * one sentence and the next step. The icon sways once, like a hanger on a rail, when the block appears. It fills the free space under the screen title and sits a little above centre.
  */
 export function EmptyState({ icon, title, text, action, footnote, compact = false, testID }: EmptyStateProps) {
   return (
     <Fade testID={testID} rise={rise} duration={motion.enter} style={compact ? styles.compact : styles.frame}>
       {compact ? null : (
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <BackdropIcon name={icon} />
+          <Sway testID={testID ? `${testID}-icon` : undefined}>
+            <BackdropIcon name={icon} />
+          </Sway>
         </View>
       )}
       <View style={styles.words}>
@@ -59,6 +61,6 @@ const styles = StyleSheet.create({
   // The bottom padding lifts the group to the optical centre: a block set at the exact middle looks as if it were sinking.
   frame: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space[6], paddingBottom: space[12] },
   compact: { alignItems: 'center', gap: space[4], paddingTop: space[6] },
-  words: { alignSelf: 'stretch', gap: space[2] },
+  words: { alignSelf: 'stretch', gap: 10 },
   action: { alignSelf: 'center' },
 });

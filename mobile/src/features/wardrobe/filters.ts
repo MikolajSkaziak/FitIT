@@ -19,6 +19,8 @@ interface FilterStore extends ClothesFilter, Arrangement {
   setSearch: (search: string) => void;
   /** Adds the group to the chosen ones, or takes it out when it is already there. The types belong to the chosen groups, so they go. */
   toggleGroup: (group: GarmentGroup) => void;
+  /** Makes this the one chosen group (the tabs of the wardrobe). */
+  setGroup: (group: GarmentGroup) => void;
   clearGroups: () => void;
   toggleType: (type: Subcategory) => void;
   toggleColor: (color: Color) => void;
@@ -40,6 +42,7 @@ export const useWardrobeFilters = create<FilterStore>((set) => ({
   ...defaultArrangement,
   setSearch: (search) => set({ search }),
   toggleGroup: (group) => set((state) => ({ groups: toggled(state.groups, group), types: [] })),
+  setGroup: (group) => set({ groups: [group], types: [] }),
   clearGroups: () => set({ groups: [], types: [] }),
   toggleType: (type) => set((state) => ({ types: toggled(state.types, type) })),
   toggleColor: (color) => set((state) => ({ colors: toggled(state.colors, color) })),

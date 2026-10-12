@@ -55,7 +55,8 @@ public sealed class RuleBasedStylistTests
             });
             // Never the same outfit twice, however little the wardrobe leaves to choose from.
             Assert.All(proposals, one => Assert.All(proposals.Where(other => other != one), other => Assert.True(one.Outfit.DifferenceFrom(other.Outfit) >= 1)));
-            Assert.All(proposals, proposal => Assert.Equal(CoherenceScore.Of(proposal.Outfit, weather.Rule), proposal.Score));
+            // Nobody's styles are known here, so of style only the clashes within an outfit count.
+            Assert.All(proposals, proposal => Assert.Equal(CoherenceScore.Of(proposal.Outfit, weather.Rule, []), proposal.Score));
             Assert.All(proposals, proposal => Assert.Equal(proposal.Kind, proposal.Outfit.Confirm(proposal.Kind, NothingWorn)));
         }
     }
@@ -271,7 +272,13 @@ public sealed class RuleBasedStylistTests
         Assert.Equal(
             """{"name":"Work or school","formality":[2,4],"note":"client presentation"}""",
             json["occasion"]!.ToJsonString(Relaxed));
-        Assert.Equal("""{"styles":["smart casual"],"thermal":"usually feels cold","nearby_styles":["casual","elegant","minimalist","old money","preppy","business"]}""", json["profile"]!.ToJsonString(Relaxed));
+        // Styles go by their codes, and only the person's own are explained (this occasion prefers none).
+        Assert.Equal("""["smart"]""", json["profile"]!["styles"]!.ToJsonString());
+        Assert.Equal("usually feels cold", json["profile"]!["thermal"]!.GetValue<string>());
+        Assert.Equal("""["casual","elegant","minimalist","old_money","preppy","business"]""", json["profile"]!["nearby_styles"]!.ToJsonString());
+        Assert.Equal(["smart"], json["profile"]!["style_notes"]!.AsObject().Select(note => note.Key));
+        Assert.Equal(StyleGuide.Of(StyleTag.Smart), json["profile"]!["style_notes"]!["smart"]!.GetValue<string>());
+        Assert.Null(json["profile"]!["flattering_colors"]);
         Assert.Equal("T1", json["base_item"]!.GetValue<string>());
         Assert.Equal("[]", json["relaxations"]!.ToJsonString());
         Assert.Equal("""[["T1","B1","S1"]]""", json["recent"]!.ToJsonString());
@@ -280,7 +287,7 @@ public sealed class RuleBasedStylistTests
         Assert.Equal("[]", json["disliked"]!.ToJsonString());
         Assert.Equal(["T1", "M1", "B1", "O1", "S1"], json["candidates"]!.AsArray().Select(candidate => candidate!["id"]!.GetValue<string>()));
         Assert.Equal(
-            """{"id":"T1","role":"top","sub":"shirt","colors":["navy"],"pattern":"plain","formality":4,"warmth":2,"rain_ok":false,"worn":6,"forgotten":false,"desc":"navy oxford shirt, button-down collar"}""",
+            """{"id":"T1","role":"top","sub":"shirt","colors":["navy"],"pattern":"plain","styles":["casual"],"formality":4,"warmth":2,"rain_ok":false,"worn":6,"forgotten":false,"desc":"navy oxford shirt, button-down collar"}""",
             json["candidates"]![0]!.ToJsonString(Relaxed));
         Assert.True(json["candidates"]![3]!["forgotten"]!.GetValue<bool>());
         Assert.DoesNotContain(shirt.Id.ToString(), brief.ToJson(), StringComparison.Ordinal);

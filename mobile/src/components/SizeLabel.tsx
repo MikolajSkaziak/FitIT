@@ -4,7 +4,7 @@ import Svg, { Line } from 'react-native-svg';
 
 import type { ClothingSize } from '@/api/account';
 import { sizeNames, sizeOptions } from '@/copy/labels';
-import { radius, space, useTheme } from '@/theme';
+import { radius, shadow, space, useTheme } from '@/theme';
 
 import { AppText } from './AppText';
 import { Slide } from './motion';
@@ -49,14 +49,19 @@ interface SizeLabelProps {
 }
 
 /**
- * The size as a sewn-in garment label: a white label hanging from a bottle-green rail on the sage well, the chosen size
- * as a very large letter, and the tape along the bottom. The letter is a live region, so a change is read out politely.
+ * The size as a sewn-in garment label: a white tag hanging from a bottle-green rail on the well, the chosen size
+ * as a very large serif letter, and the tape along the bottom. The letter is a live region, so a change is read out politely.
  */
 export function SizeLabel({ value }: SizeLabelProps) {
   const theme = useTheme();
   const letter = sizeOptions.find((option) => option.value === value)?.label ?? '–';
   const name = value ? sizeNames[value] : 'Not set';
-  const type = { fontSize: letter.length > 2 ? 72 : 104, lineHeight: letter.length > 2 ? 72 : 104 };
+  // One line whatever the size: the serif is wide, so each extra letter takes the type down a step, and the system
+  // shrinks it further if a phone's font still leaves it too wide for the label.
+  const fontSize = letter.length > 2 ? 54 : letter.length > 1 ? 76 : 104;
+  const type = { fontSize, lineHeight: Math.round(fontSize * 1.22) };
+  // A long name ("Double extra large") needs the whole line; a short one shares it with what the size is for.
+  const roomy = name.length <= 8;
   return (
     <View style={[styles.well, { backgroundColor: theme.well }]} testID="size-label">
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.rail, { backgroundColor: theme.wellRail }]} />
@@ -65,34 +70,38 @@ export function SizeLabel({ value }: SizeLabelProps) {
           <Line x1="0" y1="1" x2="100%" y2="1" stroke={theme.wellStitch} strokeWidth={2} strokeDasharray="6 4" />
         </Svg>
       </View>
-      <View style={[styles.label, { backgroundColor: theme.surface, shadowColor: theme.wellRail }]}>
+      <View style={[styles.label, shadow, { backgroundColor: theme.wellChip, shadowColor: theme.shadow }]}>
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.stitch}>
           <Svg width="100%" height={2}>
             <Line x1="0" y1="1" x2="100%" y2="1" stroke={theme.borderControl} strokeOpacity={0.5} strokeWidth={2} strokeDasharray="6 4" />
           </Svg>
         </View>
-        <AppText accessibilityElementsHidden importantForAccessibility="no-hide-descendants" variant="logoSmall" style={styles.wordmark}>
-          fit<AppText variant="logoSmall" color="action" style={styles.wordmark}>it.</AppText>
+        <AppText accessibilityElementsHidden importantForAccessibility="no-hide-descendants" variant="caption">
+          fit<AppText variant="caption" color="action">it.</AppText>
         </AppText>
         <View style={styles.letterBox}>
           <AppText
             variant="display"
-            color={value ? 'text' : 'borderControl'}
+            color={value ? 'onWellChip' : 'borderControl'}
             accessibilityLiveRegion="polite"
             accessibilityLabel={`Usual size: ${name}`}
             maxFontSizeMultiplier={1}
+            numberOfLines={1}
+            adjustsFontSizeToFit
             style={[styles.letter, type]}
             testID="size-letter">
             {letter}
           </AppText>
         </View>
-        <View style={[styles.footer, { borderTopColor: theme.border }]}>
-          <AppText variant="meta" color="textSecondary" numberOfLines={1} style={styles.footerName}>
+        <View style={[styles.footer, roomy ? null : styles.footerAlone, { borderTopColor: theme.paperLine }]}>
+          <AppText variant="eyebrow" numberOfLines={1} adjustsFontSizeToFit style={styles.footerName}>
             {name}
           </AppText>
-          <AppText variant="meta" color="textSecondary" numberOfLines={1}>
-            try-on fit
-          </AppText>
+          {roomy ? (
+            <AppText variant="eyebrow" numberOfLines={1}>
+              try-on fit
+            </AppText>
+          ) : null}
         </View>
       </View>
       <SizeRail value={value} />
@@ -113,17 +122,14 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     alignItems: 'center',
     gap: 6,
-    borderBottomLeftRadius: radius.thumb,
-    borderBottomRightRadius: radius.thumb,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
   },
   stitch: { position: 'absolute', left: 14, right: 14, top: 10, height: 2 },
-  wordmark: { fontSize: 15, lineHeight: 18, letterSpacing: -0.3 },
-  letterBox: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
-  letter: { letterSpacing: -3, includeFontPadding: false, textAlign: 'center' },
+  letterBox: { flexGrow: 1, alignSelf: 'stretch', justifyContent: 'center' },
+  letter: { letterSpacing: -1, includeFontPadding: false, textAlign: 'center' },
   footer: { alignSelf: 'stretch', borderTopWidth: 1, paddingTop: space[2], flexDirection: 'row', justifyContent: 'space-between', gap: space[2] },
+  footerAlone: { justifyContent: 'center' },
   footerName: { flexShrink: 1 },
   tape: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 40, borderTopWidth: 1 },
   ticks: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 10 },

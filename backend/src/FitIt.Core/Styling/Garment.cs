@@ -5,6 +5,7 @@ namespace FitIt.Core.Styling;
 /// <summary>
 /// A garment as the stylist's rules see it: its tags and how it has been used. <see cref="Forgotten"/> and
 /// <see cref="RecentlyWorn"/> are already settled against the person's own day, so nothing here needs a clock.
+/// <see cref="Likes"/> and <see cref="Dislikes"/> count the rated outfits the garment is part of.
 /// </summary>
 public sealed record Garment(
     Guid Id,
@@ -14,7 +15,8 @@ public sealed record Garment(
     bool Forgotten = false,
     bool RecentlyWorn = false,
     int Likes = 0,
-    bool InLaundry = false)
+    bool InLaundry = false,
+    int Dislikes = 0)
 {
     /// <summary>The place a garment takes in an outfit is its category: there is one slot per category, and only accessories share theirs.</summary>
     public Category Role => Tags.Category;

@@ -53,7 +53,7 @@ internal static class Dressing
         return (client, auth, await factory.DressAsync(client, wardrobe));
     }
 
-    public static Task<HttpResponseMessage> SuggestAsync(this HttpClient client, string occasion = "everyday", string? note = null, Guid? baseItemId = null)
+    public static Task<HttpResponseMessage> SuggestAsync(this HttpClient client, string occasion = "everyday", string? note = null, Guid? baseItemId = null, DateOnly? date = null)
     {
         var body = new JsonObject { ["occasion"] = occasion };
         if (note is not null)
@@ -66,12 +66,17 @@ internal static class Dressing
             body["baseItemId"] = id.ToString();
         }
 
+        if (date is { } day)
+        {
+            body["date"] = day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         return client.PostJsonAsync("/api/outfits/suggestions", body);
     }
 
-    public static async Task<SuggestionsResponse> SuggestedAsync(this HttpClient client, string occasion = "everyday", string? note = null, Guid? baseItemId = null)
+    public static async Task<SuggestionsResponse> SuggestedAsync(this HttpClient client, string occasion = "everyday", string? note = null, Guid? baseItemId = null, DateOnly? date = null)
     {
-        var response = await client.SuggestAsync(occasion, note, baseItemId);
+        var response = await client.SuggestAsync(occasion, note, baseItemId, date);
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         return await response.ReadAsync<SuggestionsResponse>();
     }
@@ -88,4 +93,36 @@ internal static class Dressing
 
     public const double Warm = 20;
     public const double Cold = 6;
+
+    /// <summary>The calendar day it is now for somebody whose weather place lies in the given zone.</summary>
+    public static DateOnly DayIn(this ApiFactory factory, string zoneId = "Europe/Warsaw") =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(factory.Clock.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById(zoneId)).DateTime);
+
+    public static string Iso(this DateOnly day) => day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+    public static Task<HttpResponseMessage> PlanAsync(this HttpClient client, DateOnly day, Guid outfitId, bool? worn = null)
+    {
+        var body = new JsonObject { ["date"] = day.Iso(), ["outfitId"] = outfitId.ToString() };
+        if (worn is { } said)
+        {
+            body["worn"] = said;
+        }
+
+        return client.PostJsonAsync("/api/calendar", body);
+    }
+
+    /// <summary>Puts an outfit on a day and returns the entry, whether it was new or already there.</summary>
+    public static async Task<CalendarEntryResponse> PlannedAsync(this HttpClient client, DateOnly day, Guid outfitId, bool? worn = null)
+    {
+        var response = await client.PlanAsync(day, outfitId, worn);
+        Assert.True(response.StatusCode is System.Net.HttpStatusCode.Created or System.Net.HttpStatusCode.OK, $"Planning answered {(int)response.StatusCode}.");
+        return await response.ReadAsync<CalendarEntryResponse>();
+    }
+
+    public static async Task<CalendarResponse> CalendarAsync(this HttpClient client, DateOnly from, DateOnly to)
+    {
+        var response = await client.GetAsync($"/api/calendar?from={from.Iso()}&to={to.Iso()}");
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        return await response.ReadAsync<CalendarResponse>();
+    }
 }

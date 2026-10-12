@@ -35,21 +35,28 @@ public sealed class WardrobeApiTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Creating_the_account_is_the_consent_and_withdrawing_it_closes_the_door_until_it_is_given_again()
+    public async Task A_new_account_has_no_consent_so_photos_are_refused_until_it_is_given_and_again_after_it_is_withdrawn()
     {
-        var (client, _) = await factory.SignedInAsync();
+        var (client, auth) = await factory.SignedInWithoutConsentAsync();
+        Assert.Null(auth.User.AiConsentAt);
 
-        // No separate step: a new account can add photos at once.
+        var before = await client.PostAsync("/api/uploads", null);
+        Assert.Equal(HttpStatusCode.Forbidden, before.StatusCode);
+        Assert.Equal("consent_required", await before.ProblemCodeAsync());
+
+        await client.GiveConsentAsync();
         var key = await client.UploadPhotoAsync(factory.Storage);
+        Assert.Equal(HttpStatusCode.Created, (await client.PostJsonAsync("/api/clothes", new JsonObject { ["key"] = key })).StatusCode);
 
+        var second = await client.UploadPhotoAsync(factory.Storage);
         await client.GiveConsentAsync(false);
-        var add = await client.PostJsonAsync("/api/clothes", new JsonObject { ["key"] = key });
+        var add = await client.PostJsonAsync("/api/clothes", new JsonObject { ["key"] = second });
         Assert.Equal(HttpStatusCode.Forbidden, add.StatusCode);
         Assert.Equal("consent_required", await add.ProblemCodeAsync());
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/uploads", null)).StatusCode);
 
         await client.GiveConsentAsync();
-        Assert.Equal(HttpStatusCode.Created, (await client.PostJsonAsync("/api/clothes", new JsonObject { ["key"] = key })).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await client.PostJsonAsync("/api/clothes", new JsonObject { ["key"] = second })).StatusCode);
     }
 
     [Fact]

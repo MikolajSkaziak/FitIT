@@ -1,20 +1,16 @@
 import { useMutation } from '@tanstack/react-query';
 import { Redirect, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 
 import { confirmPasswordReset } from '@/api/account';
-import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { LinkText } from '@/components/controls';
-import { Field } from '@/components/Field';
 import { FormError, PasswordField } from '@/components/forms';
-import { BackHeader } from '@/components/headers';
-import { Screen } from '@/components/Screen';
 import { resetMessageFor } from '@/copy/errors';
 import { useResetDraft } from '@/features/profile/passwordReset';
+import { AuthScreen } from '@/features/registration/AuthScreen';
+import { CodeField } from '@/features/registration/CodeField';
 import { digitsOnly, limits, passwordError, resetCodeError } from '@/features/registration/validation';
-import { space } from '@/theme';
 
 /** Step two: the code from the e-mail and the new password. The server ends every session, so the way on is to sign in. */
 export default function ResetCode() {
@@ -43,8 +39,12 @@ export default function ResetCode() {
   };
 
   return (
-    <Screen
+    <AuthScreen
       testID="reset-code"
+      eyebrow="Check your email"
+      title="Enter the code"
+      lead={`If there’s an account for ${email.trim()}, a code is on its way. Check your spam folder too.`}
+      onBack={() => router.back()}
       footer={
         <>
           <FormError message={confirm.isError ? resetMessageFor(confirm.error) : null} />
@@ -52,45 +52,36 @@ export default function ResetCode() {
           <LinkText label="Request a new code" center onPress={() => router.back()} testID="reset-again" />
         </>
       }>
-      <View style={styles.content}>
-        <BackHeader title="Enter the code" onBack={() => router.back()} />
-        <AppText color="textSecondary">{`If there’s an account for ${email.trim()}, a code is on its way. Check your spam folder too.`}</AppText>
-        <Field
-          label="Six-digit code"
-          value={code}
-          onChangeText={(text) => {
-            setCode(digitsOnly(text));
-            setErrors((current) => ({ ...current, code: null }));
-            confirm.reset();
-          }}
-          error={errors.code}
-          autoFocus
-          keyboardType="number-pad"
-          autoComplete="one-time-code"
-          textContentType="oneTimeCode"
-          maxLength={limits.resetCode}
-          testID="reset-code-field"
-        />
-        <PasswordField
-          isNew
-          label="New password"
-          helper={`At least ${limits.passwordMin} characters.`}
-          value={password}
-          onChangeText={(text) => {
-            setPassword(text);
-            setErrors((current) => ({ ...current, password: null }));
-            confirm.reset();
-          }}
-          error={errors.password}
-          returnKeyType="done"
-          onSubmitEditing={submit}
-          testID="reset-password"
-        />
-      </View>
-    </Screen>
+      <CodeField
+        label="Six-digit code"
+        length={limits.resetCode}
+        value={code}
+        onChangeText={(text) => {
+          setCode(digitsOnly(text));
+          setErrors((current) => ({ ...current, code: null }));
+          confirm.reset();
+        }}
+        error={errors.code}
+        autoFocus
+        autoComplete="one-time-code"
+        textContentType="oneTimeCode"
+        testID="reset-code-field"
+      />
+      <PasswordField
+        isNew
+        label="New password"
+        placeholder={`At least ${limits.passwordMin} characters`}
+        value={password}
+        onChangeText={(text) => {
+          setPassword(text);
+          setErrors((current) => ({ ...current, password: null }));
+          confirm.reset();
+        }}
+        error={errors.password}
+        returnKeyType="done"
+        onSubmitEditing={submit}
+        testID="reset-password"
+      />
+    </AuthScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  content: { gap: space[4] },
-});

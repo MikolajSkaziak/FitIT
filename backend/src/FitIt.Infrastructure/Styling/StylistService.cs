@@ -103,8 +103,12 @@ public sealed class StylistService(
             kept.All(outfit => outfit.Source == OutfitSource.Rules), await outfits.ViewAsync(kept, cancellationToken));
     }
 
+    /// <summary>
+    /// Proposals for the rest of today, or with <paramref name="day"/> for that day of the person's calendar, within the
+    /// forecast's horizon. Either way the request counts against the limit of the day it is made on.
+    /// </summary>
     public async Task<Result<Suggestions>> SuggestAsync(
-        Guid userId, Occasion occasion, string? note, Guid? baseItemId, CancellationToken cancellationToken, bool daily = false)
+        Guid userId, Occasion occasion, string? note, Guid? baseItemId, CancellationToken cancellationToken, bool daily = false, DateOnly? day = null)
     {
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(found => found.Id == userId, cancellationToken);
         if (user is null)
@@ -124,13 +128,21 @@ public sealed class StylistService(
             return Core.Weather.WeatherErrors.NoPlace;
         }
 
-        var forecast = await weather.AtAsync(place, user.ThermalPreference, cancellationToken);
+        var forecast = await weather.AtAsync(place, user.ThermalPreference, cancellationToken, day);
         if (!forecast.IsOk)
         {
             return forecast.Error!;
         }
 
-        var candidates = CandidateFilter.Select(wardrobe, forecast.Value.Profile, occasion, baseItemId);
+        // What the person did reorders the styles of their profile for this request; the profile itself stays as they wrote it.
+        // With fewer than two styles there is no order to learn.
+        IReadOnlyList<StyleTag> styles = [.. user.StylePreferences.Select(EnumCodes.Parse<StyleTag>)];
+        if (styles.Count > 1)
+        {
+            styles = StyleFit.Rank(styles, await StyleEvidenceAsync(userId, wardrobe, cancellationToken));
+        }
+
+        var candidates = CandidateFilter.Select(wardrobe, forecast.Value.Profile, occasion, baseItemId, styles);
         if (!candidates.IsComplete)
         {
             // Nothing was proposed, so nothing is taken from the day's allowance and the model is not asked.
@@ -149,11 +161,12 @@ public sealed class StylistService(
                 forecast.Value.Profile,
                 occasion,
                 note,
-                [.. user.StylePreferences.Select(EnumCodes.Parse<StyleTag>)],
+                styles,
                 user.ThermalPreference,
                 candidates,
                 await HistoryAsync(userId, today, cancellationToken),
-                user.ColorAnalysis is { } colors ? [.. colors.Best.Select(swatch => swatch.Name.ToLowerInvariant())] : null);
+                user.ColorAnalysis is { } colors ? [.. colors.Best.Select(swatch => swatch.Name.ToLowerInvariant())] : null,
+                user.ColorAnalysis is { } palette ? [.. palette.Best.Select(swatch => swatch.Wardrobe).OfType<Color>().Distinct()] : null);
 
             var run = await ComposeAsync(userId, styling, cancellationToken);
             var proposals = run.Proposals;
@@ -178,6 +191,7 @@ public sealed class StylistService(
                 Umbrella = candidates.Umbrella,
                 Source = run.Fallback ? OutfitSource.Rules : OutfitSource.Model,
                 Kind = proposal.Kind,
+                Style = proposal.Style,
                 Score = proposal.Score,
                 Reasoning = proposal.Reasoning,
                 WeatherNote = proposal.WeatherNote,
@@ -247,6 +261,11 @@ public sealed class StylistService(
             .GroupBy(item => item.ClothingItemId)
             .Select(group => new { Id = group.Key, Count = group.Count() })
             .ToDictionaryAsync(entry => entry.Id, entry => entry.Count, cancellationToken);
+        var dislikes = await db.OutfitItems
+            .Where(item => db.Outfits.Any(outfit => outfit.Id == item.OutfitId && outfit.UserId == userId && outfit.Rating == OutfitRating.Dislike))
+            .GroupBy(item => item.ClothingItemId)
+            .Select(group => new { Id = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(entry => entry.Id, entry => entry.Count, cancellationToken);
         var recently = today.Today.AddDays(-StylingHistory.RecentDays);
 
         var garments = new List<Garment>(clothes.Count);
@@ -262,11 +281,34 @@ public sealed class StylistService(
                     item.IsForgotten(today.Today, today.Zone),
                     item.LastWornOn >= recently,
                     likes.GetValueOrDefault(item.Id),
-                    item.InLaundry));
+                    item.InLaundry,
+                    dislikes.GetValueOrDefault(item.Id)));
             }
         }
 
         return garments;
+    }
+
+    /// <summary>
+    /// The newest outfits the person liked, saved or wore, as the styles of their garments. Each of the three reactions
+    /// counts once, so an outfit that was liked and worn says twice as much as one that was only saved.
+    /// </summary>
+    private async Task<List<StyleEvidence>> StyleEvidenceAsync(Guid userId, List<Garment> wardrobe, CancellationToken cancellationToken)
+    {
+        var acted = await db.Outfits.AsNoTracking()
+            .Where(outfit => outfit.UserId == userId && (outfit.Rating == OutfitRating.Like || outfit.IsSaved || outfit.WornOn != null))
+            .OrderByDescending(outfit => outfit.CreatedAt).ThenByDescending(outfit => outfit.Id)
+            .Take(StylingHistory.StyleEvidence)
+            .Select(outfit => new { outfit.Rating, outfit.IsSaved, outfit.WornOn, Garments = outfit.Items.Select(item => item.ClothingItemId).ToList() })
+            .ToListAsync(cancellationToken);
+        var stylesOf = wardrobe.ToDictionary(garment => garment.Id, garment => garment.Tags.Styles);
+
+        return
+        [
+            .. acted.Select(outfit => new StyleEvidence(
+                [.. outfit.Garments.Where(stylesOf.ContainsKey).Select(id => stylesOf[id])],
+                (outfit.Rating == OutfitRating.Like ? 1 : 0) + (outfit.IsSaved ? 1 : 0) + (outfit.WornOn is null ? 0 : 1))),
+        ];
     }
 
     /// <summary>What the person wore lately and what they made of earlier proposals (product spec 6.8).</summary>

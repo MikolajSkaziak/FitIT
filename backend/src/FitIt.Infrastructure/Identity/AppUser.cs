@@ -10,6 +10,7 @@ public sealed class AppUser : IdentityUser<Guid>
     /// <summary>Kept only to confirm the minimum age at registration.</summary>
     public DateOnly BirthDate { get; set; }
 
+    /// <summary>"Unspecified" until the first step after sign-up asks for it, unless registration already sent one.</summary>
     public Gender Gender { get; set; }
 
     /// <summary>Codes of <see cref="Core.Wardrobe.StyleTag"/>.</summary>
@@ -32,6 +33,7 @@ public sealed class AppUser : IdentityUser<Guid>
 
     public double? Lon { get; set; }
 
+    /// <summary>Always set: a stand-in from registration until the body-shape step after sign-up picks the real one.</summary>
     public Guid AvatarId { get; set; }
 
     public Avatar? Avatar { get; set; }
@@ -45,7 +47,7 @@ public sealed class AppUser : IdentityUser<Guid>
     /// <summary>The seasonal colour type and palette from the colour analysis; null until one is made. The photo it came from is never kept.</summary>
     public ColorProfile? ColorAnalysis { get; set; }
 
-    /// <summary>The first step of the post-registration flow that is not finished yet (0 colors, 1 first pieces, 2 recap). Only ever rises.</summary>
+    /// <summary>The first step of the post-registration flow that is not finished yet (0 body shape, 1 fit, 2 colors, 3 recap). Only ever rises.</summary>
     public int OnboardingStep { get; set; }
 
     /// <summary>When the person finished or skipped through the post-registration flow. The flow is shown while this is null, on any phone.</summary>

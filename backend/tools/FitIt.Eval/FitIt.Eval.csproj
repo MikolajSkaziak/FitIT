@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\src\FitIt.Core\FitIt.Core.csproj" />
     <ProjectReference Include="..\..\src\FitIt.Infrastructure\FitIt.Infrastructure.csproj" />
   </ItemGroup>

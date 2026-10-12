@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SkiaSharp;
 
 namespace FitIt.Infrastructure.Wardrobe;
 
@@ -106,6 +107,13 @@ public sealed class WardrobeService(
 
     private static readonly ApiError ConsentRequired =
         ApiError.Forbidden("consent_required", "Consent to processing garment photos by external AI services is needed first.");
+
+    private static readonly ApiError PhotoLimitReached = ApiError.Conflict("photo_limit_reached", "The garment already has as many extra photos as it can hold.") with
+    {
+        Extensions = new Dictionary<string, object?>(StringComparer.Ordinal) { ["max"] = ClothingPhoto.MaxPerGarment },
+    };
+
+    private static readonly ApiError PhotoKeyInUse = ApiError.Conflict("key_in_use", "The photo is already attached to another garment.");
 
     private static readonly ClothingStatus[] InWardrobe = [ClothingStatus.Processing, ClothingStatus.Ready, ClothingStatus.Failed];
 
@@ -286,7 +294,7 @@ public sealed class WardrobeService(
         return item;
     }
 
-    /// <summary>Removes the garment, both of its pictures, the outfits it was part of and the visualizations of those.</summary>
+    /// <summary>Removes the garment, both of its pictures, its extra photos, the outfits it was part of and the visualizations of those.</summary>
     public async Task<Result<Unit>> DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
         var item = await FindAsync(userId, id, cancellationToken);
@@ -296,8 +304,11 @@ public sealed class WardrobeService(
         }
 
         IReadOnlyList<string> visualizationKeys;
+        IReadOnlyList<string> photoKeys;
         await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
         {
+            // The rows of its extra photos go with the garment; their files are named here, while the rows still say where they are.
+            photoKeys = await db.ClothingPhotos.Where(photo => photo.ClothingItemId == id).Select(photo => photo.Key).ToListAsync(cancellationToken);
             // An outfit with a hole in it is no outfit: every outfit the garment was part of goes with it, and so do its visualizations.
             // Their pictures are files, so their keys are read before the rows are gone.
             var outfitIds = db.Outfits.Where(outfit => outfit.UserId == userId && outfit.Items.Any(part => part.ClothingItemId == id)).Select(outfit => outfit.Id);
@@ -308,7 +319,7 @@ public sealed class WardrobeService(
             await transaction.CommitAsync(cancellationToken);
         }
 
-        await DeleteFilesAsync(item, cancellationToken);
+        await DeleteFilesAsync(item, photoKeys, cancellationToken);
         await visualizationFiles.DeleteAsync([.. visualizationKeys], cancellationToken);
         return Unit.Value;
     }
@@ -337,6 +348,141 @@ public sealed class WardrobeService(
         return item;
     }
 
+    /// <summary>
+    /// An address the phone can PUT one extra photo of this garment to. Not counted against the day's new clothes: nothing
+    /// is done to the photo, so it costs nothing.
+    /// </summary>
+    public async Task<Result<UploadTicket>> CreatePhotoUploadAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    {
+        if (await FindOwnedAsync(userId, id, cancellationToken) is null)
+        {
+            return ApiError.NotFound();
+        }
+
+        // Asked here so that nobody uploads a photo that is certain to be refused a moment later. The real count is taken when the photo is added.
+        if (await db.ClothingPhotos.CountAsync(photo => photo.ClothingItemId == id, cancellationToken) >= ClothingPhoto.MaxPerGarment)
+        {
+            return PhotoLimitReached;
+        }
+
+        return storage.CreateUpload(ObjectKeys.NewExtra(userId), PhotoContentType, UploadLifetime);
+    }
+
+    /// <summary>
+    /// Attaches an uploaded photo to the garment as it is: no background removal, no AI service. Sending the same key again
+    /// returns the same photo.
+    /// </summary>
+    public async Task<Result<(ClothingPhoto Photo, bool Created)>> AddPhotoAsync(Guid userId, Guid id, string key, CancellationToken cancellationToken)
+    {
+        // The garment first: somebody else's answers "not found" whatever else is wrong with the request.
+        if (await FindOwnedAsync(userId, id, cancellationToken) is null)
+        {
+            return ApiError.NotFound();
+        }
+
+        if (!ObjectKeys.IsExtraOf(userId, key))
+        {
+            return ApiError.BadRequest("key_invalid", "The key is not one issued to this account by POST /api/clothes/{id}/photos/uploads.");
+        }
+
+        if (await db.ClothingPhotos.AsNoTracking().FirstOrDefaultAsync(photo => photo.Key == key, cancellationToken) is { } existing)
+        {
+            return existing.ClothingItemId == id ? (existing, false) : PhotoKeyInUse;
+        }
+
+        if (await CheckUploadAsync(key, cancellationToken) is { } refusal)
+        {
+            return refusal;
+        }
+
+        if (PhotoSize(await storage.ReadAsync(key, null, cancellationToken)) is not { } size)
+        {
+            await storage.DeleteAsync([key], cancellationToken);
+            return ApiError.BadRequest("upload_not_jpeg", "The file is not a JPEG photo.");
+        }
+
+        var photo = new ClothingPhoto { Id = Guid.CreateVersion7(), ClothingItemId = id, Key = key, Width = size.Width, Height = size.Height, CreatedAt = clock.UtcNow };
+        await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
+        {
+            // The garment's row is held for the count and the insert, so photos arriving at once cannot each see room for themselves.
+            var held = await db.Database.ExecuteSqlAsync($"UPDATE clothing_items SET updated_at = updated_at WHERE id = {id} AND user_id = {userId}", cancellationToken);
+            if (held == 0)
+            {
+                // Deleted since it was found. The file has no row; the nightly sweep removes it.
+                return ApiError.NotFound();
+            }
+
+            if (await db.ClothingPhotos.CountAsync(found => found.ClothingItemId == id, cancellationToken) >= ClothingPhoto.MaxPerGarment)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                await storage.DeleteAsync([key], cancellationToken);
+                return PhotoLimitReached;
+            }
+
+            db.ClothingPhotos.Add(photo);
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException exception) when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+            {
+                // The same key arrived twice at once and the other request won.
+                await transaction.RollbackAsync(cancellationToken);
+                db.Entry(photo).State = EntityState.Detached;
+                var winner = await db.ClothingPhotos.AsNoTracking().FirstOrDefaultAsync(found => found.Key == key, cancellationToken);
+                return winner is not null && winner.ClothingItemId == id ? (winner, false) : PhotoKeyInUse;
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        return (photo, true);
+    }
+
+    /// <summary>Removes one extra photo of a garment and its file. The garment's main picture is not one of these.</summary>
+    public async Task<Result<Unit>> DeletePhotoAsync(Guid userId, Guid id, Guid photoId, CancellationToken cancellationToken)
+    {
+        var photo = await db.ClothingPhotos.FirstOrDefaultAsync(
+            found => found.Id == photoId && found.ClothingItemId == id && db.Clothes.Any(item => item.Id == id && item.UserId == userId),
+            cancellationToken);
+        if (photo is null)
+        {
+            return ApiError.NotFound();
+        }
+
+        db.ClothingPhotos.Remove(photo);
+        await db.SaveChangesAsync(cancellationToken);
+        await DeletePhotoFilesAsync([photo.Key], id, cancellationToken);
+        return Unit.Value;
+    }
+
+    /// <summary>The extra photos of these garments, each garment's in the order they were added.</summary>
+    public async Task<ILookup<Guid, ClothingPhoto>> PhotosOfAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    {
+        var photos = ids.Count == 0
+            ? []
+            : await db.ClothingPhotos.AsNoTracking()
+                .Where(photo => ids.Contains(photo.ClothingItemId))
+                .OrderBy(photo => photo.CreatedAt).ThenBy(photo => photo.Id)
+                .ToListAsync(cancellationToken);
+        return photos.ToLookup(photo => photo.ClothingItemId);
+    }
+
+    /// <summary>The signed address of an extra photo, valid for an hour.</summary>
+    public Uri ImageUrl(ClothingPhoto photo) => storage.SignRead(photo.Key, ReadLifetime);
+
+    /// <summary>Removes the rows of a garment's extra photos and returns the keys of their files, for whoever deletes the files next.</summary>
+    internal async Task<IReadOnlyList<string>> TakePhotosAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var keys = await db.ClothingPhotos.Where(photo => photo.ClothingItemId == id).Select(photo => photo.Key).ToListAsync(cancellationToken);
+        if (keys.Count > 0)
+        {
+            await db.ClothingPhotos.Where(photo => photo.ClothingItemId == id).ExecuteDeleteAsync(cancellationToken);
+        }
+
+        return keys;
+    }
+
     public async Task<WardrobeStats> StatsAsync(Guid userId, CancellationToken cancellationToken)
     {
         var today = await calendar.OfAsync(userId, cancellationToken);
@@ -359,9 +505,10 @@ public sealed class WardrobeService(
 
     public static bool IsForgotten(ClothingItem item, LocalDay today) => item.Status == ClothingStatus.Ready && item.IsForgotten(today.Today, today.Zone);
 
-    internal async Task DeleteFilesAsync(ClothingItem item, CancellationToken cancellationToken)
+    /// <summary>Deletes the garment's own pictures and the given extra photos of it.</summary>
+    internal async Task DeleteFilesAsync(ClothingItem item, IReadOnlyCollection<string> photoKeys, CancellationToken cancellationToken)
     {
-        string[] keys = item.CutoutKey is { } cutout && cutout != item.OriginalKey ? [item.OriginalKey, cutout] : [item.OriginalKey];
+        string[] keys = item.CutoutKey is { } cutout && cutout != item.OriginalKey ? [item.OriginalKey, cutout, .. photoKeys] : [item.OriginalKey, .. photoKeys];
         try
         {
             await storage.DeleteAsync(keys, cancellationToken);
@@ -400,6 +547,37 @@ public sealed class WardrobeService(
 
         var tags = new GarmentTags(category.Value, type.Value, name, colors, pattern.Value, material.Value, formality.Value, warmth.Value, rainOk.Value, patch.Styles ?? current?.Styles ?? [], patch.Seasons ?? current?.Seasons);
         return tags.Check() is { } problem ? problem : tags;
+    }
+
+    /// <summary>The person's garment that can hold photos: a refused one has no pictures at all.</summary>
+    private Task<ClothingItem?> FindOwnedAsync(Guid userId, Guid id, CancellationToken cancellationToken) =>
+        db.Clothes.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId && item.Status != ClothingStatus.Rejected, cancellationToken);
+
+    /// <summary>The size of a JPEG as it is shown (a camera may store it lying on its side), or null when it is not a readable JPEG.</summary>
+    private static (int Width, int Height)? PhotoSize(byte[] content)
+    {
+        using var data = SKData.CreateCopy(content);
+        using var codec = SKCodec.Create(data);
+        if (codec is null || codec.EncodedFormat != SKEncodedImageFormat.Jpeg || codec.Info.Width <= 0 || codec.Info.Height <= 0)
+        {
+            return null;
+        }
+
+        var turned = codec.EncodedOrigin is SKEncodedOrigin.LeftTop or SKEncodedOrigin.RightTop or SKEncodedOrigin.RightBottom or SKEncodedOrigin.LeftBottom;
+        return turned ? (codec.Info.Height, codec.Info.Width) : (codec.Info.Width, codec.Info.Height);
+    }
+
+    private async Task DeletePhotoFilesAsync(IReadOnlyCollection<string> keys, Guid itemId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await storage.DeleteAsync(keys, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // The row is gone; the nightly sweep removes files that no row points to.
+            logger.LogWarning(exception, "Could not delete a photo of garment {ItemId}; the orphan sweep will", itemId);
+        }
     }
 
     private Task<ClothingItem?> FindByKeyAsync(Guid userId, string key, CancellationToken cancellationToken) =>

@@ -10,6 +10,7 @@ import { renderScreen, router } from '@/test/screen';
 
 jest.mock('expo-router', () => jest.requireActual('@/test/screen').routerModule);
 jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
+jest.mock('@/api/calendar', () => jest.requireActual('@/test/calendar').quietCalendar());
 jest.mock('@/auth/tokenStorage', () => ({
   tokenStorage: { load: jest.fn(async () => null), save: jest.fn(async () => undefined), clear: jest.fn(async () => undefined) },
 }));
@@ -26,6 +27,7 @@ const update = api.updateOutfit;
 
 const answer = (change: Partial<outfits.Suggestions> = {}): outfits.Suggestions => ({
   status: 'proposed',
+  date: '2026-10-05',
   missing: [],
   missingEither: [],
   fallback: false,
@@ -64,7 +66,7 @@ describe('while the stylist works', () => {
 
     expect(screen.getByLabelText('Styling your outfits')).toBeOnTheScreen();
     expect(screen.getByText('Styling three outfits from your wardrobe.')).toBeOnTheScreen();
-    expect(screen.getByText('Outfits for today')).toBeOnTheScreen();
+    expect(screen.getByText('Looks for today')).toBeOnTheScreen();
     expect(suggest).toHaveBeenCalledTimes(1);
     expect(suggest).toHaveBeenCalledWith({ occasion: 'everyday', note: undefined, baseItemId: undefined });
 
@@ -139,7 +141,7 @@ describe('three proposals', () => {
     expect(screen.getByRole('tab', { name: 'Discovery, 2 of 3' }).props.accessibilityState.selected).toBe(true);
   });
 
-  it('puts the umbrella, the relaxed rules and the note about the rules in words a person can read', async () => {
+  it('puts the umbrella and the note about the rules in words a person can read, and keeps quiet about rules that gave way', async () => {
     suggest.mockResolvedValue(
       answer({
         outfits: [outfit('o1', { umbrella: true, source: 'rules', relaxations: [{ role: 'outerwear', rule: 'warmth' }] })],
@@ -148,10 +150,10 @@ describe('three proposals', () => {
 
     await renderScreen(<Proposals />);
 
-    expect(await screen.findByText('You don’t have jackets and coats for this temperature, so this is the closest match.')).toBeOnTheScreen();
-    expect(screen.getByText('Rain is possible and you don’t have a rainproof jacket, so bring an umbrella.')).toBeOnTheScreen();
+    expect(await screen.findByText('Rain is possible and you don’t have a rainproof jacket, so bring an umbrella.')).toBeOnTheScreen();
     expect(screen.getByText('Our AI stylist isn’t available right now, so we put this outfit together with simple style rules.')).toBeOnTheScreen();
     expect(screen.getByText('Morning 7°C, afternoon 18°C.')).toBeOnTheScreen();
+    expect(screen.queryByText(/closest match/)).toBeNull();
   });
 
   it('says nothing about rules, umbrellas or relaxed rules when there is nothing to say', async () => {
@@ -166,47 +168,7 @@ describe('three proposals', () => {
   });
 });
 
-describe('rating, keeping and wearing', () => {
-  it('shows a thumb at once, and keeps it when the server agrees', async () => {
-    suggest.mockResolvedValue(answer());
-    const confirmed = later<outfits.Outfit>();
-    update.mockReturnValue(confirmed.promise);
-    await renderScreen(<Proposals />);
-    await screen.findByTestId('proposals-screen');
-
-    await fireEvent.press(screen.getAllByTestId('outfit-like')[0] as never);
-
-    // Not confirmed yet, and already on.
-    await waitFor(() => expect(screen.getAllByTestId('outfit-like')[0]?.props.accessibilityState.selected).toBe(true));
-    expect(update).toHaveBeenCalledWith('o1', { rating: 'like' });
-
-    await confirmed.settle(outfit('o1', { rating: 'like' }));
-    expect(screen.getAllByTestId('outfit-like')[0]?.props.accessibilityState.selected).toBe(true);
-  });
-
-  it('takes the thumb back and says why when the server refuses', async () => {
-    suggest.mockResolvedValue(answer());
-    update.mockRejectedValue(new ApiError({ status: 0, code: 'network' }));
-    await renderScreen(<Proposals />);
-    await screen.findByTestId('proposals-screen');
-
-    await fireEvent.press(screen.getAllByTestId('outfit-dislike')[0] as never);
-
-    expect(await screen.findByText('Can’t connect right now. Check your internet connection and try again.')).toBeOnTheScreen();
-    expect(screen.getAllByTestId('outfit-dislike')[0]?.props.accessibilityState.selected).toBe(false);
-  });
-
-  it('clears a rating when the same thumb is pressed again', async () => {
-    suggest.mockResolvedValue(answer({ outfits: [outfit('o1', { rating: 'like' })] }));
-    update.mockResolvedValue(outfit('o1', { rating: 'none' }));
-    await renderScreen(<Proposals />);
-    await screen.findByTestId('proposals-screen');
-
-    await fireEvent.press(screen.getByTestId('outfit-like'));
-
-    expect(update).toHaveBeenCalledWith('o1', { rating: 'none' });
-  });
-
+describe('keeping and wearing', () => {
   it('keeps an outfit, and lets it go again', async () => {
     suggest.mockResolvedValue(answer({ outfits: [outfit('o1')] }));
     update.mockResolvedValueOnce(outfit('o1', { isSaved: true })).mockResolvedValueOnce(outfit('o1', { isSaved: false }));
@@ -224,11 +186,27 @@ describe('rating, keeping and wearing', () => {
     update.mockResolvedValue(outfit('o1', { wornOn: '2026-10-05' }));
     await renderScreen(<Proposals />);
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Wear this' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Wear this today' }));
 
     expect(update).toHaveBeenCalledWith('o1', { worn: true });
     expect(await screen.findByRole('button', { name: 'Worn' })).toBeOnTheScreen();
     expect(stateOf('Worn').busy).toBeFalsy();
+  });
+
+  it('holds the pages and the page still while a board is arranged, and keeps the arrangement with that proposal', async () => {
+    suggest.mockResolvedValue(answer());
+    update.mockImplementation(async (_id, change) => outfit('o1', { layout: change.layout as outfits.OutfitPlacement[] }));
+    await renderScreen(<Proposals />);
+    const pages = await screen.findByTestId('proposals-pages');
+    expect(pages.props.scrollEnabled).toBe(true);
+
+    await fireEvent.press((await screen.findAllByRole('button', { name: 'Arrange' }))[0]);
+    expect(screen.getByTestId('proposals-pages').props.scrollEnabled).toBe(false);
+    await fireEvent(screen.getByTestId('board-o1-g2-handle'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+
+    expect(screen.getByTestId('proposals-pages').props.scrollEnabled).toBe(true);
+    await waitFor(() => expect(update).toHaveBeenCalledWith('o1', { layout: expect.arrayContaining([expect.objectContaining({ clothingId: 'g2' })]) }));
   });
 
   it('does not say it was worn when the server refused', async () => {
@@ -236,10 +214,10 @@ describe('rating, keeping and wearing', () => {
     update.mockRejectedValue(new ApiError({ status: 500, code: 'server_error' }));
     await renderScreen(<Proposals />);
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Wear this' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Wear this today' }));
 
     expect(await screen.findByText('Something went wrong on our end. Try again in a moment.')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Wear this' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Wear this today' })).toBeOnTheScreen();
   });
 });
 

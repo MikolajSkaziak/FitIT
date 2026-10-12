@@ -7,7 +7,7 @@ namespace FitIt.Infrastructure.Styling;
 /// </summary>
 public static class StylistPrompt
 {
-    public const string Version = "stylist-v3";
+    public const string Version = "stylist-v4";
 
     private static readonly Lazy<string> Text = new(() =>
     {

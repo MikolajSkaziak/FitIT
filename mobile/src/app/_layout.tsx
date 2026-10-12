@@ -1,5 +1,7 @@
-import { BricolageGrotesque_600SemiBold } from '@expo-google-fonts/bricolage-grotesque/600SemiBold';
+import { BodoniModa_500Medium } from '@expo-google-fonts/bodoni-moda/500Medium';
+import { BodoniModa_500Medium_Italic } from '@expo-google-fonts/bodoni-moda/500Medium_Italic';
 import { Figtree_400Regular } from '@expo-google-fonts/figtree/400Regular';
+import { Figtree_500Medium } from '@expo-google-fonts/figtree/500Medium';
 import { Figtree_600SemiBold } from '@expo-google-fonts/figtree/600SemiBold';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
@@ -7,6 +9,7 @@ import { DarkTheme, DefaultTheme, SplashScreen, Stack, ThemeProvider } from 'exp
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { StyleSheet, useColorScheme, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { fetchMe } from '@/api/account';
 import { restoreSession, useSession } from '@/auth/session';
@@ -25,7 +28,7 @@ export default function RootLayout() {
   const theme = useTheme();
   const dark = useColorScheme() === 'dark';
   const status = useSession((session) => session.status);
-  const [fontsLoaded, fontError] = useFonts({ BricolageGrotesque_600SemiBold, Figtree_400Regular, Figtree_600SemiBold });
+  const [fontsLoaded, fontError] = useFonts({ BodoniModa_500Medium, BodoniModa_500Medium_Italic, Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold });
 
   useEffect(() => {
     void restoreSession(fetchMe);
@@ -51,25 +54,28 @@ export default function RootLayout() {
   const signedIn = status === 'signedIn';
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={navigationTheme}>
-        <StatusBar style="auto" />
-        <PhotoPeekHost>
-          {status === 'unreachable' ? (
-            <Unreachable />
-          ) : (
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.canvas } }}>
-              <Stack.Protected guard={signedIn}>
-                <Stack.Screen name="(app)" />
-              </Stack.Protected>
-              <Stack.Protected guard={!signedIn}>
-                <Stack.Screen name="(auth)" />
-              </Stack.Protected>
-            </Stack>
-          )}
-        </PhotoPeekHost>
-      </ThemeProvider>
-    </QueryClientProvider>
+    // Gestures (arranging an outfit's board) are recognised inside this view only.
+    <GestureHandlerRootView style={styles.root}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider value={navigationTheme}>
+          <StatusBar style="auto" />
+          <PhotoPeekHost>
+            {status === 'unreachable' ? (
+              <Unreachable />
+            ) : (
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.canvas } }}>
+                <Stack.Protected guard={signedIn}>
+                  <Stack.Screen name="(app)" />
+                </Stack.Protected>
+                <Stack.Protected guard={!signedIn}>
+                  <Stack.Screen name="(auth)" />
+                </Stack.Protected>
+              </Stack>
+            )}
+          </PhotoPeekHost>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -98,6 +104,7 @@ function Unreachable() {
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   unreachable: { flex: 1, justifyContent: 'center', gap: space[6] },
   message: { gap: space[2] },
 });

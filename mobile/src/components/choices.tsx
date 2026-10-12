@@ -1,10 +1,9 @@
-import type { Gender, StyleTag, ThermalPreference } from '@/api/account';
-import { genderOptions, styleOptions, thermalOptions } from '@/copy/labels';
-import { useDictionaries } from '@/features/wardrobe/useDictionaries';
-import { space } from '@/theme';
+import { View } from 'react-native';
 
-import { OptionTile, Segmented } from './controls';
-import { Labeled } from './forms';
+import type { Gender, StyleTag } from '@/api/account';
+import { genderOptions, styleOptions } from '@/copy/labels';
+import { useDictionaries } from '@/features/wardrobe/useDictionaries';
+import { OptionTile } from './controls';
 import { Grid } from './Grid';
 import { StyleTile } from './StyleTile';
 
@@ -28,14 +27,14 @@ export function photoModel(gender: Gender | null, index: number): 'woman' | 'man
   return index % 2 === 0 ? 'woman' : 'man';
 }
 
-/** Photo tiles of the styles, two to a row; several can be chosen. The photos come with the server's dictionaries, the labels do not wait for them. */
+/** Photos of the styles with their names underneath, two to a row; several can be chosen. The photos come with the server's dictionaries, the labels do not wait for them. */
 export function StyleChoice({ value, onChange, gender }: StyleChoiceProps) {
   const dictionaries = useDictionaries();
   return (
     <Grid
       items={styleOptions}
       columns={2}
-      rowGap={space[4]}
+      rowGap={20}
       keyOf={(option) => option.value}
       accessibilityLabel="Style"
       renderItem={(option, index) => {
@@ -55,35 +54,18 @@ export function StyleChoice({ value, onChange, gender }: StyleChoiceProps) {
   );
 }
 
-interface ThermalChoiceProps {
-  value: ThermalPreference;
-  onChange: (value: ThermalPreference) => void;
-}
-
-/** "How do you usually feel the cold?" It shifts the weather thresholds a few degrees either way. */
-export function ThermalChoice({ value, onChange }: ThermalChoiceProps) {
-  return (
-    <Labeled label="How do you usually feel the cold?" helper="We’ll pick warmer or lighter outfits to match.">
-      <Segmented label="How you feel the cold" options={thermalOptions} value={value} onChange={onChange} />
-    </Labeled>
-  );
-}
-
 interface GenderChoiceProps {
   value: Gender | null;
   onChange: (value: Gender) => void;
 }
 
-/** Gender tiles, two to a row, so the longer labels fit; one can be chosen. */
+/** The genders as a list of hairline rows; one can be chosen. */
 export function GenderChoice({ value, onChange }: GenderChoiceProps) {
   return (
-    <Grid
-      items={genderOptions}
-      columns={2}
-      keyOf={(option) => option.value}
-      accessibilityRole="radiogroup"
-      accessibilityLabel="Gender"
-      renderItem={(option) => <OptionTile label={option.label} selected={option.value === value} onPress={() => onChange(option.value)} testID={`gender-${option.value}`} />}
-    />
+    <View accessibilityRole="radiogroup" accessibilityLabel="Gender">
+      {genderOptions.map((option) => (
+        <OptionTile key={option.value} label={option.label} selected={option.value === value} onPress={() => onChange(option.value)} testID={`gender-${option.value}`} />
+      ))}
+    </View>
   );
 }

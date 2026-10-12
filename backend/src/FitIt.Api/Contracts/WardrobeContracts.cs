@@ -13,6 +13,19 @@ public sealed class AddClothingRequest
     public string Key { get; init; } = "";
 }
 
+public sealed class AddClothingPhotoRequest
+{
+    /// <summary>The key returned by <c>POST /api/clothes/{id}/photos/uploads</c>, after the photo was uploaded.</summary>
+    [Required, MaxLength(120)]
+    public string Key { get; init; } = "";
+}
+
+/// <summary>
+/// One more photo of a garment, as it was taken (the back, a detail, how it fits). <c>ImageUrl</c> is signed and lasts an hour;
+/// cache the picture under <c>ImageKey</c>. <c>Width</c> and <c>Height</c> are its pixels.
+/// </summary>
+public sealed record ClothingPhotoResponse(Guid Id, string ImageUrl, string ImageKey, int Width, int Height);
+
 /// <summary>Any subset of the tags and flags. A garment that has no tags yet needs all tags at once.</summary>
 public sealed class UpdateClothingRequest
 {
@@ -53,6 +66,8 @@ public sealed class UpdateClothingRequest
 /// <summary>
 /// A garment. Tags are null while it is being processed or when tagging failed.
 /// <c>ImageUrl</c> is signed and lasts an hour; cache the picture under <c>ImageKey</c>, which does not change.
+/// <c>Photos</c> are the extra photos besides that main picture, in the order they were added (at most four).
+/// <c>DescribedByAi</c> is true while the name and tags are what the AI tagger wrote; the person's own edit clears it, and starter pieces never have it.
 /// </summary>
 public sealed record ClothingResponse(
     Guid Id,
@@ -77,7 +92,9 @@ public sealed record ClothingResponse(
     RejectReason? RejectReason,
     string? ImageUrl,
     string? ImageKey,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<ClothingPhotoResponse> Photos,
+    bool DescribedByAi);
 
 public sealed record WardrobeStatsResponse(int Total, int WornLast30Days, int Forgotten, int Processing, int NeedsTags);
 
@@ -119,11 +136,14 @@ public sealed record DictionariesResponse(
     IReadOnlyList<ScaleEntry> Formality,
     IReadOnlyList<ScaleEntry> Warmth);
 
-/// <summary>One of the common pieces a person can add without a photo. <c>ImageUrl</c> is a public, square picture with a transparent background.</summary>
-public sealed record StarterPieceResponse(string Code, string Name, Category Category, Subcategory Type, IReadOnlyList<Color> Colors, string ImageUrl);
+/// <summary>
+/// One of the common pieces a person can add without a photo. <c>ImageUrl</c> is a public picture with a transparent background, trimmed to the garment.
+/// <c>Group</c> is the shop-style group the type belongs to; <c>Audience</c> says who the piece is cut for, and the phone filters on it by the gender chosen at sign-up.
+/// </summary>
+public sealed record StarterPieceResponse(string Code, string Name, Category Category, Subcategory Type, GarmentGroup Group, StarterAudience Audience, IReadOnlyList<Color> Colors, string ImageUrl);
 
 /// <summary>A starter piece as the signed-in person sees it: <c>Added</c> is true while a garment made from it is in the wardrobe, and turns false again when that garment is deleted.</summary>
-public sealed record MyStarterPieceResponse(string Code, string Name, Category Category, Subcategory Type, IReadOnlyList<Color> Colors, string ImageUrl, bool Added);
+public sealed record MyStarterPieceResponse(string Code, string Name, Category Category, Subcategory Type, GarmentGroup Group, StarterAudience Audience, IReadOnlyList<Color> Colors, string ImageUrl, bool Added);
 
 public sealed class AddStarterPiecesRequest
 {

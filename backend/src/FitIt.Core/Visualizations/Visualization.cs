@@ -116,3 +116,34 @@ public sealed class Visualization
     /// <summary>A poll that found the image still being made.</summary>
     public void Touch(DateTimeOffset now) => UpdatedAt = now;
 }
+
+/// <summary>Why a person reported a try-on picture. The codes travel as snake case (<c>wrong_clothes</c>).</summary>
+public enum ReportReason
+{
+    WrongClothes,
+    Distorted,
+
+    /// <summary>The picture is taken off the person's screen at once and its file is deleted.</summary>
+    Inappropriate,
+
+    Other,
+}
+
+/// <summary>
+/// A person's report about one try-on picture. The picture id is kept as a plain value, not a foreign key: an inappropriate
+/// picture is deleted at once, and the report has to outlive it.
+/// </summary>
+public sealed class VisualizationReport
+{
+    public Guid Id { get; init; }
+
+    public Guid UserId { get; init; }
+
+    public Guid VisualizationId { get; init; }
+
+    public Guid OutfitId { get; init; }
+
+    public ReportReason Reason { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; }
+}

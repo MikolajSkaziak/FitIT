@@ -1,4 +1,3 @@
-import type { Relaxation } from '@/api/outfits';
 import type { Category } from '@/api/wardrobe';
 import { formatRange } from '@/features/weather/copy';
 
@@ -67,12 +66,6 @@ export function missingNotice(all: readonly Category[], either: readonly Categor
   return { title, text: `${lead} ${atLeast}${list}. Add ${adds} and we’ll put an outfit together.` };
 }
 
-const criteria = { formality: 'for this occasion', style: 'in a matching style', warmth: 'for this temperature' } as const;
-
-/** A rule that gave way, as a sentence a person can read. Same wording for every outfit of the request. */
-export const relaxationLine = ({ role, rule }: Relaxation): string => `You don’t have ${roles[role].noun} ${criteria[rule]}, so this is the closest match.`;
-
-export const relaxationLines = (relaxations: readonly Relaxation[]): string[] => unique(relaxations.map(relaxationLine));
 
 export const umbrellaLine = 'Rain is possible and you don’t have a rainproof jacket, so bring an umbrella.';
 

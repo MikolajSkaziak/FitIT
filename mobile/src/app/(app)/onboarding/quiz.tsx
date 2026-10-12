@@ -11,8 +11,7 @@ import { messageFor } from '@/copy/errors';
 import { quiz as copy } from '@/features/colors/copy';
 import { completeQuiz, emptyQuiz, eyeOptions, hairOptions, skinToneOptions, undertoneOptions, type QuizDraft } from '@/features/colors/quiz';
 import { useAnalyzeAnswers } from '@/features/colors/useColors';
-import { flow } from '@/features/flow';
-import { Frame } from '@/features/onboarding/Frame';
+import { Actions, Frame } from '@/features/onboarding/Frame';
 import { space } from '@/theme';
 
 /** The questions that replace the photo: skin tone, undertone, hair and eyes. Colors are answered with round swatches, the undertone with a short choice. */
@@ -31,21 +30,21 @@ export default function OnboardingQuiz() {
 
   return (
     <Frame
-      step={redo ? undefined : flow.colors}
+      step={redo ? undefined : 'colors'}
       onBack={() => router.back()}
       title={copy.title}
       lead={copy.lead}
       testID="onboarding-quiz"
       footer={
-        <>
+        <Actions>
           <FormError message={analyze.isError ? messageFor(analyze.error) : null} />
           {answers ? null : (
-            <AppText variant="meta" color="textSecondary" align="center">
+            <AppText variant="caption" color="textSecondary" align="center">
               {copy.missing}
             </AppText>
           )}
           <Button label={copy.action} disabled={!answers} busy={analyze.isPending} onPress={show} testID="quiz-show" />
-        </>
+        </Actions>
       }>
       <View style={styles.questions}>
         <Labeled label={copy.skinTone.label}>

@@ -61,7 +61,7 @@ export function StoryPager({ onCreate, onLogin }: StoryPagerProps) {
             <View style={styles.words}>
               <AppText variant="display" accessibilityRole="header">
                 {page.headline.lead}
-                <AppText variant="display" color="action">
+                <AppText variant="displayItalic" color="action">
                   {page.headline.accent}
                 </AppText>
               </AppText>
@@ -73,7 +73,7 @@ export function StoryPager({ onCreate, onLogin }: StoryPagerProps) {
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, space[4]) + space[2] }]}>
         <Bars index={index} onSelect={go} />
         <Button label={storyCopy.create} onPress={onCreate} testID="welcome-register" />
-        <Button label={storyCopy.login} kind="secondary" onPress={onLogin} testID="welcome-login" />
+        <Button label={storyCopy.login} kind="text" onPress={onLogin} testID="welcome-login" />
       </View>
     </View>
   );

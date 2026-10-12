@@ -50,6 +50,13 @@ public sealed class OutfitItem
 }
 
 /// <summary>
+/// Where one garment lies on the outfit's board, as the person arranged it. <see cref="X"/> and <see cref="Y"/> are the
+/// garment's centre in fractions of the board (0 to 1), <see cref="Scale"/> its width as a fraction of the board's width,
+/// <see cref="Z"/> the stacking order: higher lies in front.
+/// </summary>
+public sealed record OutfitPlacement(Guid ClothingId, double X, double Y, double Scale, int Z);
+
+/// <summary>
 /// One proposal as it was made, and what the person did with it afterwards: saved it, rated it, wore it. The three
 /// proposals of one request share <see cref="RequestId"/>.
 /// </summary>
@@ -59,6 +66,9 @@ public sealed class Outfit
     public const int ReasoningMaxLength = 600;
     public const int WeatherNoteMaxLength = 300;
     public const int NameMaxLength = 60;
+    public const double PlacementMinScale = 0.05;
+    public const double PlacementMaxScale = 1;
+    public const int PlacementMaxZ = 99;
 
     public Guid Id { get; init; }
 
@@ -87,6 +97,12 @@ public sealed class Outfit
     /// <summary>Null when the outfit did not meet the kind it was offered as, and for outfits the person built.</summary>
     public OutfitKind? Kind { get; init; }
 
+    /// <summary>
+    /// The style the outfit was proposed in: one the person liked at the time, or one near those. Null when the stylist named
+    /// none, for outfits the person built, and for proposals made before styles were recorded.
+    /// </summary>
+    public StyleTag? Style { get; init; }
+
     public int Score { get; init; }
 
     public required string Reasoning { get; init; }
@@ -105,7 +121,10 @@ public sealed class Outfit
 
     public bool IsSaved { get; private set; }
 
-    /// <summary>The last day, as the person counts days, on which they said "I am wearing this".</summary>
+    /// <summary>
+    /// The last day, as the person counts days, on which they wore this: the newest worn day of its calendar entries, kept
+    /// here for the lists and the stylist's history, which only ask "when last".
+    /// </summary>
     public DateOnly? WornOn { get; private set; }
 
     public DateTimeOffset CreatedAt { get; init; }
@@ -114,6 +133,32 @@ public sealed class Outfit
     public DateOnly? DailyOn { get; init; }
 
     public List<OutfitItem> Items { get; init; } = [];
+
+    /// <summary>The person's own arrangement of the garments on the board; null while the app lays them out itself.</summary>
+    public List<OutfitPlacement>? Layout { get; private set; }
+
+    /// <summary>The person's own arrangement of the garments on the figure in the "On figure" view; null while the app places them itself. Independent of <see cref="Layout"/>.</summary>
+    public List<OutfitPlacement>? FigureLayout { get; private set; }
+
+    /// <summary>
+    /// Whether an arrangement can belong to an outfit of these garments: each placement names one of them, none twice,
+    /// and lies on the board at a size that can be seen. Garments left out keep their automatic place.
+    /// </summary>
+    public static bool FitsLayout(IReadOnlyList<OutfitPlacement> layout, IReadOnlyCollection<Guid> garments) =>
+        layout.Count <= garments.Count
+        && layout.Select(placement => placement.ClothingId).Distinct().Count() == layout.Count
+        && layout.All(placement =>
+            garments.Contains(placement.ClothingId)
+            && placement.X is >= 0 and <= 1
+            && placement.Y is >= 0 and <= 1
+            && placement.Scale is >= PlacementMinScale and <= PlacementMaxScale
+            && placement.Z is >= 0 and <= PlacementMaxZ);
+
+    /// <summary>Keeps the arrangement; none, or an empty one, goes back to the automatic layout.</summary>
+    public void Arrange(IReadOnlyList<OutfitPlacement>? layout) => Layout = layout is { Count: > 0 } ? [.. layout] : null;
+
+    /// <summary>Keeps the arrangement on the figure; none, or an empty one, goes back to the automatic placement.</summary>
+    public void ArrangeFigure(IReadOnlyList<OutfitPlacement>? layout) => FigureLayout = layout is { Count: > 0 } ? [.. layout] : null;
 
     public void Rate(OutfitRating rating, DateTimeOffset now)
     {
@@ -127,6 +172,9 @@ public sealed class Outfit
     public void Save(bool saved) => IsSaved = saved;
 
     public void Wear(DateOnly day) => WornOn = WornOn is { } last && last > day ? last : day;
+
+    /// <summary>Sets the last worn day anew after a worn day was taken off the calendar; null when none is left.</summary>
+    public void LastWorn(DateOnly? day) => WornOn = day;
 
     public static string RelaxationCode(Relaxation relaxation) => $"{Common.EnumCodes.ToCode(relaxation.Role)}:{Common.EnumCodes.ToCode(relaxation.Rule)}";
 

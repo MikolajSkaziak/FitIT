@@ -47,6 +47,15 @@ public sealed class AiUsageEntry
 
     public decimal CostUsd { get; init; }
 
+    /// <summary>Tokens of the request, as the provider counted them; null when the provider reports none.</summary>
+    public int? InputTokens { get; init; }
+
+    /// <summary>Tokens of the answer, without the model's thinking.</summary>
+    public int? OutputTokens { get; init; }
+
+    /// <summary>Tokens the model spent thinking; they are charged like output.</summary>
+    public int? ThoughtTokens { get; init; }
+
     public int DurationMs { get; init; }
 
     public bool Success { get; init; }

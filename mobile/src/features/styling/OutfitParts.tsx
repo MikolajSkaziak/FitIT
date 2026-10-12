@@ -1,26 +1,18 @@
 import { StyleSheet, View } from 'react-native';
 
-import type { Occasion, Outfit } from '@/api/outfits';
+import type { Outfit, OutfitItem } from '@/api/outfits';
 import { AppText } from '@/components/AppText';
-import { Icon, type IconName } from '@/components/Icon';
-import { CrossFade, PressScale } from '@/components/motion';
-import { occasionIcon, occasionLabel } from '@/copy/labels';
+import { IconToggleButton } from '@/components/controls';
+import { Eyebrow } from '@/components/Eyebrow';
+import { GarmentImage } from '@/components/garments';
+import { Icon } from '@/components/Icon';
+import { Row } from '@/components/lists';
+import { groupTitle } from '@/features/builder/copy';
+import { groupLabel, useDictionaries } from '@/features/wardrobe/useDictionaries';
 import { formatCalendarDay, fromIso } from '@/lib/dates';
-import { radius, size, space, useTheme } from '@/theme';
+import { radius, space } from '@/theme';
 
-import { relaxationLines, rulesNote, umbrellaLine } from './copy';
-
-/** The name of an occasion with its icon in front, for the tiles of saved outfits. */
-export function OccasionName({ occasion }: { occasion: Occasion }) {
-  return (
-    <View style={styles.occasion}>
-      <Icon name={occasionIcon(occasion)} size={16} color="textSecondary" />
-      <AppText variant="secondaryStrong" numberOfLines={1} style={styles.occasionText}>
-        {occasionLabel(occasion)}
-      </AppText>
-    </View>
-  );
-}
+import { rulesNote, umbrellaLine } from './copy';
 
 /** "Worn on October 3", or null when the outfit was never worn. */
 export function wornLine(outfit: Pick<Outfit, 'wornOn'>): string | null {
@@ -31,20 +23,21 @@ export function wornLine(outfit: Pick<Outfit, 'wornOn'>): string | null {
 /** Everything the stylist and the rules have to say about one outfit, quietest last. */
 export function OutfitNotes({ outfit }: { outfit: Outfit }) {
   const worn = wornLine(outfit);
-  const relaxed = relaxationLines(outfit.relaxations);
   return (
     <View style={styles.notes}>
-      {outfit.reasoning ? <AppText testID="outfit-reasoning">{outfit.reasoning}</AppText> : null}
-      {outfit.weatherNote ? (
-        <AppText variant="secondary" color="textSecondary">
-          {outfit.weatherNote}
+      {outfit.reasoning ? (
+        <AppText color="textSecondary" testID="outfit-reasoning">
+          {outfit.reasoning}
         </AppText>
       ) : null}
-      {relaxed.map((line) => (
-        <AppText key={line} variant="secondary" color="textSecondary">
-          {line}
-        </AppText>
-      ))}
+      {outfit.weatherNote ? (
+        <View style={styles.fact}>
+          <Icon name={outfit.umbrella ? 'rain' : 'thermometer'} size={16} color="textSecondary" />
+          <AppText variant="caption" color="textSecondary" style={styles.factText}>
+            {outfit.weatherNote}
+          </AppText>
+        </View>
+      ) : null}
       {outfit.umbrella ? (
         <AppText variant="secondary" color="textSecondary">
           {umbrellaLine}
@@ -64,53 +57,55 @@ export function OutfitNotes({ outfit }: { outfit: Outfit }) {
   );
 }
 
-interface ToggleIconProps {
-  icon: IconName;
-  label: string;
-  on: boolean;
-  onPress: () => void;
-  testID: string;
+interface OutfitPiecesProps {
+  items: readonly OutfitItem[];
+  /** Makes each piece a way into the garment, with a chevron. */
+  onOpen?: (clothingId: string) => void;
 }
 
-/** A 44 by 44 icon that is either off, or on: sage tile and green icon, so the state is not carried by colour alone. */
-function ToggleIcon({ icon, label, on, onPress, testID }: ToggleIconProps) {
-  const theme = useTheme();
+/** "In this look": each garment of the outfit as a hairline row with its photo, its name and the group it belongs to. */
+export function OutfitPieces({ items, onOpen }: OutfitPiecesProps) {
+  const dictionaries = useDictionaries().data;
   return (
-    <PressScale accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: on }} onPress={onPress} testID={testID} style={styles.toggle}>
-      <CrossFade on={on} style={styles.toggleFrame} faceStyle={styles.toggleFrame}>
-        {(lit) => (
-          <View style={[styles.toggleFace, { backgroundColor: lit ? theme.sage : 'transparent' }]}>
-            <Icon name={icon} color={lit ? 'action' : 'text'} />
-          </View>
-        )}
-      </CrossFade>
-    </PressScale>
+    <View testID="outfit-pieces">
+      <Eyebrow header>In this look</Eyebrow>
+      {items.map(({ slot, clothing }) => (
+        <Row
+          key={clothing.id}
+          leading={<GarmentImage url={clothing.imageUrl} cacheKey={clothing.imageKey} height={56} inset={6} corner={radius.thumb} style={styles.thumbnail} />}
+          label={clothing.name ?? 'Item without details'}
+          meta={groupLabel(dictionaries, clothing.group) ?? groupTitle[slot]}
+          strong
+          onPress={onOpen ? () => onOpen(clothing.id) : undefined}
+        />
+      ))}
+    </View>
   );
 }
 
-interface RatingBarProps {
-  outfit: Pick<Outfit, 'rating' | 'isSaved'>;
-  onRate: (rating: 'like' | 'dislike') => void;
+interface KeepButtonProps {
+  outfit: Pick<Outfit, 'isSaved'>;
   onKeep: () => void;
 }
 
-/** Thumbs up, thumbs down, and keep. A rating teaches the stylist; keeping puts the outfit in the Outfits tab. */
-export function RatingBar({ outfit, onRate, onKeep }: RatingBarProps) {
+/** The bookmark: lit while the outfit is among the saved ones. */
+export function KeepButton({ outfit, onKeep }: KeepButtonProps) {
+  return <IconToggleButton icon="bookmark" label={outfit.isSaved ? 'Remove from saved' : 'Save outfit'} active={outfit.isSaved} onPress={onKeep} haptic="none" bare testID="outfit-keep" />;
+}
+
+/** The bookmark on a row of its own, at the trailing edge under a proposal. */
+export function KeepBar({ outfit, onKeep }: KeepButtonProps) {
   return (
     <View style={styles.bar}>
-      <ToggleIcon icon="thumbsUp" label="I like it" on={outfit.rating === 'like'} onPress={() => onRate('like')} testID="outfit-like" />
-      <ToggleIcon icon="thumbsDown" label="I don’t like it" on={outfit.rating === 'dislike'} onPress={() => onRate('dislike')} testID="outfit-dislike" />
-      <ToggleIcon icon="bookmark" label={outfit.isSaved ? 'Remove from saved' : 'Save outfit'} on={outfit.isSaved} onPress={onKeep} testID="outfit-keep" />
+      <KeepButton outfit={outfit} onKeep={onKeep} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  occasion: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
-  occasionText: { flexShrink: 1 },
   notes: { gap: space[2] },
-  bar: { flexDirection: 'row', justifyContent: 'flex-end', gap: space[1] },
-  toggle: { width: size.touch, height: size.touch },
-  toggleFrame: { flex: 1 },
-  toggleFace: { flex: 1, borderRadius: radius.control, alignItems: 'center', justifyContent: 'center' },
+  fact: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  factText: { flexShrink: 1 },
+  thumbnail: { width: 56 },
+  bar: { flexDirection: 'row', justifyContent: 'flex-end', gap: space[2] },
 });

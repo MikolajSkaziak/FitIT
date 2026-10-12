@@ -69,6 +69,23 @@ public sealed class FalAdapterTests
     }
 
     [Fact]
+    public async Task An_order_still_in_the_works_is_answered_with_202_and_is_waited_for()
+    {
+        // The real queue says 202 while an order is queued or running, and 200 only once it is finished.
+        var http = new StubHttp()
+            .Json(HttpStatusCode.Accepted, Submitted("fal-ai/birefnet"))
+            .Json(HttpStatusCode.Accepted, """{"status":"IN_QUEUE","queue_position":0}""")
+            .Json(HttpStatusCode.Accepted, """{"status":"IN_PROGRESS"}""")
+            .Json(HttpStatusCode.OK, """{"status":"COMPLETED"}""")
+            .Json(HttpStatusCode.OK, CutoutResult)
+            .Bytes(ScriptedAi.Cutout, "image/png");
+
+        var removal = await Remover(http).RemoveAsync(Photo, CancellationToken.None);
+
+        Assert.Equal(ScriptedAi.Cutout, removal.Content);
+    }
+
+    [Fact]
     public async Task The_key_goes_to_the_queue_in_its_header_and_never_to_the_host_of_the_picture()
     {
         var http = new StubHttp()

@@ -58,7 +58,7 @@ public sealed class OpenMeteoWeatherTests
         await Ask(handler, lat, lon);
 
         Assert.Equal(
-            $"/v1/forecast?{place}&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code&forecast_days=3&timezone=auto&timeformat=unixtime",
+            $"/v1/forecast?{place}&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code&forecast_days=8&timezone=auto&timeformat=unixtime",
             handler.Asked?.PathAndQuery);
     }
 

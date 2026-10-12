@@ -20,12 +20,13 @@ const messages: Record<string, string> = {
   location_invalid: 'We couldn’t save that place. Pick it again.',
   location_search_unavailable: 'Place search isn’t working right now. Try again in a moment.',
   validation_failed: 'Something you entered doesn’t look right. Check it and try again.',
-  consent_required: 'First we need your OK to send clothing photos to AI services. You can turn that on in Profile.',
+  consent_required: 'First we need your OK to send photos to AI services. You can allow it in Profile, under About.',
   limit_reached: 'You’ve hit today’s limit. More tomorrow.',
   upload_refused: 'The photo didn’t upload. Try again.',
   upload_missing: 'The photo didn’t arrive. Try again.',
   upload_too_large: 'That photo is too large. Pick a smaller one.',
   upload_not_jpeg: 'We couldn’t read that photo. Try a different one.',
+  photo_limit_reached: 'This piece already has four extra photos. Remove one to add another.',
   photo_unreadable: 'We couldn’t read that photo. Try a different one.',
   not_found: 'This item isn’t in your wardrobe anymore.',
   still_processing: 'We’re still describing this item. Try again in a moment.',
@@ -37,6 +38,11 @@ const messages: Record<string, string> = {
   weather_unavailable: 'We couldn’t get the forecast. Try again in a moment.',
   base_item_invalid: 'We can’t build an outfit around this item yet. Wait until we’ve described it, or pick another item.',
   colors_invalid: 'Pick one or two different colors.',
+  date_out_of_range: 'The forecast only reaches a week ahead. Pick a closer day.',
+  calendar_day_full: 'That day already has three outfits. Remove one to add another.',
+  calendar_day_ahead: 'That day hasn’t come yet. You can mark it worn once it does.',
+  calendar_date_invalid: 'That day is too far away. Pick one within a year.',
+  calendar_range_invalid: 'We couldn’t load those days. Try again.',
 };
 
 const rejections: Record<string, string> = {

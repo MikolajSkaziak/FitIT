@@ -7,7 +7,7 @@ import Profile from '@/app/(app)/(tabs)/profile';
 import EditSilhouette from '@/app/(app)/account/silhouette';
 import { useSession } from '@/auth/session';
 import { user } from '@/test/fixtures';
-import { renderScreen, router } from '@/test/screen';
+import { expectAccent, renderScreen, router } from '@/test/screen';
 
 jest.mock('expo-router', () => jest.requireActual('@/test/screen').routerModule);
 jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
@@ -87,6 +87,14 @@ describe('the gender screen', () => {
 });
 
 describe('the body shape screen for the open genders', () => {
+  it('stretches the word "shape" in its title', async () => {
+    api.fetchAvatars.mockResolvedValue([female, male]);
+    await renderScreen(<EditSilhouette />);
+
+    expect(screen.getByRole('header', { name: 'Body shape' })).toBeOnTheScreen();
+    expectAccent('stretch', 'shape');
+  });
+
   it('asks the server for every shape when the gender being changed to is an open one', async () => {
     jest.mocked(useLocalSearchParams).mockReturnValue({ gender: 'unspecified' });
     api.fetchAvatars.mockResolvedValue([female, male]);

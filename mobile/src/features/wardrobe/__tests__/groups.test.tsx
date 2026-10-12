@@ -84,8 +84,10 @@ describe('the seasons of a garment', () => {
 
     await renderScreen(<GarmentDetail />);
 
-    expect(await screen.findByText('Seasons')).toBeOnTheScreen();
-    expect(screen.getByText('Fall, Winter')).toBeOnTheScreen();
+    // The seasons are among the plain words that describe the piece, one each.
+    expect(await screen.findByText('Fall')).toBeOnTheScreen();
+    expect(screen.getByText('Winter')).toBeOnTheScreen();
+    expect(screen.queryByText('Spring')).toBeNull();
   });
 
   it('are picked on the edit screen, with the garment’s own seasons already chosen, and sent with the rest', async () => {
@@ -102,7 +104,7 @@ describe('the seasons of a garment', () => {
 
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Winter' }));
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Spring' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save details' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(api.updateClothing).toHaveBeenCalled());
     expect(api.updateClothing.mock.calls[0]?.[1]).toMatchObject({ seasons: ['fall', 'spring'] });
@@ -114,7 +116,7 @@ describe('the seasons of a garment', () => {
     api.fetchClothing.mockResolvedValue(waitingForTags);
     await renderScreen(<EditGarment />);
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Save details' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Save changes' }));
 
     expect(await screen.findByText('Still to fill in: group, type, color, pattern, material, formality, warmth.')).toBeOnTheScreen();
     expect(api.updateClothing).not.toHaveBeenCalled();
@@ -139,12 +141,12 @@ describe('editing the details', () => {
     expect(screen.queryByRole('radio', { name: 'Hoodie' })).toBeNull();
 
     await fireEvent.press(screen.getByRole('radio', { name: 'Blazer' }));
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'navy' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'plain' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'cotton' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Navy' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Plain' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Cotton' }));
     await fireEvent.press(screen.getAllByRole('radio', { name: '3' })[0] as never);
     await fireEvent.press(screen.getAllByRole('radio', { name: '2' })[1] as never);
-    await fireEvent.press(screen.getByRole('button', { name: 'Save details' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(api.updateClothing).toHaveBeenCalled());
     expect(api.updateClothing.mock.calls[0]?.[1]).toMatchObject({ category: 'mid_layer', subcategory: 'blazer' });
@@ -159,7 +161,7 @@ describe('editing the details', () => {
     expect(screen.getByRole('radio', { name: 'Jeans' })).toBeOnTheScreen();
     expect(screen.getByRole('radio', { name: 'Jeans' })).not.toBeSelected();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Save details' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText(/Still to fill in: type, color/)).toBeOnTheScreen();
     expect(api.updateClothing).not.toHaveBeenCalled();
   });

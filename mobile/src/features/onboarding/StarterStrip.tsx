@@ -29,7 +29,7 @@ export function StarterStrip() {
   return (
     <View style={styles.section} testID="wardrobe-starters">
       <View style={styles.head}>
-        <AppText variant="subheading" accessibilityRole="header">
+        <AppText variant="title" accessibilityRole="header">
           {pieces.title}
         </AppText>
         <LinkText label={pieces.see} onPress={() => router.push('/basics')} testID="starters-see-all" />
@@ -57,8 +57,8 @@ function Tile({ piece, busy, onAdd }: { piece: MyStarterPiece; busy: boolean; on
           hitSlop={(size.touch - button) / 2}
           onPress={onAdd}
           testID={`starter-add-${piece.code}`}
-          style={[styles.add, { backgroundColor: theme.action }, busy ? styles.busy : null]}>
-          <Icon name="plus" size={16} color="onAction" />
+          style={[styles.add, { backgroundColor: theme.wellChip }, busy ? styles.busy : null]}>
+          <Icon name="plus" size={16} color="onWellChip" />
         </PressScale>
       </View>
       <AppText variant="secondaryStrong" numberOfLines={2}>
@@ -71,10 +71,10 @@ function Tile({ piece, busy, onAdd }: { piece: MyStarterPiece; busy: boolean; on
 const styles = StyleSheet.create({
   section: { gap: space[3], paddingTop: space[2] },
   head: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  // Runs to both screen edges, like the type pills above the list.
+  // Runs to both screen edges, like the text tabs above the list.
   strip: { marginHorizontal: -size.gutter, flexGrow: 0 },
   tiles: { paddingHorizontal: size.gutter, gap: space[2] },
   tile: { width: tileWidth, gap: space[2] },
-  add: { position: 'absolute', right: space[1], bottom: space[1], width: button, height: button, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  add: { position: 'absolute', right: space[2], top: space[2], width: button, height: button, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   busy: { opacity: 0.4 },
 });

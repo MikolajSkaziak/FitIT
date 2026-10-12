@@ -53,10 +53,16 @@ public sealed record OutfitDraft(
     };
 }
 
-/// <summary>An outfit ready to be shown: checked, labelled, scored and explained.</summary>
-public sealed record Proposal(OutfitDraft Outfit, OutfitKind? Kind, int Score, string Reasoning, string? WeatherNote);
+/// <summary>
+/// An outfit ready to be shown: checked, labelled, scored and explained. <paramref name="Style"/> is the style the outfit
+/// reads as, when it reads as one the person likes or one near those.
+/// </summary>
+public sealed record Proposal(OutfitDraft Outfit, OutfitKind? Kind, int Score, string Reasoning, string? WeatherNote, StyleTag? Style = null);
 
-/// <summary>An outfit as the stylist names it: aliases of candidates by slot. Nothing in it is trusted until the validator has seen it.</summary>
+/// <summary>
+/// An outfit as the stylist names it: aliases of candidates by slot, and the code of the style it says the outfit is in
+/// (null when it names none). Nothing in it is trusted until the validator has seen it.
+/// </summary>
 public sealed record StylistOutfit(
     OutfitKind? Kind,
     string? Top,
@@ -67,10 +73,11 @@ public sealed record StylistOutfit(
     string? Shoes,
     IReadOnlyList<string> Accessories,
     string Reasoning,
-    string? WeatherNote)
+    string? WeatherNote,
+    string? Style = null)
 {
     /// <summary>Names a checked outfit the way the stylist would, for adapters that compose outfits in code.</summary>
-    public static StylistOutfit From(OutfitDraft outfit, CandidateSet candidates, OutfitKind? kind, string reasoning, string? weatherNote)
+    public static StylistOutfit From(OutfitDraft outfit, CandidateSet candidates, OutfitKind? kind, string reasoning, string? weatherNote, StyleTag? style = null)
     {
         string? Alias(Garment? garment) => garment is null ? null : candidates.AliasOf(garment.Id);
         return new StylistOutfit(
@@ -83,6 +90,7 @@ public sealed record StylistOutfit(
             Alias(outfit.Shoes),
             [.. outfit.Accessories.Select(garment => Alias(garment)!)],
             reasoning,
-            weatherNote);
+            weatherNote,
+            style is { } named ? Common.EnumCodes.ToCode(named) : null);
     }
 }

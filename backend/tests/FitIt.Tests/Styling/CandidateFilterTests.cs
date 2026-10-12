@@ -317,7 +317,7 @@ public sealed class CandidateFilterTests
     }
 
     [Fact]
-    public void At_most_twelve_candidates_per_role_half_favourites_and_half_forgotten()
+    public void At_most_eight_candidates_per_role_half_favourites_and_half_forgotten()
     {
         var favourites = Enumerable.Range(0, 20).Select(index => Garment(Subcategory.TShirt, wearCount: index, likes: index == 3 ? 2 : 0)).ToList();
         var forgotten = Enumerable.Range(0, 20).Select(index => Garment(Subcategory.Shirt, wearCount: 20 - index, forgotten: true)).ToList();
@@ -327,16 +327,17 @@ public sealed class CandidateFilterTests
         var tops = candidates.In(Category.Top);
         Assert.Equal(CandidateFilter.MaxPerRole, tops.Count);
         // Liked first, then the most worn; of the forgotten, the least worn.
-        Assert.Equal([favourites[3], favourites[19], favourites[18], favourites[17], favourites[16], favourites[15]], tops.Take(6));
-        Assert.Equal([forgotten[19], forgotten[18], forgotten[17], forgotten[16], forgotten[15], forgotten[14]], tops.Skip(6));
+        Assert.Equal(8, tops.Count);
+        Assert.Equal([favourites[3], favourites[19], favourites[18], favourites[17]], tops.Take(4));
+        Assert.Equal([forgotten[19], forgotten[18], forgotten[17], forgotten[16]], tops.Skip(4));
     }
 
     [Theory]
-    [InlineData(2, 20, 2, 10)]
-    [InlineData(20, 1, 11, 1)]
+    [InlineData(2, 20, 2, 6)]
+    [InlineData(20, 1, 7, 1)]
     [InlineData(3, 4, 3, 4)]
-    [InlineData(0, 30, 0, 12)]
-    [InlineData(30, 0, 12, 0)]
+    [InlineData(0, 30, 0, 8)]
+    [InlineData(30, 0, 8, 0)]
     public void A_half_that_comes_up_short_is_filled_from_the_other(int favourites, int forgotten, int keptFavourites, int keptForgotten)
     {
         var wardrobe = Enumerable.Range(0, favourites).Select(_ => Garment(Subcategory.Sneakers))

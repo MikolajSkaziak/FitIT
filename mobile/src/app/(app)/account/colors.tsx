@@ -5,13 +5,12 @@ import { useSession } from '@/auth/session';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { FormError } from '@/components/forms';
-import { BackHeader } from '@/components/headers';
-
 import { Screen } from '@/components/Screen';
 import { messageFor } from '@/copy/errors';
 import { ColorResult } from '@/features/colors/ColorResult';
 import { profile, resultCopy } from '@/features/colors/copy';
 import { useRemoveColors } from '@/features/colors/useColors';
+import { PageHead } from '@/features/profile/EditScreen';
 import { space } from '@/theme';
 
 /** The palette in Profile: the same result view as after sign-up, with Redo and Remove. */
@@ -45,7 +44,7 @@ export default function YourColors() {
         )
       }>
       <View style={styles.content}>
-        <BackHeader title={profile.row} onBack={() => router.back()} />
+        <PageHead title={profile.row} accent={{ word: 'colors', act: 'letters' }} onBack={() => router.back()} />
         {analysis ? (
           <ColorResult analysis={analysis} />
         ) : (

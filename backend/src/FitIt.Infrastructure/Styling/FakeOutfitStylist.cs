@@ -24,7 +24,7 @@ public sealed class FakeOutfitStylist : IOutfitStylist
         var candidates = styling.Candidates;
         // Guid hashes do not change from process to process, unlike those of strings.
         var seed = candidates.Items.Aggregate(17, (hash, candidate) => unchecked((hash * 31) + candidate.Garment.Id.GetHashCode()));
-        var proposals = RuleBasedStylist.Compose(candidates, styling.Weather, styling.History.WornPairs, new Random(seed));
-        return [.. proposals.Select((proposal, index) => StylistOutfit.From(proposal.Outfit, candidates, Kinds[index], proposal.Reasoning, proposal.WeatherNote))];
+        var proposals = RuleBasedStylist.Compose(candidates, styling.Weather, styling.History.WornPairs, new Random(seed), styling.Styles);
+        return [.. proposals.Select((proposal, index) => StylistOutfit.From(proposal.Outfit, candidates, Kinds[index], proposal.Reasoning, proposal.WeatherNote, proposal.Style))];
     }
 }

@@ -40,7 +40,7 @@ public sealed record ProfilePatch
 
     public bool? AiConsent { get; init; }
 
-    /// <summary>The first unfinished step of the post-registration flow, 0 to 2. It never moves back.</summary>
+    /// <summary>The first unfinished step of the post-registration flow, 0 to 3. It never moves back.</summary>
     public int? OnboardingStep { get; init; }
 
     /// <summary>True marks the flow finished (or skipped) for good, on every phone.</summary>
@@ -49,8 +49,8 @@ public sealed record ProfilePatch
 
 public sealed class ProfileService(AppDbContext db, AppClock clock, IOptions<AccountOptions> accountOptions)
 {
-    /// <summary>The post-registration flow has three steps: colors, first pieces, recap.</summary>
-    public const int MaxOnboardingStep = 2;
+    /// <summary>The post-registration flow has four steps: body shape, fit, colors, recap.</summary>
+    public const int MaxOnboardingStep = 3;
 
     public Task<AppUser?> FindAsync(Guid userId, CancellationToken cancellationToken) =>
         db.Users.Include(u => u.Avatar).FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);

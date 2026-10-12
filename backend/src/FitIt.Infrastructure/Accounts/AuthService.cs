@@ -15,8 +15,8 @@ public sealed record RegisterCommand(
     string Password,
     string DisplayName,
     DateOnly BirthDate,
-    Gender Gender,
-    Guid AvatarId,
+    Gender? Gender,
+    Guid? AvatarId,
     IReadOnlyList<string> Styles,
     ThermalPreference ThermalPreference,
     WeatherPlace? Place,
@@ -58,8 +58,14 @@ public sealed class AuthService(
             return placeError;
         }
 
-        var avatar = await db.Avatars.FirstOrDefaultAsync(a => a.Id == command.AvatarId && a.IsActive, cancellationToken);
-        if (ProfileRules.CheckAvatar(avatar, command.Gender) is { } avatarError)
+        // The app asks for the gender and the body shape in the first step after sign-up. Until then the account holds
+        // "unspecified" and the first silhouette on offer: the columns are required, and that step replaces both.
+        var gender = command.Gender ?? Gender.Unspecified;
+        var anySet = gender.OffersAllSilhouettes();
+        var avatar = command.AvatarId is { } avatarId
+            ? await db.Avatars.FirstOrDefaultAsync(a => a.Id == avatarId && a.IsActive, cancellationToken)
+            : await db.Avatars.Where(a => a.IsActive && (anySet || a.Gender == gender)).OrderBy(a => a.Gender).ThenBy(a => a.SortOrder).FirstOrDefaultAsync(cancellationToken);
+        if (ProfileRules.CheckAvatar(avatar, gender) is { } avatarError)
         {
             return avatarError;
         }
@@ -77,15 +83,14 @@ public sealed class AuthService(
             Email = email,
             DisplayName = command.DisplayName.Trim(),
             BirthDate = command.BirthDate,
-            Gender = command.Gender,
+            Gender = gender,
             AvatarId = avatar!.Id,
             StylePreferences = [.. command.Styles.Distinct(StringComparer.Ordinal)],
             ThermalPreference = command.ThermalPreference,
             ClothingSize = command.ClothingSize,
             LegLength = command.LegLength,
             CreatedAt = clock.UtcNow,
-            // Creating an account is the agreement to AI processing; the sign-up screen says so right under the button.
-            AiConsentAt = clock.UtcNow,
+            // No consent to AI processing yet: the app asks in context, before the first photo leaves the phone (PATCH /api/me).
         };
         ProfileRules.Apply(user, command.Place);
 

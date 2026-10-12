@@ -23,3 +23,10 @@ export const fetchVisualization = (id: string): Promise<Visualization> => unwrap
 
 /** The newest order the server attached to an outfit. */
 export const visualizationOf = (outfit: Outfit): OutfitVisualization | null => outfit.visualization;
+
+/** Why a try-on picture is reported. `inappropriate` also takes the picture away. */
+export type ReportReason = Schemas['ReportReason'];
+
+export const reportVisualization = async (id: string, reason: ReportReason): Promise<void> => {
+  await unwrap(api.POST('/api/visualizations/{id}/reports', { params: { path: { id } }, body: { reason } }));
+};

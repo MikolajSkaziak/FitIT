@@ -5,7 +5,7 @@ import Profile from '@/app/(app)/(tabs)/profile';
 import YourColors from '@/app/(app)/account/colors';
 import { useSession } from '@/auth/session';
 import { colorAnalysis, user } from '@/test/fixtures';
-import { renderScreen, router } from '@/test/screen';
+import { expectAccent, renderScreen, router } from '@/test/screen';
 
 jest.mock('expo-router', () => jest.requireActual('@/test/screen').routerModule);
 jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
@@ -26,7 +26,7 @@ describe('Profile: Your colors', () => {
     useSession.setState({ status: 'signedIn', user: user({ colorAnalysis }), accessToken: 'a', refreshToken: 'r' });
     await renderScreen(<Profile />);
 
-    expect(screen.getByTestId('profile-row-colors')).toHaveTextContent('Your colorsSoft autumn');
+    expect(screen.getByTestId('profile-row-colors')).toHaveTextContent('ColorsSoft autumn');
     await fireEvent.press(screen.getByTestId('profile-row-colors'));
 
     expect(router.push).toHaveBeenCalledWith('/account/colors');
@@ -36,7 +36,7 @@ describe('Profile: Your colors', () => {
     useSession.setState({ status: 'signedIn', user: user(), accessToken: 'a', refreshToken: 'r' });
     await renderScreen(<Profile />);
 
-    expect(screen.getByTestId('profile-row-colors')).toHaveTextContent('Your colorsNot set');
+    expect(screen.getByTestId('profile-row-colors')).toHaveTextContent('ColorsNot set');
   });
 });
 
@@ -46,6 +46,8 @@ describe('the Your colors screen', () => {
     await renderScreen(<YourColors />);
 
     expect(screen.getByTestId('color-result-name')).toHaveTextContent('Soft autumn');
+    expect(screen.getByRole('header', { name: 'Your colors' })).toBeOnTheScreen();
+    expectAccent('letters', 'colors');
     expect(screen.getByText('Sage green')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Redo' }));
 

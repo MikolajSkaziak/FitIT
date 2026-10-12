@@ -70,7 +70,7 @@ public static class StylistPipeline
                     break;
                 }
 
-                var results = OutfitValidator.Check(answer.Outfits, styling.Candidates);
+                var results = OutfitValidator.Check(answer.Outfits, styling.Candidates, styling.OutfitStyles);
                 var valid = results.Where(result => result.IsValid).Take(RuleBasedStylist.Proposals).ToList();
                 calls.Add(new ModelCall(answer.Cost, watch.Elapsed, Success: valid.Count > 0));
                 if (answer.Refused)
@@ -87,9 +87,10 @@ public static class StylistPipeline
                             .. valid.Select(result => new Proposal(
                                 result.Draft!,
                                 result.Draft!.Confirm(result.Source.Kind, styling.History.WornPairs),
-                                CoherenceScore.Of(result.Draft!, band),
+                                CoherenceScore.Of(result.Draft!, band, styling.Styles),
                                 Short(result.Source.Reasoning, Outfit.ReasoningMaxLength) ?? "",
-                                Short(result.Source.WeatherNote, Outfit.WeatherNoteMaxLength))),
+                                Short(result.Source.WeatherNote, Outfit.WeatherNoteMaxLength),
+                                result.Style)),
                         ],
                         answer.Cost.Model,
                         null,
@@ -105,7 +106,7 @@ public static class StylistPipeline
             }
         }
 
-        var proposals = RuleBasedStylist.Compose(styling.Candidates, styling.Weather, styling.History.WornPairs, random);
+        var proposals = RuleBasedStylist.Compose(styling.Candidates, styling.Weather, styling.History.WornPairs, random, styling.Styles);
         return new StylistRun(proposals, null, reason, calls, errors, failure);
     }
 

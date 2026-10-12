@@ -7,6 +7,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/controls';
 import { FormError } from '@/components/forms';
+import { AccentTitle } from '@/components/headers';
 import { messageFor } from '@/copy/errors';
 import { basics, pieces } from '@/features/onboarding/copy';
 import { StarterPicker } from '@/features/onboarding/StarterPicker';
@@ -27,15 +28,14 @@ export default function AddBasics() {
     <View collapsable={false} style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space[4]) }]} testID="basics-sheet">
       <View style={styles.head}>
         <View style={styles.titles}>
-          <AppText variant="heading" accessibilityRole="header">
-            {pieces.title}
-          </AppText>
+          <AccentTitle text={pieces.title} variant="heading" accent={{ word: 'Pieces', act: 'drop' }} />
           <AppText variant="secondary" color="textSecondary">
             {pieces.lead}
           </AppText>
         </View>
         <IconButton icon="close" label="Close" onPress={() => router.back()} />
       </View>
+      {/* Full width, with the gutter inside it, so the tabs can run to both screen edges. */}
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <StarterPicker
           pieces={remaining}
@@ -61,9 +61,9 @@ export default function AddBasics() {
 }
 
 const styles = StyleSheet.create({
-  sheet: { flex: 1, paddingHorizontal: size.gutter, paddingTop: space[6], gap: space[4] },
-  head: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: space[2] },
-  titles: { flex: 1, gap: space[1] },
-  body: { paddingBottom: space[2] },
-  actions: { gap: space[2] },
+  sheet: { flex: 1, paddingTop: space[6], gap: space[4] },
+  head: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: space[2], paddingHorizontal: size.gutter },
+  titles: { flex: 1, gap: 10 },
+  body: { paddingHorizontal: size.gutter, paddingBottom: space[2] },
+  actions: { gap: space[2], paddingHorizontal: size.gutter },
 });

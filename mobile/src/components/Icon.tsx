@@ -7,12 +7,14 @@ import { CaretDownIcon } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretLeftIcon } from 'phosphor-react-native/src/icons/CaretLeft';
 import { CaretRightIcon } from 'phosphor-react-native/src/icons/CaretRight';
 import { CheckIcon } from 'phosphor-react-native/src/icons/Check';
+import { ClockIcon } from 'phosphor-react-native/src/icons/Clock';
 import { CloudIcon } from 'phosphor-react-native/src/icons/Cloud';
 import { CloudRainIcon } from 'phosphor-react-native/src/icons/CloudRain';
 import { CloudSnowIcon } from 'phosphor-react-native/src/icons/CloudSnow';
 import { CloudSunIcon } from 'phosphor-react-native/src/icons/CloudSun';
 import { CoatHangerIcon } from 'phosphor-react-native/src/icons/CoatHanger';
 import { CoffeeIcon } from 'phosphor-react-native/src/icons/Coffee';
+import { DropIcon } from 'phosphor-react-native/src/icons/Drop';
 import { EnvelopeIcon } from 'phosphor-react-native/src/icons/Envelope';
 import { EyeIcon } from 'phosphor-react-native/src/icons/Eye';
 import { EyeSlashIcon } from 'phosphor-react-native/src/icons/EyeSlash';
@@ -22,23 +24,34 @@ import { GenderIntersexIcon } from 'phosphor-react-native/src/icons/GenderInters
 import { HandshakeIcon } from 'phosphor-react-native/src/icons/Handshake';
 import { ImageIcon } from 'phosphor-react-native/src/icons/Image';
 import { LeafIcon } from 'phosphor-react-native/src/icons/Leaf';
+import { LightningIcon } from 'phosphor-react-native/src/icons/Lightning';
+import { LightningAIcon } from 'phosphor-react-native/src/icons/LightningA';
+import { LightningSlashIcon } from 'phosphor-react-native/src/icons/LightningSlash';
+import { LockIcon } from 'phosphor-react-native/src/icons/Lock';
 import { MagnifyingGlassIcon } from 'phosphor-react-native/src/icons/MagnifyingGlass';
 import { MapPinIcon } from 'phosphor-react-native/src/icons/MapPin';
 import { NavigationArrowIcon } from 'phosphor-react-native/src/icons/NavigationArrow';
+import { PaletteIcon } from 'phosphor-react-native/src/icons/Palette';
+import { PencilSimpleIcon } from 'phosphor-react-native/src/icons/PencilSimple';
 import { PersonSimpleIcon } from 'phosphor-react-native/src/icons/PersonSimple';
 import { PlusIcon } from 'phosphor-react-native/src/icons/Plus';
 import { ShieldCheckIcon } from 'phosphor-react-native/src/icons/ShieldCheck';
+import { SignOutIcon } from 'phosphor-react-native/src/icons/SignOut';
 import { SlidersHorizontalIcon } from 'phosphor-react-native/src/icons/SlidersHorizontal';
 import { SnowflakeIcon } from 'phosphor-react-native/src/icons/Snowflake';
 import { SparkleIcon } from 'phosphor-react-native/src/icons/Sparkle';
 import { SunIcon } from 'phosphor-react-native/src/icons/Sun';
+import { ArrowCounterClockwiseIcon } from 'phosphor-react-native/src/icons/ArrowCounterClockwise';
 import { ArrowsClockwiseIcon } from 'phosphor-react-native/src/icons/ArrowsClockwise';
+import { ArrowsOutCardinalIcon } from 'phosphor-react-native/src/icons/ArrowsOutCardinal';
+import { SquaresFourIcon } from 'phosphor-react-native/src/icons/SquaresFour';
 import { ArrowsVerticalIcon } from 'phosphor-react-native/src/icons/ArrowsVertical';
 import { RulerIcon } from 'phosphor-react-native/src/icons/Ruler';
 import { TShirtIcon } from 'phosphor-react-native/src/icons/TShirt';
 import { ThermometerIcon } from 'phosphor-react-native/src/icons/Thermometer';
 import { ThumbsDownIcon } from 'phosphor-react-native/src/icons/ThumbsDown';
 import { ThumbsUpIcon } from 'phosphor-react-native/src/icons/ThumbsUp';
+import { TrashIcon } from 'phosphor-react-native/src/icons/Trash';
 import { UserIcon } from 'phosphor-react-native/src/icons/User';
 import { UsersThreeIcon } from 'phosphor-react-native/src/icons/UsersThree';
 import { WineIcon } from 'phosphor-react-native/src/icons/Wine';
@@ -90,24 +103,40 @@ const icons = {
   shield: ShieldCheckIcon,
   document: FileTextIcon,
   refresh: ArrowsClockwiseIcon,
+  clock: ClockIcon,
+  drop: DropIcon,
+  rain: CloudRainIcon,
+  palette: PaletteIcon,
+  edit: PencilSimpleIcon,
+  lock: LockIcon,
+  logout: SignOutIcon,
+  trash: TrashIcon,
+  board: SquaresFourIcon,
+  move: ArrowsOutCardinalIcon,
+  undo: ArrowCounterClockwiseIcon,
+  flash: LightningIcon,
+  flashOff: LightningSlashIcon,
+  flashAuto: LightningAIcon,
 } as const;
 
 export type IconName = keyof typeof icons;
 
 interface IconProps {
   name: IconName;
-  /** 20 inside controls, 24 standing alone, 16 next to meta text; 22 and 30 belong to the brand mark only. */
-  size?: 16 | 20 | 22 | 24 | 30;
+  /** 20 inside controls and rows, 24 standing alone, 16 next to a caption or an eyebrow, 12 inside a care label; 22 and 30 belong to the brand mark only. */
+  size?: 12 | 16 | 20 | 22 | 24 | 30;
   color?: ColorToken;
+  /** Drawn solid instead of as a line: the "on" look of a mark that stands without a button around it. */
+  filled?: boolean;
 }
 
-/** Interface icon in the single weight the app uses. Decorative by default; the pressable around it carries the label. */
-export function Icon({ name, size = 24, color = 'text' }: IconProps) {
+/** Interface icon in the single weight the app uses: Phosphor regular, a thin even line beside the serif. Decorative by default; the pressable around it carries the label. */
+export function Icon({ name, size = 24, color = 'text', filled = false }: IconProps) {
   const theme = useTheme();
   const Glyph = icons[name];
   return (
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Glyph size={size} color={theme[color]} weight="bold" />
+      <Glyph size={size} color={theme[color]} weight={filled ? 'fill' : 'regular'} />
     </View>
   );
 }

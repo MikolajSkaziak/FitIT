@@ -1,7 +1,8 @@
 import type { User } from '@/api/account';
+import type { Calendar, CalendarEntry } from '@/api/calendar';
 import type { Outfit, OutfitItem } from '@/api/outfits';
-import type { Clothing, Category, Dictionaries } from '@/api/wardrobe';
-import type { Weather } from '@/api/weather';
+import type { Clothing, ClothingPhoto, Category, Dictionaries, MyStarterPiece, StarterPiece } from '@/api/wardrobe';
+import type { DayWeather, Weather } from '@/api/weather';
 
 /** A ready garment, which is what an outfit is made of. */
 export const clothing = (id: string, name: string, category: Category, change: Partial<Clothing> = {}): Clothing => ({
@@ -28,8 +29,43 @@ export const clothing = (id: string, name: string, category: Category, change: P
   imageUrl: `https://images.test/${id}.png`,
   imageKey: id,
   createdAt: '2026-10-02T08:00:00Z',
+  photos: [],
+  describedByAi: false,
   ...change,
 });
+
+const groupOfCategory: Record<Category, StarterPiece['group']> = {
+  top: 't_shirts_and_tops',
+  mid_layer: 'sweaters_and_hoodies',
+  bottom: 'pants',
+  one_piece: 'dresses_and_jumpsuits',
+  outerwear: 'jackets_and_coats',
+  shoes: 'shoes',
+  accessory: 'accessories',
+};
+
+/** A common piece as the public list gives it: for everyone and in the usual group of its role unless `change` says otherwise. */
+export const starterPiece = (code: string, name: string, category: Category, change: Partial<StarterPiece> = {}): StarterPiece => ({
+  code,
+  name,
+  category,
+  type: 't_shirt',
+  group: groupOfCategory[category],
+  audience: 'everyone',
+  colors: ['white'],
+  imageUrl: `http://api.test/starter/${code}.png`,
+  ...change,
+});
+
+/** The same piece in the signed-in person's list, with whether it is already in their wardrobe. */
+export const myStarterPiece = (code: string, name: string, category: Category, added = false, change: Partial<MyStarterPiece> = {}): MyStarterPiece => ({
+  ...starterPiece(code, name, category),
+  added,
+  ...change,
+});
+
+/** One more photo of a garment, as the server lists it. */
+export const extraPhoto = (id: string): ClothingPhoto => ({ id, imageUrl: `https://images.test/${id}.jpg`, imageKey: `extra/${id}`, width: 960, height: 1280 });
 
 export const fourItems: OutfitItem[] = [
   { slot: 'top', clothing: clothing('g1', 'Navy shirt', 'top') },
@@ -55,6 +91,8 @@ export const outfit = (id: string, change: Partial<Outfit> = {}): Outfit => ({
   isSaved: false,
   wornOn: null,
   visualization: null,
+  layout: null,
+  figureLayout: null,
   weather: {
     place: 'Gliwice',
     forTomorrow: false,
@@ -96,6 +134,42 @@ export const weather: Weather = {
   ],
 };
 
+/** The forecast of a day ahead, Thursday 8 October: the whole day, no "now". */
+export const dayWeather: DayWeather = {
+  date: '2026-10-08',
+  isToday: false,
+  now: null,
+  place: 'Gliwice',
+  from: '2026-10-08T07:00:00+02:00',
+  to: '2026-10-08T22:00:00+02:00',
+  feelsMin: 4,
+  feelsMax: 11,
+  coldestAt: '2026-10-08T07:00:00+02:00',
+  warmestAt: '2026-10-08T15:00:00+02:00',
+  sky: 'rain',
+  rain: true,
+  rainProbability: 80,
+  rainFrom: '2026-10-08T15:00:00+02:00',
+  needsLayers: false,
+  band: 'cold',
+  hours: [
+    { time: '2026-10-08T07:00:00+02:00', feels: 4, sky: 'cloud' },
+    { time: '2026-10-08T12:00:00+02:00', feels: 10, sky: 'cloud' },
+    { time: '2026-10-08T17:00:00+02:00', feels: 9, sky: 'rain' },
+    { time: '2026-10-08T22:00:00+02:00', feels: 6, sky: 'rain' },
+  ],
+};
+
+/** An outfit on a day of the calendar: planned unless said worn. */
+export const calendarEntry = (on: Outfit, date: string, worn = false): CalendarEntry => ({ id: `e-${on.id}-${date}`, date, worn, outfit: on, createdAt: '2026-10-04T08:00:00Z' });
+
+/** A stretch of the calendar holding the given entries, as seen on Monday 5 October 2026 unless another today is named. */
+export const calendarOf = (entries: readonly CalendarEntry[], today = '2026-10-05'): Calendar => ({
+  today,
+  forecastUntil: '2026-10-11',
+  maxPerDay: 3,
+  days: [...new Set(entries.map((entry) => entry.date))].sort().map((date) => ({ date, entries: entries.filter((entry) => entry.date === date) })),
+});
 
 /** What the color analysis answers: a type with its two palettes. */
 export const colorAnalysis = {

@@ -11,8 +11,12 @@ import { Button } from '@/components/Button';
 import { IconButton } from '@/components/controls';
 import { GarmentImage } from '@/components/garments';
 import { useOutfitBuilder } from '@/features/builder/useOutfitBuilder';
+import { looksTitle, withinHorizon } from '@/features/calendar/copy';
+import { usePlaceToday } from '@/features/calendar/useCalendar';
 import { OccasionPicker } from '@/features/styling/OccasionPicker';
 import { proposalsRoute } from '@/features/styling/request';
+import { fromIso } from '@/lib/dates';
+import { useWarning } from '@/lib/haptics';
 import { radius, size, space } from '@/theme';
 
 const thumbnail = 56;
@@ -40,13 +44,18 @@ export default function ChooseOccasion() {
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const keyboard = useKeyboardHeight();
-  const { base } = useLocalSearchParams<{ base: string }>();
+  // `date` is the day of the calendar the looks are for, when the sheet was opened from one; today otherwise.
+  const { base, date } = useLocalSearchParams<{ base: string; date?: string }>();
+  const today = usePlaceToday();
+  const asked = date ? fromIso(date) : null;
+  const forDay = asked && withinHorizon(asked, today) ? asked : null;
   const [occasion, setOccasion] = useState<Occasion>('everyday');
   const [note, setNote] = useState('');
   const garment = useQuery({ queryKey: wardrobeKeys.one(base), queryFn: () => fetchClothing(base), enabled: Boolean(base) });
   const usage = useQuery({ queryKey: wardrobeKeys.usage, queryFn: fetchUsage });
   const limitUsed = usage.data !== undefined && usage.data.suggestions.used >= usage.data.suggestions.limit;
   const startWith = useOutfitBuilder((state) => state.startWith);
+  useWarning(limitUsed);
 
   const build = () => {
     if (garment.data) {
@@ -71,11 +80,11 @@ export default function ChooseOccasion() {
         ) : null}
         <View style={styles.titles}>
           <AppText variant="heading" accessibilityRole="header">
-            {base ? 'Style this' : 'Create outfits'}
+            {base ? 'Style this' : forDay ? looksTitle(forDay, today) : 'Create outfits'}
           </AppText>
           {garment.data?.name ? (
-            <AppText variant="secondary" color="textSecondary" numberOfLines={2}>
-              Outfits built around {garment.data.name}
+            <AppText variant="caption" color="textSecondary" numberOfLines={2}>
+              Looks built around {garment.data.name}
             </AppText>
           ) : null}
         </View>
@@ -96,10 +105,10 @@ export default function ChooseOccasion() {
           </AppText>
         ) : null}
         <Button
-          label="Suggest outfits"
+          label="Suggest looks"
           icon="sparkle"
           disabled={limitUsed}
-          onPress={() => router.replace(proposalsRoute({ occasion, note, baseItemId: base }))}
+          onPress={() => router.replace(proposalsRoute({ occasion, note, baseItemId: base, date: forDay ? date : undefined }))}
           testID="occasion-suggest"
         />
         {base ? (

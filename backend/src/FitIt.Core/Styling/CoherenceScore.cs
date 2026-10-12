@@ -17,11 +17,18 @@ public static class CoherenceScore
     public const int PerExtraPattern = 10;
     public const int PerRecentlyWorn = 5;
 
+    /// <summary>
+    /// What an outfit that fits none of the person's styles pays; a partial fit pays its share. It is kept below a single
+    /// point of formality or warmth, so style reorders outfits that are otherwise alike and never excuses a real fault.
+    /// </summary>
+    public const int StyleMiss = 9;
+
     public const int FormalitySpread = 2;
     public const int Colours = 3;
     public const int Patterns = 1;
 
-    public static int Of(OutfitDraft outfit, BandRule band)
+    /// <param name="styles">The styles the person likes. Null leaves style out of the score altogether.</param>
+    public static int Of(OutfitDraft outfit, BandRule band, IReadOnlyList<StyleTag>? styles = null)
     {
         var items = outfit.Items.ToList();
 
@@ -37,7 +44,8 @@ public static class CoherenceScore
             + (Math.Max(0, spread - FormalitySpread) * PerFormalityPoint)
             + (Math.Max(0, colours - Colours) * PerExtraColour)
             + (Math.Max(0, patterns - Patterns) * PerExtraPattern)
-            + (items.Count(garment => garment.RecentlyWorn) * PerRecentlyWorn);
+            + (items.Count(garment => garment.RecentlyWorn) * PerRecentlyWorn)
+            + (styles is null ? 0 : (int)Math.Round((1 - StyleFit.Of(outfit, styles)) * StyleMiss, MidpointRounding.AwayFromZero));
         return Math.Clamp(Max - penalty, 0, Max);
     }
 }

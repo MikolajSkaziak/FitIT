@@ -31,8 +31,11 @@ public interface IImageStorage
 /// <summary>A stored picture handed to an outside service: the key for adapters that read storage, the signed address for those that fetch.</summary>
 public sealed record ImageSource(string Key, Uri Url);
 
-/// <summary>What one call to an AI provider cost, for the usage log and the daily budget.</summary>
-public sealed record AiCost(string Model, decimal Usd)
+/// <summary>
+/// What one call to an AI provider cost, for the usage log and the daily budget. The token counts are those the provider
+/// reported for the call; they stay null for providers that charge per picture or report none.
+/// </summary>
+public sealed record AiCost(string Model, decimal Usd, int? InputTokens = null, int? OutputTokens = null, int? ThoughtTokens = null)
 {
     public static AiCost None(string model) => new(model, 0m);
 }

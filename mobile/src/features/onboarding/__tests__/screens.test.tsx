@@ -1,25 +1,29 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Linking } from 'react-native';
 
 import * as account from '@/api/account';
 import * as colors from '@/api/colors';
 import { ApiError } from '@/api/problem';
 import * as wardrobe from '@/api/wardrobe';
 import * as weatherApi from '@/api/weather';
-import OnboardingBasics from '@/app/(app)/onboarding/basics';
 import OnboardingColors from '@/app/(app)/onboarding/colors';
 import OnboardingDone from '@/app/(app)/onboarding/done';
+import OnboardingFit from '@/app/(app)/onboarding/fit';
 import OnboardingStart from '@/app/(app)/onboarding/index';
 import OnboardingPalette from '@/app/(app)/onboarding/palette';
 import OnboardingQuiz from '@/app/(app)/onboarding/quiz';
 import OnboardingSelfie from '@/app/(app)/onboarding/selfie';
+import OnboardingShape from '@/app/(app)/onboarding/shape';
 import TabsLayout from '@/app/(app)/(tabs)/_layout';
 import { useSession } from '@/auth/session';
+import { legDetails } from '@/copy/labels';
+import { finishConsent } from '@/features/consent/session';
+import { usePendingPieces } from '@/features/onboarding/pendingPieces';
+import { messages } from '@/features/registration/validation';
 import * as photos from '@/features/wardrobe/photos';
 import { putFile } from '@/features/wardrobe/putFile';
-import { colorAnalysis, user, weather } from '@/test/fixtures';
-import { renderScreen, router } from '@/test/screen';
+import { clothing, colorAnalysis, user, weather } from '@/test/fixtures';
+import { expectAccent, expectNoAccent, renderScreen, router } from '@/test/screen';
 
 const mockRedirect = jest.fn();
 jest.mock('expo-router', () => ({
@@ -34,11 +38,13 @@ jest.mock('@/lib/config', () => ({ apiUrl: 'http://api.test' }));
 jest.mock('@/auth/tokenStorage', () => ({
   tokenStorage: { load: jest.fn(async () => null), save: jest.fn(async () => undefined), clear: jest.fn(async () => undefined) },
 }));
-jest.mock('@/api/account', () => ({ ...jest.requireActual('@/api/account'), updateProfile: jest.fn() }));
+jest.mock('@/api/account', () => ({ ...jest.requireActual('@/api/account'), updateProfile: jest.fn(), fetchAvatars: jest.fn() }));
 jest.mock('@/api/colors', () => ({ createSelfieUpload: jest.fn(), analyzeColors: jest.fn(), deleteColorAnalysis: jest.fn() }));
-jest.mock('@/api/wardrobe', () => ({ ...jest.requireActual('@/api/wardrobe'), fetchWardrobeStats: jest.fn(), fetchStarterPieces: jest.fn(), addStarterPieces: jest.fn() }));
+jest.mock('@/api/wardrobe', () => ({ ...jest.requireActual('@/api/wardrobe'), fetchWardrobeStats: jest.fn(), fetchClothes: jest.fn(), addStarterPieces: jest.fn() }));
 jest.mock('@/api/weather', () => ({ ...jest.requireActual('@/api/weather'), fetchWeatherToday: jest.fn() }));
-jest.mock('@/features/wardrobe/photos', () => ({ takePhoto: jest.fn(), pickFromGallery: jest.fn(), preparePhoto: jest.fn(async (photo: { uri: string }) => photo.uri) }));
+const mockOpenCamera = jest.fn();
+jest.mock('@/features/camera/session', () => ({ useCamera: () => mockOpenCamera }));
+jest.mock('@/features/wardrobe/photos', () => ({ pickFromGallery: jest.fn(), preparePhoto: jest.fn(async (photo: { uri: string }) => photo.uri) }));
 jest.mock('@/features/wardrobe/putFile', () => ({ putFile: jest.fn(async () => undefined) }));
 
 const profile = jest.mocked(account);
@@ -49,8 +55,17 @@ const camera = jest.mocked(photos);
 
 const fresh = (change: Partial<account.User> = {}) => user({ onboardingStep: 0, onboardingDoneAt: null, ...change });
 const selfie = { uri: 'file:///selfie.jpg', width: 1200, height: 1600 };
-const starter = (code: string, name: string): wardrobe.StarterPiece => ({ code, name, category: 'top', type: 't_shirt', colors: ['white'], imageUrl: `http://api.test/starter/${code}.png` });
-const catalog = [starter('white_tshirt', 'White T-shirt'), starter('blue_jeans', 'Blue jeans'), starter('white_sneakers', 'White sneakers'), starter('navy_jacket', 'Navy jacket')];
+const avatar = (id: string, gender: 'female' | 'male', bodyType: string): account.Avatar => ({
+  id,
+  gender,
+  bodyType,
+  label: bodyType,
+  imageUrl: `https://images.test/${id}.jpg`,
+  thumbUrl: `https://images.test/${id}.jpg`,
+  figureUrl: `https://images.test/${id}.png`,
+});
+const women = ['hourglass', 'pear', 'apple', 'column', 'goblet'].map((type, index) => avatar(`f${index}`, 'female', type));
+const men = ['triangle', 'rectangle', 'oval', 'trapezoid', 'inverted_triangle'].map((type, index) => avatar(`m${index}`, 'male', type));
 const stats = (total: number) => ({ total, wornLast30Days: 0, forgotten: 0, processing: 0, needsTags: 0 });
 
 beforeEach(() => {
@@ -58,18 +73,242 @@ beforeEach(() => {
   jest.mocked(useLocalSearchParams).mockReturnValue({});
   useSession.setState({ status: 'signedIn', user: fresh(), accessToken: 'a', refreshToken: 'r' });
   shop.fetchWardrobeStats.mockResolvedValue(stats(0));
-  shop.fetchStarterPieces.mockResolvedValue(catalog);
+  shop.fetchClothes.mockResolvedValue([]);
   shop.addStarterPieces.mockResolvedValue({ added: 0, alreadyThere: 0 });
   forecast.fetchWeatherToday.mockResolvedValue(weather);
   profile.updateProfile.mockImplementation(async (change) => fresh({ onboardingStep: change.onboardingStep ?? 0 }));
+  profile.fetchAvatars.mockImplementation(async (gender) => (gender === 'female' ? women : gender === 'male' ? men : [...women, ...men]));
+  usePendingPieces.getState().clear();
+});
+
+describe('first after the account: the body shape of the gender chosen before it', () => {
+  // The account was created with the gender chosen at the start of sign-up.
+  const asked = (gender: account.Gender) => useSession.setState({ user: fresh({ gender }) });
+
+  it('shows nothing as chosen on a new account, whatever stand-in it holds, and asks no gender', async () => {
+    asked('female');
+    await renderScreen(<OnboardingShape />);
+
+    expect(screen.getByRole('header', { name: 'Your body shape' })).toBeOnTheScreen();
+    expectAccent('stretch', 'shape');
+    expect(screen.getByText(/only guides how outfits are balanced on you/)).toBeOnTheScreen();
+    expect(screen.getByRole('progressbar', { name: 'Almost done — 3 left' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Woman' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Change gender' })).toBeOnTheScreen();
+    await screen.findByTestId('silhouette-pear');
+    expect(screen.queryByRole('radio', { checked: true })).toBeNull();
+    expect(screen.queryByTestId('shape-all')).toBeNull();
+  });
+
+  it.each([
+    ['female', 5, 'hourglass', 'oval'],
+    ['male', 5, 'oval', 'hourglass'],
+  ] as const)('shows only the five shapes of a %s account', async (gender, count, shown, hidden) => {
+    asked(gender);
+    await renderScreen(<OnboardingShape />);
+
+    await screen.findByTestId(`silhouette-${shown}`);
+    expect(screen.getAllByRole('radio')).toHaveLength(count);
+    expect(screen.queryByTestId(`silhouette-${hidden}`)).toBeNull();
+    expect(profile.fetchAvatars).toHaveBeenCalledWith(gender);
+  });
+
+  it.each(['non_binary', 'unspecified'] as const)('shows all ten shapes, with the one-line note, for %s', async (gender) => {
+    asked(gender);
+    await renderScreen(<OnboardingShape />);
+
+    await screen.findByTestId('silhouette-oval');
+    expect(screen.getAllByRole('radio')).toHaveLength(10);
+    expect(screen.getByTestId('shape-all')).toHaveTextContent('You see all ten shapes, so pick whichever is closest.');
+  });
+
+  it('needs a body shape before the person can go on, and says so', async () => {
+    asked('male');
+    await renderScreen(<OnboardingShape />);
+    await screen.findByTestId('silhouette-oval');
+
+    await fireEvent.press(screen.getByTestId('shape-next'));
+
+    expect(screen.getByText(messages.avatarMissing)).toBeOnTheScreen();
+    expect(profile.updateProfile).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('opens the gender choice right here, narrows the shapes and drops a shape of the other set', async () => {
+    asked('male');
+    await renderScreen(<OnboardingShape />);
+    await fireEvent.press(await screen.findByTestId('silhouette-oval'));
+    expect(screen.getByTestId('silhouette-oval')).toBeChecked();
+
+    await fireEvent.press(screen.getByRole('link', { name: 'Change gender' }));
+    expect(screen.getByRole('radio', { name: 'Man' })).toBeChecked();
+    expect(screen.queryByRole('link', { name: 'Change gender' })).toBeNull();
+    await fireEvent.press(screen.getByRole('radio', { name: 'Woman' }));
+
+    await screen.findByTestId('silhouette-pear');
+    expect(screen.queryByTestId('silhouette-oval')).toBeNull();
+    await fireEvent.press(screen.getByTestId('shape-next'));
+    expect(screen.getByText(messages.avatarMissing)).toBeOnTheScreen();
+  });
+
+  it('keeps a shape that is still on offer when the new gender is an open one', async () => {
+    asked('male');
+    await renderScreen(<OnboardingShape />);
+    await fireEvent.press(await screen.findByTestId('silhouette-oval'));
+
+    await fireEvent.press(screen.getByRole('link', { name: 'Change gender' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Non-binary' }));
+
+    expect(screen.getByTestId('shape-all')).toBeOnTheScreen();
+    expect(await screen.findByTestId('silhouette-pear')).toBeOnTheScreen();
+    expect(screen.getByTestId('silhouette-oval')).toBeChecked();
+  });
+
+  it('saves the gender and the shape on the account with the step, then goes to the fit', async () => {
+    asked('male');
+    await renderScreen(<OnboardingShape />);
+    await fireEvent.press(await screen.findByTestId('silhouette-oval'));
+
+    await fireEvent.press(screen.getByTestId('shape-next'));
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/fit'));
+    expect(profile.updateProfile).toHaveBeenCalledWith({ gender: 'male', avatarId: 'm2', onboardingStep: 1 });
+  });
+
+  it('saves a gender changed here', async () => {
+    asked('male');
+    await renderScreen(<OnboardingShape />);
+    await fireEvent.press(screen.getByRole('link', { name: 'Change gender' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Woman' }));
+    await fireEvent.press(await screen.findByTestId('silhouette-pear'));
+
+    await fireEvent.press(screen.getByTestId('shape-next'));
+
+    await waitFor(() => expect(profile.updateProfile).toHaveBeenCalledWith({ gender: 'female', avatarId: 'f1', onboardingStep: 1 }));
+  });
+
+  it('shows the person’s own answer when they come back to it', async () => {
+    useSession.setState({ user: fresh({ onboardingStep: 1, gender: 'female', avatar: women[1] }) });
+    await renderScreen(<OnboardingShape />);
+
+    expect(await screen.findByTestId('silhouette-pear')).toBeChecked();
+  });
+
+  it('stays here and says so when the server refuses', async () => {
+    asked('male');
+    profile.updateProfile.mockRejectedValue(new ApiError({ status: 400, code: 'avatar_invalid' }));
+    await renderScreen(<OnboardingShape />);
+    await fireEvent.press(await screen.findByTestId('silhouette-oval'));
+
+    await fireEvent.press(screen.getByTestId('shape-next'));
+
+    expect(await screen.findByText('That body shape isn’t available anymore. Pick another one.')).toBeOnTheScreen();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+});
+
+describe('second: your fit, with the usual answers suggested', () => {
+  beforeEach(() => useSession.setState({ user: fresh({ onboardingStep: 1 }) }));
+
+  it('starts on medium and average legs, says they are suggestions, and saves them when the person agrees', async () => {
+    const view = await renderScreen(<OnboardingFit />);
+
+    expect(view.getByRole('header', { name: 'Your fit' })).toBeOnTheScreen();
+    expectAccent('sway', 'fit');
+    expect(view.getByRole('progressbar', { name: 'Almost done — 2 left' })).toBeOnTheScreen();
+    expect(view.getByRole('radio', { name: 'Medium', checked: true })).toBeOnTheScreen();
+    expect(view.getByRole('radio', { name: 'Average legs', checked: true })).toBeOnTheScreen();
+    expect(view.getByTestId('size-letter')).toHaveTextContent('M');
+    expect(view.getByTestId('size-suggested')).toHaveTextContent('Suggested');
+    expect(view.getByTestId('legs-suggested')).toHaveTextContent('Suggested');
+    for (const label of ['Extra small', 'Small', 'Medium', 'Large', 'Extra large', 'Double extra large', 'Shorter legs', 'Average legs', 'Longer legs']) {
+      expect(view.getByRole('radio', { name: label })).toBeOnTheScreen();
+    }
+    expect(view.getByTestId('size').props.accessibilityRole).toBe('radiogroup');
+    expect(view.getByTestId('legs').props.accessibilityRole).toBe('radiogroup');
+    expect(view.getByText(legDetails.average.hint)).toBeOnTheScreen();
+    expect(view.queryByText(/ideal|normal|big|fat|thin|slim/i)).toBeNull();
+
+    await fireEvent.press(view.getByTestId('fit-next'));
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/colors'));
+    expect(profile.updateProfile).toHaveBeenCalledWith({ clothingSize: 'm', legLength: 'average', onboardingStep: 2 });
+  });
+
+  it('drops the word "Suggested" once the person answers, and lets either answer be taken back', async () => {
+    const view = await renderScreen(<OnboardingFit />);
+
+    await fireEvent.press(view.getByRole('radio', { name: 'Extra large' }));
+    expect(view.queryByTestId('size-suggested')).toBeNull();
+    expect(view.getByTestId('legs-suggested')).toBeOnTheScreen();
+    expect(view.getByTestId('size-letter')).toHaveTextContent('XL');
+    await fireEvent.press(view.getByRole('radio', { name: 'Longer legs' }));
+    await fireEvent.press(view.getByTestId('legs-none'));
+    expect(view.queryByRole('radio', { name: /legs$/, checked: true })).toBeNull();
+
+    await fireEvent.press(view.getByTestId('fit-next'));
+
+    await waitFor(() => expect(profile.updateProfile).toHaveBeenCalledWith({ clothingSize: 'xl', clearLegLength: true, onboardingStep: 2 }));
+  });
+
+  it('lets the person say they would rather not, which saves neither and goes on', async () => {
+    const view = await renderScreen(<OnboardingFit />);
+
+    await fireEvent.press(view.getByRole('button', { name: 'I’d rather not say' }));
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/colors'));
+    expect(profile.updateProfile).toHaveBeenCalledWith({ clearClothingSize: true, clearLegLength: true, onboardingStep: 2 });
+  });
+
+  it('shows the person’s own answers, "not set" among them, when they come back to it', async () => {
+    useSession.setState({ user: fresh({ onboardingStep: 2, clothingSize: 'l', legLength: null }) });
+    const view = await renderScreen(<OnboardingFit />);
+
+    expect(view.getByRole('radio', { name: 'Large', checked: true })).toBeOnTheScreen();
+    expect(view.queryByRole('radio', { name: /legs$/, checked: true })).toBeNull();
+    expect(view.queryByTestId('size-suggested')).toBeNull();
+    expect(view.queryByTestId('legs-suggested')).toBeNull();
+  });
+
+  it('goes back to the body shape', async () => {
+    await renderScreen(<OnboardingFit />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+
+    expect(router.dismissTo).toHaveBeenLastCalledWith('/onboarding/shape');
+  });
+});
+
+describe('pieces picked before sign-up that could not be added', () => {
+  it('are said plainly on the next screens, with another try that clears the notice', async () => {
+    usePendingPieces.getState().set(['white_tshirt', 'blue_jeans']);
+    await renderScreen(<OnboardingShape />);
+
+    expect(screen.getByTestId('pending-pieces')).toHaveTextContent(/Your account is ready, but we couldn’t add your pieces\./);
+    await fireEvent.press(screen.getByRole('button', { name: 'Add them again' }));
+
+    await waitFor(() => expect(screen.queryByTestId('pending-pieces')).toBeNull());
+    expect(shop.addStarterPieces).toHaveBeenCalledWith(['white_tshirt', 'blue_jeans']);
+  });
+
+  it('say nothing when everything was added', async () => {
+    await renderScreen(<OnboardingShape />);
+
+    expect(screen.queryByTestId('pending-pieces')).toBeNull();
+  });
 });
 
 describe('A: your colors', () => {
-  it('says what it is and offers a selfie, three questions, or skipping', async () => {
+  it('leads with an example of the result, says one thing about the photo, and offers a selfie, a few questions, or skipping', async () => {
     await renderScreen(<OnboardingColors />);
 
-    expect(screen.getByText('Find your colors')).toBeOnTheScreen();
-    expect(screen.getByText('Step 7 of 9')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Find your colors' })).toBeOnTheScreen();
+    expectAccent('letters', 'colors');
+    expect(screen.getByRole('progressbar', { name: 'Almost done — 1 left' })).toBeOnTheScreen();
+    expect(screen.getByRole('image', { name: /^An example: a palette of eight colors, and the same sweater/ })).toBeOnTheScreen();
+    expect(screen.getByText('An example palette')).toBeOnTheScreen();
+    expect(screen.getByText('A selfie in daylight is all it takes, and the photo is deleted right after.')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Take a selfie' }));
     expect(router.push).toHaveBeenLastCalledWith({ pathname: '/onboarding/selfie', params: {} });
     await fireEvent.press(screen.getByRole('button', { name: 'Answer a few questions instead' }));
@@ -81,16 +320,24 @@ describe('A: your colors', () => {
 
     await fireEvent.press(screen.getByTestId('colors-skip'));
 
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/basics'));
-    expect(profile.updateProfile).toHaveBeenCalledWith({ onboardingStep: 1 });
-    expect(useSession.getState().user?.onboardingStep).toBe(1);
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/done'));
+    expect(profile.updateProfile).toHaveBeenCalledWith({ onboardingStep: 3 });
+    expect(useSession.getState().user?.onboardingStep).toBe(3);
+  });
+
+  it('goes back to the fit', async () => {
+    await renderScreen(<OnboardingColors />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+
+    expect(router.dismissTo).toHaveBeenLastCalledWith('/onboarding/fit');
   });
 
   it('opened to redo from Profile, it has no steps and skipping only goes back', async () => {
     jest.mocked(useLocalSearchParams).mockReturnValue({ redo: '1' });
     await renderScreen(<OnboardingColors />);
 
-    expect(screen.queryByText('Step 7 of 9')).toBeNull();
+    expect(screen.queryByRole('progressbar')).toBeNull();
     await fireEvent.press(screen.getByTestId('colors-skip'));
 
     expect(router.back).toHaveBeenCalled();
@@ -102,14 +349,15 @@ describe('A: the selfie', () => {
   it('always says what happens to the photo, right under the buttons', async () => {
     await renderScreen(<OnboardingSelfie />);
 
+    expectNoAccent();
     expect(screen.getByTestId('selfie-notice')).toHaveTextContent(
       'Your photo is sent to our AI service for this analysis and deleted right after. We keep only your palette.',
     );
     expect(screen.getByText('Use daylight, no filter, and face the light.')).toBeOnTheScreen();
   });
 
-  it('takes a selfie with the front camera, sends it and shows the palette', async () => {
-    camera.takePhoto.mockResolvedValue({ kind: 'taken', photo: selfie });
+  it('takes a selfie with the app’s own camera, sends it and shows the palette', async () => {
+    mockOpenCamera.mockResolvedValue([selfie]);
     palette.createSelfieUpload.mockResolvedValue({ key: 'u/1/selfie/a.jpg', url: 'https://storage.test/put', method: 'PUT', headers: {}, expiresAt: '2026-10-09T09:00:00Z', maxBytes: 2_000_000 });
     palette.analyzeColors.mockResolvedValue(colorAnalysis);
     await renderScreen(<OnboardingSelfie />);
@@ -117,7 +365,7 @@ describe('A: the selfie', () => {
     await fireEvent.press(screen.getByTestId('selfie-camera'));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith({ pathname: '/onboarding/palette', params: {} }));
-    expect(camera.takePhoto).toHaveBeenCalledWith({ front: true });
+    expect(mockOpenCamera).toHaveBeenCalledWith({ mode: 'selfie' });
     expect(putFile).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://storage.test/put' }), selfie.uri, expect.any(Function));
     expect(palette.analyzeColors).toHaveBeenCalledWith({ key: 'u/1/selfie/a.jpg' });
     expect(useSession.getState().user?.colorAnalysis?.name).toBe('Soft autumn');
@@ -134,17 +382,57 @@ describe('A: the selfie', () => {
     await waitFor(() => expect(palette.analyzeColors).toHaveBeenCalledWith({ key: 'u/1/selfie/b.jpg' }));
   });
 
-  it('points to Settings when the camera is refused, and sends nothing', async () => {
-    camera.takePhoto.mockResolvedValue({ kind: 'denied' });
-    const settings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+  it('sends nothing when the camera is closed without a photo (refused, or simply backed out of)', async () => {
+    mockOpenCamera.mockResolvedValue([]);
     await renderScreen(<OnboardingSelfie />);
 
     await fireEvent.press(screen.getByTestId('selfie-camera'));
 
-    expect(await screen.findByText(/can’t use your camera/)).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Open settings' }));
-    expect(settings).toHaveBeenCalled();
+    await waitFor(() => expect(mockOpenCamera).toHaveBeenCalled());
     expect(palette.createSelfieUpload).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  describe('the consent sheet for a photo of the face', () => {
+    beforeEach(() => {
+      finishConsent(false);
+      useSession.setState({ user: fresh({ aiConsentAt: null }) });
+    });
+
+    it('comes before the camera, with its own wording, and the camera opens only after Allow', async () => {
+      mockOpenCamera.mockResolvedValue([]);
+      await renderScreen(<OnboardingSelfie />);
+
+      await fireEvent.press(screen.getByTestId('selfie-camera'));
+
+      expect(router.push).toHaveBeenCalledWith({ pathname: '/consent', params: { kind: 'selfie' } });
+      expect(mockOpenCamera).not.toHaveBeenCalled();
+      await act(async () => finishConsent(true));
+      await waitFor(() => expect(mockOpenCamera).toHaveBeenCalledWith({ mode: 'selfie' }));
+    });
+
+    it('comes before the library too, and nothing is chosen or sent on Not now', async () => {
+      camera.pickFromGallery.mockResolvedValue([selfie]);
+      await renderScreen(<OnboardingSelfie />);
+
+      await fireEvent.press(screen.getByTestId('selfie-library'));
+      expect(router.push).toHaveBeenCalledWith({ pathname: '/consent', params: { kind: 'selfie' } });
+      await act(async () => finishConsent(false));
+
+      expect(camera.pickFromGallery).not.toHaveBeenCalled();
+      expect(palette.createSelfieUpload).not.toHaveBeenCalled();
+    });
+
+    it('is not shown to somebody who has allowed it', async () => {
+      useSession.setState({ user: fresh() });
+      mockOpenCamera.mockResolvedValue([]);
+      await renderScreen(<OnboardingSelfie />);
+
+      await fireEvent.press(screen.getByTestId('selfie-camera'));
+
+      await waitFor(() => expect(mockOpenCamera).toHaveBeenCalled());
+      expect(router.push).not.toHaveBeenCalledWith({ pathname: '/consent', params: expect.anything() });
+    });
   });
 
   it('says in its own words when the daily limit is reached, and offers the questions instead', async () => {
@@ -261,7 +549,7 @@ describe('A: the questions need no consent and no allowance', () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith({ pathname: '/onboarding/palette', params: {} }));
     expect(palette.analyzeColors).toHaveBeenCalledWith({ answers: { skinTone: 2, undertone: 'cool', hair: 'light_brown', eyes: 'gray' } });
     expect(palette.createSelfieUpload).not.toHaveBeenCalled();
-    expect(camera.takePhoto).not.toHaveBeenCalled();
+    expect(mockOpenCamera).not.toHaveBeenCalled();
   });
 
   it('still shows the result when the day’s selfie allowance is spent', async () => {
@@ -289,8 +577,8 @@ describe('A: the result', () => {
     expect(screen.getByTestId('color-result-name')).toHaveTextContent('Soft autumn');
     await fireEvent.press(screen.getByTestId('palette-continue'));
 
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/basics'));
-    expect(profile.updateProfile).toHaveBeenCalledWith({ onboardingStep: 1 });
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/done'));
+    expect(profile.updateProfile).toHaveBeenCalledWith({ onboardingStep: 3 });
   });
 
   it('lets the person redo it', async () => {
@@ -320,127 +608,51 @@ describe('A: the result', () => {
   });
 });
 
-describe('B: start with the basics', () => {
-  it('shows the common pieces as tiles, with one line about photographing real clothes later', async () => {
-    await renderScreen(<OnboardingBasics />);
-
-    expect(screen.getByText('Step 8 of 9')).toBeOnTheScreen();
-    expect(screen.getByText('Start with the basics')).toBeOnTheScreen();
-    expect(screen.getByText(/You can swap these for photos of your own clothes any time/)).toBeOnTheScreen();
-    expect(await screen.findByTestId('starter-white_tshirt')).not.toBeChecked();
-    expect(screen.getByTestId('basics-count')).toHaveTextContent('0 of 4 selected');
-    expect(screen.getByTestId('basics-add')).toBeDisabled();
-    expect(screen.getByText('Tick the pieces you own, or skip for now.')).toBeOnTheScreen();
-  });
-
-  it('selects and unselects single pieces, counting them and naming the button after the count', async () => {
-    await renderScreen(<OnboardingBasics />);
-
-    await fireEvent.press(await screen.findByTestId('starter-white_tshirt'));
-    expect(screen.getByTestId('starter-white_tshirt')).toBeChecked();
-    expect(screen.getByTestId('basics-count')).toHaveTextContent('1 of 4 selected');
-    expect(screen.getByRole('button', { name: 'Add 1 piece' })).toBeEnabled();
-    await fireEvent.press(screen.getByTestId('starter-blue_jeans'));
-    expect(screen.getByRole('button', { name: 'Add 2 pieces' })).toBeEnabled();
-    await fireEvent.press(screen.getByTestId('starter-white_tshirt'));
-    expect(screen.getByTestId('basics-count')).toHaveTextContent('1 of 4 selected');
-  });
-
-  it('selects all with one control and clears them with the same one', async () => {
-    await renderScreen(<OnboardingBasics />);
-    await screen.findByTestId('starter-white_tshirt');
-
-    await fireEvent.press(screen.getByText('Select all'));
-    expect(screen.getByTestId('basics-count')).toHaveTextContent('4 of 4 selected');
-    expect(screen.getByRole('button', { name: 'Add 4 pieces' })).toBeEnabled();
-    expect(screen.queryByText('Select all')).toBeNull();
-
-    await fireEvent.press(screen.getByText('Clear'));
-    expect(screen.getByTestId('basics-count')).toHaveTextContent('0 of 4 selected');
-    expect(screen.getByTestId('basics-add')).toBeDisabled();
-  });
-
-  it('adds the chosen pieces to the wardrobe, remembers the step and moves on', async () => {
-    shop.addStarterPieces.mockResolvedValue({ added: 2, alreadyThere: 0 });
-    await renderScreen(<OnboardingBasics />);
-    await fireEvent.press(await screen.findByTestId('starter-white_tshirt'));
-    await fireEvent.press(screen.getByTestId('starter-navy_jacket'));
-
-    await fireEvent.press(screen.getByTestId('basics-add'));
-
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/done'));
-    expect(shop.addStarterPieces).toHaveBeenCalledWith(['white_tshirt', 'navy_jacket']);
-    expect(profile.updateProfile).toHaveBeenCalledWith({ onboardingStep: 2 });
-  });
-
-  it('skips without adding anything, remembering the step', async () => {
-    await renderScreen(<OnboardingBasics />);
-    await screen.findByTestId('starter-white_tshirt');
-
-    await fireEvent.press(screen.getByTestId('basics-skip'));
-
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/done'));
-    expect(shop.addStarterPieces).not.toHaveBeenCalled();
-    expect(profile.updateProfile).toHaveBeenCalledWith({ onboardingStep: 2 });
-  });
-
-  it('stays here and says so when the pieces could not be added, keeping the choice', async () => {
-    shop.addStarterPieces.mockRejectedValue(new ApiError({ status: 500, code: 'server_error' }));
-    await renderScreen(<OnboardingBasics />);
-    await fireEvent.press(await screen.findByTestId('starter-blue_jeans'));
-
-    await fireEvent.press(screen.getByTestId('basics-add'));
-
-    expect(await screen.findByRole('alert')).toBeOnTheScreen();
-    expect(router.push).not.toHaveBeenCalled();
-    expect(screen.getByTestId('starter-blue_jeans')).toBeChecked();
-  });
-
-  it('offers another try when the list does not load, and still lets the person skip', async () => {
-    shop.fetchStarterPieces.mockRejectedValueOnce(new ApiError({ status: 500, code: 'server_error' }));
-    await renderScreen(<OnboardingBasics />);
-
-    expect(await screen.findByText(/couldn’t load the basics/)).toBeOnTheScreen();
-    await fireEvent.press(screen.getByTestId('basics-skip'));
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/done'));
-  });
-
-  it('goes back to the colors', async () => {
-    await renderScreen(<OnboardingBasics />);
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
-
-    expect(router.dismissTo).toHaveBeenLastCalledWith('/onboarding/colors');
-  });
-
-  it('goes back to the result of the colors when there is one', async () => {
-    useSession.setState({ user: fresh({ colorAnalysis }) });
-    await renderScreen(<OnboardingBasics />);
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
-
-    expect(router.dismissTo).toHaveBeenLastCalledWith('/onboarding/palette');
-  });
-});
-
 describe('C: you’re set', () => {
-  it('recaps what the person gave and what happens next, with one action into the app', async () => {
-    useSession.setState({ user: fresh({ colorAnalysis, onboardingStep: 2 }) });
-    shop.fetchWardrobeStats.mockResolvedValue(stats(2));
+  it('opens with a look made of the person’s own pieces, then a short recap and one action into the app', async () => {
+    useSession.setState({ user: fresh({ colorAnalysis, onboardingStep: 3 }) });
+    shop.fetchWardrobeStats.mockResolvedValue(stats(3));
+    shop.fetchClothes.mockResolvedValue([clothing('g1', 'White T-shirt', 'top'), clothing('g2', 'Blue jeans', 'bottom'), clothing('g3', 'White sneakers', 'shoes')]);
     await renderScreen(<OnboardingDone />);
 
-    expect(screen.getByText('You’re set')).toBeOnTheScreen();
-    expect(screen.getByText('Step 9 of 9')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'You’re set' })).toBeOnTheScreen();
+    expectAccent('none', 'set');
+    expect(screen.getByTestId('title-underline')).toBeOnTheScreen();
+    expect(screen.getByRole('progressbar', { name: 'All done' })).toBeOnTheScreen();
+    expect(await screen.findByRole('image', { name: 'Outfit on a board: White T-shirt, Blue jeans, White sneakers' })).toBeOnTheScreen();
+    expect(screen.getByText('Looks like this one are built from your pieces and the forecast in Gliwice.')).toBeOnTheScreen();
     expect(screen.getByTestId('recap-name')).toHaveTextContent('NameOla');
     expect(screen.getByTestId('recap-colors')).toHaveTextContent('Your colorsSoft autumn');
     expect(await screen.findByText('Sunny, 7-18°C today')).toBeOnTheScreen();
-    expect(screen.getByTestId('recap-clothes')).toHaveTextContent('Clothes added2');
-    expect(screen.getByTestId('recap-next')).toHaveTextContent('Add 5 or more pieces and we’ll style your first outfit.');
+    expect(screen.getByTestId('recap-clothes')).toHaveTextContent('Clothes added3');
+    expect(screen.queryByText(/what happens next/i)).toBeNull();
     expect(screen.queryByText(/body shape/i)).toBeNull();
   });
 
+  it('shows a photograph, and says what is missing, while there are too few pieces for a look', async () => {
+    useSession.setState({ user: fresh({ onboardingStep: 3 }) });
+    shop.fetchClothes.mockResolvedValue([clothing('g1', 'White T-shirt', 'top')]);
+    await renderScreen(<OnboardingDone />);
+
+    expect(await screen.findByTestId('recap-photo')).toBeOnTheScreen();
+    expect(screen.queryByTestId('recap-look')).toBeNull();
+    expect(screen.getByText('Add a few pieces and your first looks appear here.')).toBeOnTheScreen();
+  });
+
+  it.each([
+    [null, '/onboarding/colors'],
+    [colorAnalysis, '/onboarding/palette'],
+  ] as const)('goes back to the colors, or to their result when there is one: %#', async (analysis, route) => {
+    useSession.setState({ user: fresh({ onboardingStep: 3, colorAnalysis: analysis }) });
+    await renderScreen(<OnboardingDone />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+
+    expect(router.dismissTo).toHaveBeenLastCalledWith(route);
+  });
+
   it('leaves out the colors and the place when there are none', async () => {
-    useSession.setState({ user: fresh({ onboardingStep: 2, location: null, styles: [] }) });
+    useSession.setState({ user: fresh({ onboardingStep: 3, location: null, styles: [] }) });
     await renderScreen(<OnboardingDone />);
 
     expect(screen.queryByTestId('recap-colors')).toBeNull();
@@ -451,7 +663,7 @@ describe('C: you’re set', () => {
 
   it('marks the whole flow done on the account and opens the app', async () => {
     profile.updateProfile.mockResolvedValue(user());
-    useSession.setState({ user: fresh({ onboardingStep: 2 }) });
+    useSession.setState({ user: fresh({ onboardingStep: 3 }) });
     await renderScreen(<OnboardingDone />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Go to Today' }));
@@ -464,10 +676,12 @@ describe('C: you’re set', () => {
 
 describe('resuming and showing the flow once', () => {
   it.each([
-    [0, null, '/onboarding/colors'],
-    [1, null, '/onboarding/basics'],
-    [2, null, '/onboarding/done'],
-    [0, colorAnalysis, '/onboarding/basics'],
+    [0, null, '/onboarding/shape'],
+    [1, null, '/onboarding/fit'],
+    [2, null, '/onboarding/colors'],
+    [3, null, '/onboarding/done'],
+    [2, colorAnalysis, '/onboarding/done'],
+    [0, colorAnalysis, '/onboarding/shape'],
   ] as const)('after a restart at step %s the flow opens %s', async (step, analysis, route) => {
     useSession.setState({ user: fresh({ onboardingStep: step, colorAnalysis: analysis }) });
 

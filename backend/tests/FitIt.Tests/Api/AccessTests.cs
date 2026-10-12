@@ -67,26 +67,34 @@ public sealed class AccessTests(ApiFactory factory)
         factory.Visualizer.Reset();
         var outfit = (await owner.SuggestedAsync()).Outfits[0];
         var visualization = await OrderAsync(owner, outfit.Id);
+        var photo = await owner.AddExtraPhotoAsync(factory.Storage, wardrobe[0].Id);
+        var planned = await owner.PlannedAsync(factory.DayIn(), outfit.Id);
         var (stranger, strangerAuth) = await factory.SignedInWithConsentAsync();
         var theirs = new Dictionary<string, Guid>
         {
             ["/api/clothes/{id}"] = wardrobe[0].Id,
             ["/api/clothes/{id}/reprocess"] = wardrobe[0].Id,
+            ["/api/clothes/{id}/photos/uploads"] = wardrobe[0].Id,
+            ["/api/clothes/{id}/photos"] = wardrobe[0].Id,
+            ["/api/clothes/{id}/photos/{photoId}"] = wardrobe[0].Id,
             ["/api/outfits/{id}"] = outfit.Id,
             ["/api/outfits/{id}/visualizations"] = outfit.Id,
+            ["/api/outfits/{id}/days"] = outfit.Id,
+            ["/api/calendar/{id}"] = planned.Id,
             ["/api/visualizations/{id}"] = visualization.Id,
+            ["/api/visualizations/{id}/reports"] = visualization.Id,
         };
 
         var withIds = (await RoutesAsync()).Where(route => route.Path.Contains('{', StringComparison.Ordinal)).ToList();
 
-        // Every route with an id in it is one of the five this test knows how to aim at somebody else's resource.
+        // Every route with an id in it is one of those this test knows how to aim at somebody else's resource.
         Assert.All(withIds, route => Assert.True(theirs.ContainsKey(route.Path), $"{route.Method} {route.Path} takes an id and has no test that a stranger gets 'not found'. Add it to AccessTests."));
         Assert.Equal(theirs.Keys.Order(), withIds.Select(route => route.Path).Distinct().Order());
 
         // Deletions last: if one worked, the others would have nothing to find.
         foreach (var route in withIds.OrderBy(route => route.Method == "DELETE"))
         {
-            var response = await stranger.SendAsync(Request(route, theirs[route.Path]));
+            var response = await stranger.SendAsync(Request(route, theirs[route.Path], photo.Id));
             Assert.True(response.StatusCode == HttpStatusCode.NotFound, $"{route.Method} {route.Path} answered a stranger {(int)response.StatusCode}.");
             Assert.Equal("not_found", await response.ProblemCodeAsync());
         }
@@ -102,12 +110,17 @@ public sealed class AccessTests(ApiFactory factory)
         // The owner has everything exactly as it was: not deleted, not changed, not re-queued, nothing ordered or counted for the stranger.
         var garment = await (await owner.GetAsync($"/api/clothes/{wardrobe[0].Id}")).ReadAsync<ClothingResponse>();
         Assert.Equal((wardrobe[0].Status, wardrobe[0].InLaundry, wardrobe[0].RarelyWorn), (garment.Status, garment.InLaundry, garment.RarelyWorn));
+        Assert.Equal([photo.Id], garment.Photos.Select(found => found.Id));
+        Assert.True(factory.Storage.Contains(photo.ImageKey));
         var kept = await (await owner.GetAsync($"/api/outfits/{outfit.Id}")).ReadAsync<OutfitResponse>();
         Assert.Equal((outfit.Rating, outfit.IsSaved, outfit.WornOn), (kept.Rating, kept.IsSaved, kept.WornOn));
         Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync($"/api/visualizations/{visualization.Id}")).StatusCode);
         Assert.Equal(1, await factory.WithDatabaseAsync(db => db.Visualizations.CountAsync(found => found.OutfitId == outfit.Id)));
         Assert.Equal(0, await factory.WithDatabaseAsync(db => db.Visualizations.CountAsync(found => found.UserId == strangerAuth.User.Id)));
         Assert.Equal(0, (await (await stranger.GetAsync("/api/me/usage")).ReadAsync<UsageResponse>()).Visualizations.Used);
+        Assert.Equal(0, await factory.WithDatabaseAsync(db => db.VisualizationReports.CountAsync(report => report.VisualizationId == visualization.Id)));
+        Assert.Equal([(planned.Id, false)], (await (await owner.GetAsync($"/api/outfits/{outfit.Id}/days")).ReadAsync<List<OutfitDayResponse>>()).Select(day => (day.Id, day.Worn)));
+        Assert.Equal(0, await factory.WithDatabaseAsync(db => db.CalendarEntries.CountAsync(entry => entry.UserId == strangerAuth.User.Id)));
         Assert.Equal(ownerAuth.User.Id, (await (await owner.GetAsync("/api/me")).ReadAsync<UserResponse>()).Id);
     }
 
@@ -123,6 +136,12 @@ public sealed class AccessTests(ApiFactory factory)
         Assert.Empty(await (await stranger.GetAsync("/api/clothes?forgotten=true")).ReadAsync<List<ClothingResponse>>());
         Assert.Empty(await (await stranger.GetAsync("/api/outfits")).ReadAsync<List<OutfitResponse>>());
         Assert.Empty(await (await stranger.GetAsync("/api/outfits?saved=true")).ReadAsync<List<OutfitResponse>>());
+        await owner.PlannedAsync(factory.DayIn().AddDays(1), outfit.Id);
+        Assert.Empty((await stranger.CalendarAsync(factory.DayIn().AddDays(-30), factory.DayIn().AddDays(31))).Days);
+        // Another person's outfit cannot be put on one's own calendar.
+        var borrowed = await stranger.PlanAsync(factory.DayIn(), outfit.Id);
+        Assert.Equal(HttpStatusCode.NotFound, borrowed.StatusCode);
+        Assert.Equal("not_found", await borrowed.ProblemCodeAsync());
         Assert.Equal(new WardrobeStatsResponse(0, 0, 0, 0, 0), await (await stranger.GetAsync("/api/clothes/stats")).ReadAsync<WardrobeStatsResponse>());
         Assert.Equal(0, (await (await stranger.GetAsync("/api/me/usage")).ReadAsync<UsageResponse>()).Suggestions.Used);
         Assert.NotNull(outfit);
@@ -174,9 +193,10 @@ public sealed class AccessTests(ApiFactory factory)
         ];
     }
 
-    private static HttpRequestMessage Request(Route route, Guid id)
+    private static HttpRequestMessage Request(Route route, Guid id, Guid? photoId = null)
     {
-        var request = new HttpRequestMessage(new HttpMethod(route.Method), route.Path.Replace("{id}", id.ToString(), StringComparison.Ordinal));
+        var path = route.Path.Replace("{id}", id.ToString(), StringComparison.Ordinal).Replace("{photoId}", (photoId ?? Guid.NewGuid()).ToString(), StringComparison.Ordinal);
+        var request = new HttpRequestMessage(new HttpMethod(route.Method), path);
         if (route.Method is "POST" or "PATCH" or "PUT" or "DELETE")
         {
             // Bodies that would be valid if the resource were the caller's, so that "not found" is the answer to the id and not to the body.
@@ -184,7 +204,10 @@ public sealed class AccessTests(ApiFactory factory)
             {
                 "/api/clothes/{id}" when route.Method == "PATCH" => new JsonObject { ["inLaundry"] = true },
                 "/api/outfits/{id}" when route.Method == "PATCH" => new JsonObject { ["saved"] = true, ["rating"] = "dislike", ["worn"] = true },
+                "/api/clothes/{id}/photos" => new JsonObject { ["key"] = $"u/{Guid.NewGuid():N}/extra/{Guid.NewGuid():N}.jpg" },
+                "/api/calendar/{id}" => new JsonObject { ["worn"] = true },
                 "/api/me" => new JsonObject { ["password"] = TestApi.Password },
+                "/api/visualizations/{id}/reports" => new JsonObject { ["reason"] = "inappropriate" },
                 _ => new JsonObject(),
             });
         }

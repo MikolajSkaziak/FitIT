@@ -837,11 +837,122 @@ public sealed class VisualizationTests(ApiFactory factory)
         Assert.Equal(["200", "202", "400", "401", "403", "404", "409", "429", "503"], create["responses"]!.AsObject().Select(response => response.Key).Order());
         var header = Assert.Single(create["parameters"]!.AsArray(), parameter => parameter!["in"]!.GetValue<string>() == "header")!;
         Assert.Equal(("Idempotency-Key", true), (header["name"]!.GetValue<string>(), header["required"]!.GetValue<bool>()));
+        Assert.Equal("reportVisualization", paths["/api/visualizations/{id}/reports"]!["post"]!["operationId"]!.GetValue<string>());
+        Assert.Equal(["204", "400", "401", "404", "409", "429"], paths["/api/visualizations/{id}/reports"]!["post"]!["responses"]!.AsObject().Select(response => response.Key).Order());
+        Assert.Equal(["wrong_clothes", "distorted", "inappropriate", "other"], document["components"]!["schemas"]!["ReportReason"]!["enum"]!.AsArray().Select(value => value!.GetValue<string>()));
+        Assert.Contains("reason", document["components"]!["schemas"]!["ReportVisualizationRequest"]!["required"]!.AsArray().Select(value => value!.GetValue<string>()));
         Assert.Equal("getVisualization", paths["/api/visualizations/{id}"]!["get"]!["operationId"]!.GetValue<string>());
         Assert.Equal(["200", "401", "404"], paths["/api/visualizations/{id}"]!["get"]!["responses"]!.AsObject().Select(response => response.Key).Order());
         var statuses = document["components"]!["schemas"]!["VisualizationStatus"]!["enum"]!.AsArray().Select(value => value!.GetValue<string>());
         Assert.Equal(["pending", "running", "completed", "failed", "blocked"], statuses);
         Assert.Contains("visualization", document["components"]!["schemas"]!["OutfitResponse"]!["properties"]!.AsObject().Select(property => property.Key));
+    }
+
+    // ---- reports ---------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_report_needs_a_signed_in_person()
+    {
+        var response = await Report(factory.CreateClient(), Guid.NewGuid(), "distorted");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("wrong_clothes", ReportReason.WrongClothes)]
+    [InlineData("distorted", ReportReason.Distorted)]
+    [InlineData("other", ReportReason.Other)]
+    public async Task A_report_is_stored_with_its_reason_and_the_picture_stays(string code, ReportReason reason)
+    {
+        var (client, auth, outfit) = await PersonWithOutfitAsync();
+        var picture = await VisualizeAsync(client, outfit.Id);
+
+        var response = await Report(client, picture.Id, code);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var stored = await factory.WithDatabaseAsync(db => db.VisualizationReports.AsNoTracking().SingleAsync(report => report.VisualizationId == picture.Id));
+        Assert.Equal((auth.User.Id, outfit.Id, reason), (stored.UserId, stored.OutfitId, stored.Reason));
+        Assert.Equal(factory.Clock.GetUtcNow(), stored.CreatedAt);
+        Assert.Equal(VisualizationStatus.Completed, (await Read(client, picture.Id)).Status);
+        Assert.True(factory.Storage.Contains(picture.ImageKey!));
+        Assert.Equal(picture.Id, (await GetOutfit(client, outfit.Id)).Visualization?.Id);
+    }
+
+    [Fact]
+    public async Task An_inappropriate_report_takes_the_picture_away_but_keeps_the_report()
+    {
+        var (client, auth, outfit) = await PersonWithOutfitAsync();
+        var picture = await VisualizeAsync(client, outfit.Id);
+
+        var response = await Report(client, picture.Id, "inappropriate");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/visualizations/{picture.Id}")).StatusCode);
+        Assert.False(factory.Storage.Contains(picture.ImageKey!));
+        Assert.Null((await GetOutfit(client, outfit.Id)).Visualization);
+        var stored = await factory.WithDatabaseAsync(db => db.VisualizationReports.AsNoTracking().SingleAsync(report => report.VisualizationId == picture.Id));
+        Assert.Equal((auth.User.Id, ReportReason.Inappropriate), (stored.UserId, stored.Reason));
+    }
+
+    [Fact]
+    public async Task Somebody_elses_picture_is_not_found_and_leaves_no_report()
+    {
+        var (owner, _, ownerOutfit) = await PersonWithOutfitAsync();
+        var picture = await VisualizeAsync(owner, ownerOutfit.Id);
+        var (stranger, _) = await factory.SignedInAsync();
+
+        var response = await Report(stranger, picture.Id, "inappropriate");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(VisualizationStatus.Completed, (await Read(owner, picture.Id)).Status);
+        Assert.False(await factory.WithDatabaseAsync(db => db.VisualizationReports.AnyAsync(report => report.VisualizationId == picture.Id)));
+    }
+
+    [Fact]
+    public async Task A_picture_that_is_still_being_made_has_nothing_to_report()
+    {
+        var (client, _, outfit) = await PersonWithOutfitAsync();
+        var order = await (await Order(client, outfit.Id)).ReadAsync<VisualizationResponse>();
+
+        var response = await Report(client, order.Id, "distorted");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("picture_not_ready", await response.ProblemCodeAsync());
+    }
+
+    [Theory]
+    [InlineData("rude")]
+    [InlineData("")]
+    public async Task A_reason_outside_the_list_is_refused(string code)
+    {
+        var (client, _, outfit) = await PersonWithOutfitAsync();
+        var picture = await VisualizeAsync(client, outfit.Id);
+
+        var response = await Report(client, picture.Id, code);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(await factory.WithDatabaseAsync(db => db.VisualizationReports.AnyAsync(report => report.VisualizationId == picture.Id)));
+    }
+
+    [Fact]
+    public async Task Reports_are_limited_per_hour()
+    {
+        var (client, _, outfit) = await PersonWithOutfitAsync();
+        var picture = await VisualizeAsync(client, outfit.Id);
+        using var limited = factory.WithWebHostBuilder(builder => builder.UseSetting("RateLimits:ReportsPerHour", "2"));
+        var phone = limited.CreateClient();
+        phone.DefaultRequestHeaders.Authorization = client.DefaultRequestHeaders.Authorization;
+
+        var statuses = new List<HttpStatusCode>();
+        HttpResponseMessage? last = null;
+        for (var i = 0; i < 3; i++)
+        {
+            last = await Report(phone, picture.Id, "other");
+            statuses.Add(last.StatusCode);
+        }
+
+        Assert.Equal([HttpStatusCode.NoContent, HttpStatusCode.NoContent, HttpStatusCode.TooManyRequests], statuses);
+        Assert.Equal("rate_limited", await last!.ProblemCodeAsync());
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
@@ -883,6 +994,9 @@ public sealed class VisualizationTests(ApiFactory factory)
         Assert.Equal(VisualizationStatus.Completed, done.Status);
         return done;
     }
+
+    private static Task<HttpResponseMessage> Report(HttpClient client, Guid id, string reason) =>
+        client.PostJsonAsync($"/api/visualizations/{id}/reports", new JsonObject { ["reason"] = reason });
 
     private static async Task<VisualizationResponse> Read(HttpClient client, Guid id) => await (await client.GetAsync($"/api/visualizations/{id}")).ReadAsync<VisualizationResponse>();
 

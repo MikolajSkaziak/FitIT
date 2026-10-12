@@ -3,9 +3,12 @@ import { useState } from 'react';
 
 import type { Gender } from '@/api/account';
 import { useSession } from '@/auth/session';
+import { AppText } from '@/components/AppText';
 import { GenderChoice } from '@/components/choices';
-import { Labeled } from '@/components/forms';
+import { Group } from '@/components/lists';
+import { genderLabel } from '@/copy/labels';
 import { EditScreen, useSaveProfile } from '@/features/profile/EditScreen';
+import { LabelHero } from '@/features/profile/LabelHero';
 import { shapeFits } from '@/lib/gender';
 
 export default function EditGender() {
@@ -22,6 +25,7 @@ export default function EditGender() {
   return (
     <EditScreen
       title="Gender"
+      hero={<LabelHero value={gender ? genderLabel(gender) : '–'} eyebrow="Profile · gender" />}
       actionLabel={picksShape ? 'Next' : changed ? 'Save' : 'Done'}
       busy={save.isPending}
       error={save.error}
@@ -36,9 +40,12 @@ export default function EditGender() {
         }
       }}
       testID="edit-gender">
-      <Labeled label="Gender" helper="This decides which body shapes we show. If your current shape isn’t offered for a new choice, you’ll pick another.">
+      <Group title="Shown as">
         <GenderChoice value={gender} onChange={setGender} />
-      </Labeled>
+      </Group>
+      <AppText variant="secondary" color="textSecondary">
+        We use it to show the right silhouettes and style photos.
+      </AppText>
     </EditScreen>
   );
 }

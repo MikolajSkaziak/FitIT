@@ -133,6 +133,78 @@ public sealed class WeatherServiceTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task A_day_ahead_has_its_own_weather_for_the_whole_day_and_no_now()
+    {
+        var weather = factory.FreshWeather();
+        (weather.Low, weather.High, weather.Trend) = (10, 10, -2);
+        var (client, _) = await factory.SignedInAsync(body =>
+            body["location"] = new JsonObject { ["source"] = "manual", ["name"] = "Tokio", ["lat"] = 35.6762, ["lon"] = 139.6503 });
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(factory.Clock.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo")).DateTime);
+
+        var response = await client.GetAsync($"/api/weather/day?date={today.AddDays(3):yyyy-MM-dd}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var day = await response.ReadAsync<DayWeatherResponse>();
+        Assert.Equal((today.AddDays(3), false, (int?)null, "Tokio"), (day.Date, day.IsToday, day.Now, day.Place));
+        // Three days on, two degrees colder each: the forecast of that day, not of this one.
+        Assert.Equal((4, 4, TemperatureBand.Cold), (day.FeelsMin, day.FeelsMax, day.Band));
+        Assert.Equal((today.AddDays(3), 7, TimeSpan.FromHours(9)), (DateOnly.FromDateTime(day.From.DateTime), day.From.Hour, day.From.Offset));
+        Assert.Equal((today.AddDays(3), 22), (DateOnly.FromDateTime(day.To.DateTime), day.To.Hour));
+        Assert.Equal([7, 12, 17, 22], day.Hours.Select(hour => hour.Time.Hour));
+        Assert.All(day.Hours, hour => Assert.Equal(today.AddDays(3), DateOnly.FromDateTime(hour.Time.DateTime)));
+        var raw = await (await client.GetAsync($"/api/weather/day?date={today.AddDays(3):yyyy-MM-dd}")).Content.ReadAsStringAsync();
+        Assert.Contains("\"now\":null", raw, StringComparison.Ordinal);
+
+        // The last day of the horizon is still told; one forecast answered all of it.
+        var last = await (await client.GetAsync($"/api/weather/day?date={today.AddDays(6):yyyy-MM-dd}")).ReadAsync<DayWeatherResponse>();
+        Assert.Equal((today.AddDays(6), -2), (last.Date, last.FeelsMin));
+        Assert.Equal(1, weather.Calls);
+    }
+
+    [Fact]
+    public async Task Today_asked_for_by_its_date_is_the_rest_of_today_with_a_now()
+    {
+        var weather = factory.FreshWeather();
+        (weather.Low, weather.High) = (9, 9);
+        var (client, _) = await factory.SignedInAsync();
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(factory.Clock.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw")).DateTime);
+
+        var day = await (await client.GetAsync($"/api/weather/day?date={today:yyyy-MM-dd}")).ReadAsync<DayWeatherResponse>();
+        var same = await (await client.GetAsync("/api/weather/today")).ReadAsync<WeatherResponse>();
+
+        Assert.Equal((today, true, (int?)9), (day.Date, day.IsToday, day.Now));
+        Assert.Equal((same.From, same.To, same.FeelsMin, same.FeelsMax), (day.From, day.To, day.FeelsMin, day.FeelsMax));
+        Assert.Equal(same.Hours, day.Hours);
+    }
+
+    [Fact]
+    public async Task A_day_outside_the_seven_days_of_the_forecast_is_refused_with_its_own_code()
+    {
+        var weather = factory.FreshWeather();
+        // Far to the east, where the date is already tomorrow's for half of Greenwich's day: the horizon is counted there.
+        var (client, _) = await factory.SignedInAsync(body =>
+            body["location"] = new JsonObject { ["source"] = "manual", ["name"] = "Kiritimati", ["lat"] = 1.9, ["lon"] = -157.4 });
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(factory.Clock.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById("Pacific/Kiritimati")).DateTime);
+
+        foreach (var query in new[] { $"?date={today.AddDays(-1):yyyy-MM-dd}", $"?date={today.AddDays(7):yyyy-MM-dd}", $"?date={today.AddDays(400):yyyy-MM-dd}", "" })
+        {
+            var refused = await client.GetAsync($"/api/weather/day{query}");
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Equal("date_out_of_range", await refused.ProblemCodeAsync());
+        }
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/weather/day?date=tomorrow")).StatusCode);
+        // Nothing was asked of the provider for a day it cannot tell.
+        Assert.Equal(0, weather.Calls);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/weather/day?date={today.AddDays(6):yyyy-MM-dd}")).StatusCode);
+
+        var (nowhere, _) = await factory.SignedInAsync(body => body.Remove("location"));
+        var noPlace = await nowhere.GetAsync($"/api/weather/day?date={today.AddDays(1):yyyy-MM-dd}");
+        Assert.Equal(HttpStatusCode.Conflict, noPlace.StatusCode);
+        Assert.Equal("location_missing", await noPlace.ProblemCodeAsync());
+    }
+
+    [Fact]
     public async Task A_profile_without_a_place_has_no_weather()
     {
         factory.FreshWeather();

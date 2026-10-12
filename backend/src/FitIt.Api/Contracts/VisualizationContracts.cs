@@ -21,3 +21,12 @@ public sealed record VisualizationResponse(
 
 /// <summary>The newest visualization of an outfit, as much of it as a list of outfits needs. Fetch <c>GET /api/visualizations/{id}</c> for the rest.</summary>
 public sealed record OutfitVisualizationResponse(Guid Id, VisualizationStatus Status, string? ImageUrl, string? ImageKey);
+
+/// <summary>
+/// A problem with a finished try-on picture. <c>Reason</c> is one of <c>wrong_clothes</c>, <c>distorted</c>,
+/// <c>inappropriate</c>, <c>other</c>. An <c>inappropriate</c> report also deletes the picture.
+/// </summary>
+public sealed class ReportVisualizationRequest
+{
+    public required ReportReason Reason { get; init; }
+}

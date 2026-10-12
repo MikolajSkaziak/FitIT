@@ -47,9 +47,18 @@ public sealed class OutfitBuilderService(
     /// Stores the outfit the person built. Saved by default: making it was the decision to keep it. Unsaved, it is a draft
     /// that exists so a try-on picture can be ordered before saving; saving later passes the draft's id as
     /// <paramref name="draftId"/>, and the pictures ordered for the draft come along to the saved outfit.
+    /// <paramref name="layout"/> is how the person arranged the garments on the board, if they did,
+    /// <paramref name="figureLayout"/> how they arranged them on the figure.
     /// </summary>
-    public async Task<Result<OutfitView>> CreateAsync(Guid userId, IReadOnlyList<Guid> ids, Occasion? occasion, string? name, bool saved, Guid? draftId, CancellationToken cancellationToken)
+    public async Task<Result<OutfitView>> CreateAsync(
+        Guid userId, IReadOnlyList<Guid> ids, Occasion? occasion, string? name, bool saved, Guid? draftId, IReadOnlyList<OutfitPlacement>? layout,
+        IReadOnlyList<OutfitPlacement>? figureLayout, CancellationToken cancellationToken)
     {
+        if ((layout is not null && !Outfit.FitsLayout(layout, [.. ids])) || (figureLayout is not null && !Outfit.FitsLayout(figureLayout, [.. ids])))
+        {
+            return OutfitService.LayoutInvalid;
+        }
+
         var chosen = await ChooseAsync(userId, ids, MinItems, cancellationToken);
         if (!chosen.IsOk)
         {
@@ -90,6 +99,8 @@ public sealed class OutfitBuilderService(
             Items = [.. garments.Select(garment => new OutfitItem { ClothingItemId = garment.Id, Slot = garment.Role })],
         };
         outfit.Save(saved);
+        outfit.Arrange(layout);
+        outfit.ArrangeFigure(figureLayout);
         db.Outfits.Add(outfit);
         await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
         {

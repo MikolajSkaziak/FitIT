@@ -1,42 +1,42 @@
 import { create } from 'zustand';
 
-import type { ClothingSize, Gender, LegLength, StyleTag, ThermalPreference } from '@/api/account';
+import type { Gender, StyleTag, ThermalPreference } from '@/api/account';
 import { emptyDateParts, type DateParts } from '@/lib/dates';
-import { shapeFits } from '@/lib/gender';
+import type { Place } from '@/lib/location';
+
+/** Where the weather will be checked: the phone's (rounded) location, a city picked by hand, or nothing yet. */
+export type WeatherPlace = (Place & { source: 'device' | 'manual' }) | null;
 
 /**
- * What the person has entered so far in the registration steps.
- * It lives in memory only (it holds a password) and is sent to the server once, at the last step.
+ * What the person has picked and entered before the account exists: who is being dressed, styles, the pieces they own,
+ * a place, then the account itself. It lives in memory only (it holds a password) and nothing in it is sent until the account is created.
  */
 export interface RegistrationDraft {
-  email: string;
-  password: string;
+  /** Asked first and never preselected; null until the person answers. "Prefer not to say" is an answer. */
+  gender: Gender | null;
+  styles: StyleTag[];
+  /** Codes of the common pieces ticked as owned. They join the wardrobe once there is an account to hold them. */
+  starters: string[];
+  place: WeatherPlace;
+  /** How the person feels the temperature. "Average" until they say otherwise: a suggestion, not a question that must be answered. */
+  thermalPreference: ThermalPreference;
   displayName: string;
   /** As entered: a month chosen by name, a typed day and a typed year. */
   birthDate: DateParts;
-  gender: Gender | null;
-  avatarId: string | null;
-  /** The set the chosen body shape was made for, so a change of gender can tell whether the shape still applies. */
-  avatarGender: Gender | null;
-  styles: StyleTag[];
-  thermalPreference: ThermalPreference;
-  /** Optional, asked on the fit step. */
-  clothingSize: ClothingSize | null;
-  legLength: LegLength | null;
+  email: string;
+  password: string;
 }
 
 const empty: RegistrationDraft = {
-  email: '',
-  password: '',
+  gender: null,
+  styles: [],
+  starters: [],
+  place: null,
+  thermalPreference: 'normal',
   displayName: '',
   birthDate: emptyDateParts,
-  gender: null,
-  avatarId: null,
-  avatarGender: null,
-  styles: [],
-  thermalPreference: 'normal',
-  clothingSize: null,
-  legLength: null,
+  email: '',
+  password: '',
 };
 
 interface DraftStore extends RegistrationDraft {
@@ -46,13 +46,6 @@ interface DraftStore extends RegistrationDraft {
 
 export const useRegistrationDraft = create<DraftStore>((set) => ({
   ...empty,
-  set: (change) =>
-    set((draft) => {
-      const genderChanged = change.gender !== undefined && change.gender !== draft.gender;
-      // Women and men are offered their own five shapes, so a choice made for the other set no longer applies.
-      // Non-binary and "prefer not to say" are offered all ten, so a shape stays whenever it is still on offer.
-      const stillOffered = genderChanged && change.avatarId === undefined && shapeFits(change.gender ?? null, draft.avatarGender);
-      return genderChanged && !stillOffered ? { avatarId: null, avatarGender: null, ...change } : change;
-    }),
+  set: (change) => set(change),
   reset: () => set(empty),
 }));

@@ -16,7 +16,12 @@ internal static class EvalMarkdown
         var scenarios = report.Matrix.Scenarios().Count();
         text.AppendLine("# FitIt.Eval: report");
         text.AppendLine();
-        text.AppendLine(C, $"Matrix of product spec 6.9: {report.Matrix.Wardrobes.Count} wardrobes ({string.Join(", ", report.Matrix.Wardrobes)} garments) x {report.Matrix.Bands.Count} weather bands x {report.Matrix.Occasions.Count} occasions = {scenarios} scenarios per stylist.");
+        text.AppendLine(C, $"Matrix of product spec 6.9: {report.Matrix.Wardrobes.Count} wardrobes ({string.Join(", ", report.Matrix.Wardrobes)} garments) x {report.Matrix.Bands.Count} weather bands x {report.Matrix.Occasions.Count} occasions x {report.Matrix.Profiles.Count} style profiles ({string.Join(", ", report.Matrix.Profiles.Select(profile => profile.Name))}) = {scenarios} scenarios per stylist.");
+        if (report.Sample is { } sample)
+        {
+            text.AppendLine(C, $"This run is a sample of {sample} of them: the same ones on every run, spread over the matrix, and only scenarios the wardrobe can dress (see `EvalMatrix.Sample`).");
+        }
+
         text.AppendLine(C, $"Configured stylist: `{report.StylistName}` (the one `Providers:OutfitStylist` selects; prompt `{report.PromptVersion}`). Baseline: the rule-based generator of spec 6.7, on the same scenarios.");
         text.AppendLine();
         text.AppendLine("The pipeline is the one the API runs (`StylistPipeline`), without the database, the clock or the network. Every answer is checked again here, apart from the pipeline.");
@@ -83,6 +88,57 @@ internal static class EvalMarkdown
         text.AppendLine("The mean score is the coherence score of spec 6.6 (0 to 100). Whether an outfit is fit to wear is judged by a person, on a sample (goal: at least 70%); that is not measured here.");
         text.AppendLine();
 
+        text.AppendLine("## Style fidelity");
+        text.AppendLine();
+        text.AppendLine("Of the garments of an outfit that carry style tags, the share that carry one of the styles of the person's profile (direct), and the share that carry one of them or a style that goes with one of them by `StyleAffinity` (direct or compatible). Each number is the mean over outfits. The measure lives in `StyleFidelity` in this project and reads nothing the stylist computes.");
+        text.AppendLine();
+        text.AppendLine("| Stylist | Profile | Outfits | Direct | Direct or compatible |");
+        text.AppendLine("|---|---|---:|---:|---:|");
+        foreach (var results in report.Stylists)
+        {
+            text.AppendLine(FidelityRow(results.Name, "all", [.. results.Answered]));
+            foreach (var profile in report.Matrix.Profiles)
+            {
+                text.AppendLine(FidelityRow(results.Name, profile.Name, [.. results.Answered.Where(outcome => outcome.Scenario.Profile == profile)]));
+            }
+        }
+
+        text.AppendLine();
+        text.AppendLine("| Stylist | Wardrobe | Outfits | Direct | Direct or compatible |");
+        text.AppendLine("|---|---:|---:|---:|---:|");
+        foreach (var results in report.Stylists)
+        {
+            foreach (var size in report.Matrix.Wardrobes)
+            {
+                text.AppendLine(FidelityRow(results.Name, size.ToString(C), [.. results.Answered.Where(outcome => outcome.Scenario.WardrobeSize == size)]));
+            }
+        }
+
+        text.AppendLine();
+        text.AppendLine("## Requests to the model");
+        text.AppendLine();
+        text.AppendLine("| Stylist | Answers | Requests | Retries | Mean input tokens | Mean output tokens | Mean thought tokens | Mean cost per request USD | Mean cost per answer USD | Cost USD |");
+        text.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+        foreach (var results in report.Stylists)
+        {
+            var answered = results.Answered.ToList();
+            var requests = answered.Sum(outcome => outcome.Requests);
+            var cost = answered.Sum(outcome => outcome.CostUsd);
+            string Mean(Func<Outcome, int> tokens) => requests == 0 ? "n/a" : ((double)answered.Sum(tokens) / requests).ToString("F0", C);
+            text.AppendLine(C, $"| {results.Name} | {answered.Count} | {requests} | {answered.Sum(outcome => Math.Max(0, outcome.Requests - 1))} | {Mean(outcome => outcome.InputTokens)} | {Mean(outcome => outcome.OutputTokens)} | {Mean(outcome => outcome.ThoughtTokens)} | {(requests == 0 ? "n/a" : (cost / requests).ToString("F6", C))} | {(answered.Count == 0 ? "n/a" : (cost / answered.Count).ToString("F6", C))} | {cost.ToString("F4", C)} |");
+        }
+
+        text.AppendLine();
+        var reasons = report.Stylists[0].Answered.Where(outcome => outcome.Fallback && outcome.Reason is not null).GroupBy(outcome => outcome.Reason!.Value).OrderBy(group => group.Key).ToList();
+        if (reasons.Count > 0 && report.Stylists[0].Answered.Any(outcome => outcome.Requests > 0))
+        {
+            text.AppendLine(C, $"Why the rules answered for `{report.Stylists[0].Name}`: {string.Join(", ", reasons.Select(group => $"{FitIt.Core.Common.EnumCodes.ToCode(group.Key)} {group.Count()}"))}.");
+            text.AppendLine();
+        }
+
+        text.AppendLine("A request is one question put to the model; a retry is the second question of an answer whose first try held no valid outfit. Tokens are the provider's own counts (thinking is charged like output); the cost is those counts at the configured prices. A fake stylist and the rules ask nothing and cost nothing.");
+        text.AppendLine();
+
         text.AppendLine("## Where the wardrobe cannot dress the person (`missing_garments`)");
         text.AppendLine();
         var missing = report.Stylists[0].Outcomes.Where(outcome => !outcome.WasAnswered).ToList();
@@ -118,6 +174,26 @@ internal static class EvalMarkdown
             }
         }
 
+        if (report.Sample is not null)
+        {
+            text.AppendLine();
+            text.AppendLine("## The sampled answers");
+            text.AppendLine();
+            text.AppendLine(C, $"What `{report.Stylists[0].Name}` proposed, case by case, for reading by a person. Each garment is followed by its style tags.");
+            foreach (var outcome in report.Stylists[0].Answered)
+            {
+                text.AppendLine();
+                text.AppendLine(C, $"**{EvalRunner.Describe(outcome.Scenario)}**{(outcome.Fallback ? " (composed by the rules)" : "")}");
+                text.AppendLine();
+                foreach (var proposal in outcome.Proposals)
+                {
+                    var fidelity = StyleFidelity.Of(proposal.Outfit, outcome.Scenario.Profile.Styles);
+                    text.AppendLine(C, $"- {(proposal.Kind is { } kind ? FitIt.Core.Common.EnumCodes.ToCode(kind) : "no kind")}, score {proposal.Score}, direct {(fidelity is null ? "n/a" : fidelity.Direct.ToString("P0", C))}: {string.Join("; ", proposal.Outfit.Items.Select(garment => $"{garment.Tags.Name} [{string.Join(", ", garment.Tags.Styles.Select(FitIt.Core.Common.EnumCodes.ToCode))}]"))}");
+                    text.AppendLine(C, $"  - {proposal.Reasoning}");
+                }
+            }
+        }
+
         text.AppendLine();
         text.AppendLine("## Visualizations");
         text.AppendLine();
@@ -145,6 +221,15 @@ internal static class EvalMarkdown
     {
         var m = Measure(all);
         return $"| {name} | {all.Count.ToString(C)} | {m.Answered} | {m.Missing} | {m.Violations} | {m.Discovery} | {m.Fallback} | {m.Median} | {m.P95} | {all.Sum(outcome => outcome.CostUsd).ToString("F4", C)} |";
+    }
+
+    /// <summary>A row of the style tables: the mean fidelity of every outfit proposed in the given answers.</summary>
+    private static string FidelityRow(string name, string group, List<Outcome> answered)
+    {
+        var fidelity = answered.SelectMany(outcome => outcome.Proposals.Select(proposal => StyleFidelity.Of(proposal.Outfit, outcome.Scenario.Profile.Styles))).OfType<StyleFidelity>().ToList();
+        return fidelity.Count == 0
+            ? $"| {name} | {group} | 0 | n/a | n/a |"
+            : string.Create(C, $"| {name} | {group} | {fidelity.Count} | {fidelity.Average(one => one.Direct):P1} | {fidelity.Average(one => one.Near):P1} |");
     }
 
     /// <summary>A row of a breakdown: the stylist, what the rows are grouped by, then the same counts.</summary>

@@ -1,6 +1,6 @@
 import { ApiError, networkProblem } from '@/api/problem';
 import type { Visualization, VisualizationStatus } from '@/api/visualizations';
-import { createVisualizationOrder, progressOf, type OrderDeps } from '@/features/visualization/order';
+import { createVisualizationOrder, typicalWaitMs, type OrderDeps } from '@/features/visualization/order';
 
 const picture = { imageUrl: 'https://images.test/v1.jpg', imageKey: 'u/me/vis/v1.jpg' };
 
@@ -61,24 +61,23 @@ describe('one outfit on the silhouette', () => {
     await settle();
 
     expect(deps.request).toHaveBeenCalledWith('o1', 'key-1');
-    expect(state()).toMatchObject({ stage: 'working', picture: null, progress: progressOf(0) });
+    expect(state()).toMatchObject({ stage: 'working', picture: null });
     expect(waits).toEqual([2500]);
 
     serves(record('running'));
     await tick();
     expect(deps.read).toHaveBeenCalledWith('v1');
-    expect(state()).toMatchObject({ stage: 'working', progress: progressOf(2500) });
+    expect(state()).toMatchObject({ stage: 'working' });
 
     serves(record('completed'));
     await tick();
 
-    expect(state()).toMatchObject({ stage: 'ready', picture: { url: picture.imageUrl, cacheKey: picture.imageKey }, progress: 1 });
+    expect(state()).toMatchObject({ stage: 'ready', picture: { id: 'v1', url: picture.imageUrl, cacheKey: picture.imageKey } });
   });
 
-  it('shows a bar that moves from the first moment and never reaches the end before the picture does', () => {
-    expect(progressOf(0)).toBeCloseTo(0.08);
-    expect(progressOf(20_000)).toBeCloseTo(0.58);
-    expect(progressOf(600_000)).toBe(0.92);
+  it('measures its progress bar against how long a picture usually takes: 10 to 40 seconds', () => {
+    expect(typicalWaitMs).toBeGreaterThanOrEqual(10_000);
+    expect(typicalWaitMs).toBeLessThanOrEqual(40_000);
   });
 
   it('stops asking once the answer is final', async () => {
@@ -229,7 +228,7 @@ describe('one outfit on the silhouette', () => {
     await settle();
 
     expect(deps.read).not.toHaveBeenCalled();
-    expect(state()).toMatchObject({ stage: 'ready', picture: { url: picture.imageUrl, cacheKey: picture.imageKey }, progress: 1 });
+    expect(state()).toMatchObject({ stage: 'ready', picture: { url: picture.imageUrl, cacheKey: picture.imageKey } });
   });
 
   it('keeps asking while the connection comes and goes', async () => {
@@ -288,5 +287,19 @@ describe('one outfit on the silhouette', () => {
 
     expect(deps.request).toHaveBeenCalledTimes(2);
     expect(state().stage).toBe('ready');
+  });
+
+  it('lets go of a picture that was removed: back to nothing ordered, and asking stops', async () => {
+    const { order, state, serves, tick, deps } = setup();
+    serves(record('completed'));
+    order.start();
+    await settle();
+    expect(state()).toMatchObject({ stage: 'ready', picture: { id: 'v1' } });
+
+    order.forget();
+
+    expect(state()).toEqual({ stage: 'none', picture: null, errorCode: null });
+    await tick();
+    expect(deps.read).not.toHaveBeenCalled();
   });
 });

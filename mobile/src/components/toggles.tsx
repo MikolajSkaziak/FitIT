@@ -6,7 +6,7 @@ import { AppText } from './AppText';
 import { OptionTile } from './controls';
 import { Grid } from './Grid';
 import { Icon, type IconName } from './Icon';
-import { PressScale, ToggleFade } from './motion';
+import { TextTab } from './TextTabs';
 
 /**
  * The size the native switch really draws at. React Native reserves 51x31 for it on iOS, but the iOS 26 switch is
@@ -29,7 +29,7 @@ interface ToggleRowProps {
   testID?: string;
 }
 
-/** A setting that takes effect the moment it is switched: one row of a list, the system switch on the right. */
+/** A setting that takes effect the moment it is switched: one hairline row of a list, the system switch on the right. */
 export function ToggleRow({ label, icon, meta, value, onChange, disabled, last = false, testID }: ToggleRowProps) {
   const theme = useTheme();
   return (
@@ -39,7 +39,7 @@ export function ToggleRow({ label, icon, meta, value, onChange, disabled, last =
         <View style={styles.rowText}>
           <AppText>{label}</AppText>
           {meta ? (
-            <AppText variant="meta" color="textSecondary">
+            <AppText variant="caption" color="textSecondary">
               {meta}
             </AppText>
           ) : null}
@@ -51,8 +51,8 @@ export function ToggleRow({ label, icon, meta, value, onChange, disabled, last =
           value={value}
           onValueChange={onChange}
           disabled={disabled}
-          trackColor={{ false: theme.borderControl, true: theme.action }}
-          ios_backgroundColor={theme.borderControl}
+          trackColor={{ false: theme.border, true: theme.action }}
+          ios_backgroundColor={theme.border}
           thumbColor={value ? theme.onAction : theme.surface}
           style={switchSize}
           testID={testID}
@@ -74,36 +74,11 @@ interface PillProps {
 }
 
 /**
- * A filter written as a pill, one of several in a row or a wrapped line. Outlined when idle; sage fill and a green border when
- * chosen. Like the option tile, the label is drawn once and never moves: only the two faces under it fade, and the chosen face
- * is an overlay, so the pill keeps its size. No check and no "x": the fill and the border are the cue. The one fully rounded
- * shape besides the proposal tabs.
+ * A filter value, one of several in a row or a wrapped line. It used to be a pill; it is a text tab now, and keeps
+ * its name and props so the screens that use it need no change. See `TextTab`.
  */
 export function Pill({ label, selected, onPress, role = 'checkbox', icon, testID }: PillProps) {
-  const theme = useTheme();
-  return (
-    <PressScale
-      accessibilityRole={role}
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={label}
-      onPress={onPress}
-      testID={testID}
-      style={styles.pill}>
-      <View style={[StyleSheet.absoluteFill, styles.pillFace, { backgroundColor: theme.surface, borderColor: theme.borderControl, borderWidth: 1 }]} />
-      <ToggleFade on={selected} style={[StyleSheet.absoluteFill, styles.pillFace, { backgroundColor: theme.sage, borderColor: theme.action, borderWidth: 2 }]} />
-      {icon ? (
-        <View style={styles.pillIcon}>
-          <Icon name={icon} size={20} color="textSecondary" />
-          <ToggleFade on={selected} style={StyleSheet.absoluteFill}>
-            <Icon name={icon} size={20} color="action" />
-          </ToggleFade>
-        </View>
-      ) : null}
-      <AppText variant="secondaryStrong" numberOfLines={1}>
-        {label}
-      </AppText>
-    </PressScale>
-  );
+  return <TextTab label={label} selected={selected} onPress={onPress} role={role} icon={icon} testID={testID} />;
 }
 
 interface ChoiceGridProps<T extends string | number> {
@@ -117,7 +92,7 @@ interface ChoiceGridProps<T extends string | number> {
   testID?: string;
 }
 
-/** A closed list shown as tiles: all options visible at once, no menu to open. */
+/** A closed list shown as hairline rows in columns: all options visible at once, no menu to open. */
 export function ChoiceGrid<T extends string | number>({ label, options, value, onChange, columns = 2, testID }: ChoiceGridProps<T>) {
   const several = Array.isArray(value);
   const chosen = (option: T) => (several ? (value as readonly T[]).includes(option) : value === option);
@@ -143,11 +118,8 @@ export function ChoiceGrid<T extends string | number>({ label, options, value, o
 }
 
 const styles = StyleSheet.create({
-  row: { minHeight: 56, paddingVertical: space[2], paddingHorizontal: space[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[4] },
+  row: { minHeight: size.option, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3] },
   rowLead: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space[3] },
-  rowText: { flex: 1, gap: 2 },
+  rowText: { flex: 1 },
   switchBox: { alignItems: 'center', justifyContent: 'center' },
-  pill: { height: size.touch, paddingHorizontal: space[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2] },
-  pillIcon: { width: 20, height: 20 },
-  pillFace: { borderRadius: size.touch / 2 },
 });

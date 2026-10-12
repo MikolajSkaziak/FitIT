@@ -1,5 +1,6 @@
 import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import type { Haptic, PressKind } from '@/lib/haptics';
 import { motion, radius, size, space, useTheme, type ColorToken } from '@/theme';
 
 import { AppText } from './AppText';
@@ -13,7 +14,7 @@ interface ButtonProps {
   onPress?: () => void;
   kind?: Kind;
   icon?: IconName;
-  /** 44 high instead of 48, for a button inside a row of controls. */
+  /** 44 high instead of 54, for a button inside a row of controls. */
   compact?: boolean;
   /** Takes the width of its text instead of the full row. */
   inline?: boolean;
@@ -21,11 +22,17 @@ interface ButtonProps {
   busy?: boolean;
   /** Cannot act yet. Use only next to a visible explanation of why. */
   disabled?: boolean;
+  /** The tap when it is pressed: `auto` by kind (primary Medium, secondary Light, text a tick, danger Rigid); `none` where another cue takes over. */
+  haptic?: Haptic;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
+/** What each kind feels like under the finger. */
+const feels: Record<Kind, PressKind> = { primary: 'primary', secondary: 'secondary', text: 'quiet', danger: 'danger', dangerText: 'danger' };
+
+/** A capsule: bottle green for the one main action, white with a control line for the second, bare green words for the rest. */
 const looks: Record<Kind, { fill: ColorToken | null; text: ColorToken; line: ColorToken | null }> = {
   primary: { fill: 'action', text: 'onAction', line: 'action' },
   secondary: { fill: 'surface', text: 'text', line: 'borderControl' },
@@ -34,7 +41,7 @@ const looks: Record<Kind, { fill: ColorToken | null; text: ColorToken; line: Col
   dangerText: { fill: null, text: 'danger', line: null },
 };
 
-export function Button({ label, onPress, kind = 'primary', icon, compact, inline, busy, disabled, accessibilityLabel, style, testID }: ButtonProps) {
+export function Button({ label, onPress, kind = 'primary', icon, compact, inline, busy, disabled, haptic = 'auto', accessibilityLabel, style, testID }: ButtonProps) {
   const theme = useTheme();
   const look = disabled ? { fill: 'disabledFill' as const, text: 'disabledText' as const, line: 'disabledFill' as const } : looks[kind];
   return (
@@ -44,6 +51,7 @@ export function Button({ label, onPress, kind = 'primary', icon, compact, inline
       accessibilityState={{ disabled: disabled || busy, busy }}
       disabled={disabled || busy}
       onPress={onPress}
+      haptic={haptic === 'auto' ? feels[kind] : haptic}
       testID={testID}
       style={[
         styles.base,
@@ -78,7 +86,7 @@ const styles = StyleSheet.create({
   base: {
     borderWidth: 1,
     borderRadius: radius.control,
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

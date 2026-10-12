@@ -6,15 +6,13 @@ import { StyleSheet, View } from 'react-native';
 import { login } from '@/api/account';
 import { startSession } from '@/auth/session';
 import { AppText } from '@/components/AppText';
-import { Brandmark } from '@/components/brand';
 import { Button } from '@/components/Button';
 import { LinkText } from '@/components/controls';
 import { Field } from '@/components/Field';
 import { FormError, PasswordField } from '@/components/forms';
-import { TitleBlock } from '@/components/headers';
-import { Screen } from '@/components/Screen';
 import { messageFor } from '@/copy/errors';
 import { useResetDraft } from '@/features/profile/passwordReset';
+import { AuthScreen } from '@/features/registration/AuthScreen';
 import { emailError, messages } from '@/features/registration/validation';
 import { space } from '@/theme';
 
@@ -44,8 +42,12 @@ export default function Login() {
   };
 
   return (
-    <Screen
+    <AuthScreen
       testID="login-screen"
+      eyebrow="Welcome back"
+      title="Log in"
+      lead={justReset ? 'Your password is updated. Log in with the new one.' : undefined}
+      onBack={() => router.back()}
       footer={
         <>
           <FormError message={signIn.isError ? messageFor(signIn.error) : null} />
@@ -58,50 +60,40 @@ export default function Login() {
           </View>
         </>
       }>
-      <View style={styles.top}>
-        <Brandmark small />
-        <TitleBlock title="Good to see you" lead={justReset ? 'Your password is updated. Log in with the new one.' : 'Log in to see today’s outfits.'} />
-        <View style={styles.form}>
-          <Field
-            label="Email"
-            value={email}
-            onChangeText={(text) => {
-              setEmail(text);
-              signIn.reset();
-            }}
-            error={errors.email}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            textContentType="emailAddress"
-            maxLength={254}
-            returnKeyType="next"
-            testID="login-email"
-          />
-          <View>
-            <PasswordField
-              label="Password"
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                signIn.reset();
-              }}
-              error={errors.password}
-              returnKeyType="go"
-              onSubmitEditing={submit}
-              testID="login-password"
-            />
-            <LinkText label="Forgot your password?" onPress={() => router.push('/reset')} testID="login-forgot" />
-          </View>
-        </View>
-      </View>
-    </Screen>
+      <Field
+        label="Email"
+        value={email}
+        onChangeText={(text) => {
+          setEmail(text);
+          signIn.reset();
+        }}
+        error={errors.email}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        textContentType="emailAddress"
+        maxLength={254}
+        returnKeyType="next"
+        testID="login-email"
+      />
+      <PasswordField
+        label="Password"
+        value={password}
+        onChangeText={(text) => {
+          setPassword(text);
+          signIn.reset();
+        }}
+        error={errors.password}
+        returnKeyType="go"
+        onSubmitEditing={submit}
+        testID="login-password"
+      />
+      <LinkText label="Forgot your password?" onPress={() => router.push('/reset')} testID="login-forgot" />
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  top: { gap: space[6], paddingTop: space[2] },
-  form: { gap: space[4] },
   other: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2] },
 });

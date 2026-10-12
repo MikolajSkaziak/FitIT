@@ -3,6 +3,7 @@ using FitIt.Api.Contracts;
 using FitIt.Core.Common;
 using FitIt.Core.Usage;
 using FitIt.Core.Wardrobe;
+using FitIt.Infrastructure.Common;
 using FitIt.Infrastructure.Usage;
 using FitIt.Infrastructure.Wardrobe;
 using Microsoft.AspNetCore.Mvc;
@@ -67,7 +68,42 @@ internal static class WardrobeEndpoints
         clothes.MapPost("/{id:guid}/reprocess", Reprocess).WithName("reprocessClothing")
             .Produces<ClothingResponse>().ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
 
+        // Extra photos of a garment travel like the main one: an address to PUT to, then a confirmation with the key.
+        clothes.MapPost("/{id:guid}/photos/uploads", CreatePhotoUpload).WithName("createClothingPhotoUpload")
+            .Produces<UploadResponse>().ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        clothes.MapPost("/{id:guid}/photos", AddPhoto).WithName("addClothingPhoto")
+            .Produces<ClothingPhotoResponse>(StatusCodes.Status201Created).Produces<ClothingPhotoResponse>()
+            .ProducesValidationProblem().ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        clothes.MapDelete("/{id:guid}/photos/{photoId:guid}", DeletePhoto).WithName("deleteClothingPhoto")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(401).ProducesProblem(404);
+
         return app;
+    }
+
+    private static async Task<IResult> CreatePhotoUpload(Guid id, HttpContext http, WardrobeService wardrobe, CancellationToken cancellationToken)
+    {
+        var ticket = await wardrobe.CreatePhotoUploadAsync(http.User.UserId(), id, cancellationToken);
+        return ticket.IsOk
+            ? TypedResults.Ok(new UploadResponse(ticket.Value.Key, ticket.Value.Url.AbsoluteUri, "PUT", ticket.Value.Headers, ticket.Value.ExpiresAt, wardrobe.MaxUploadBytes))
+            : ticket.Error!.ToProblem();
+    }
+
+    private static async Task<IResult> AddPhoto(Guid id, AddClothingPhotoRequest request, HttpContext http, WardrobeService wardrobe, ClothingMapper mapper, CancellationToken cancellationToken)
+    {
+        var added = await wardrobe.AddPhotoAsync(http.User.UserId(), id, request.Key, cancellationToken);
+        if (!added.IsOk)
+        {
+            return added.Error!.ToProblem();
+        }
+
+        var response = mapper.Map(added.Value.Photo);
+        return added.Value.Created ? TypedResults.Created($"/api/clothes/{id}/photos/{response.Id}", response) : TypedResults.Ok(response);
+    }
+
+    private static async Task<IResult> DeletePhoto(Guid id, Guid photoId, HttpContext http, WardrobeService wardrobe, CancellationToken cancellationToken)
+    {
+        var deleted = await wardrobe.DeletePhotoAsync(http.User.UserId(), id, photoId, cancellationToken);
+        return deleted.IsOk ? TypedResults.NoContent() : deleted.Error!.ToProblem();
     }
 
     private static async Task<IResult> GetUsage(HttpContext http, UsageCounters usage, CancellationToken cancellationToken)
@@ -187,13 +223,7 @@ internal static class WardrobeEndpoints
                 Ids = wantedIds,
             },
             cancellationToken);
-        var listed = new List<ClothingResponse>(found.Count);
-        foreach (var item in found)
-        {
-            listed.Add(await mapper.MapAsync(item, cancellationToken));
-        }
-
-        return TypedResults.Ok(listed);
+        return TypedResults.Ok(await mapper.MapAsync(found, cancellationToken));
     }
 
     /// <summary>Reads a comma separated list of codes. Null means the filter is not used (not given, or no code in it).</summary>
@@ -277,12 +307,29 @@ internal static class WardrobeEndpoints
     }
 }
 
-/// <summary>Shapes a garment for the app, with a freshly signed address for its picture.</summary>
+/// <summary>Shapes a garment for the app, with freshly signed addresses for its picture and its extra photos.</summary>
 internal sealed class ClothingMapper(WardrobeService wardrobe)
 {
-    public async Task<ClothingResponse> MapAsync(ClothingItem item, CancellationToken cancellationToken)
+    public async Task<ClothingResponse> MapAsync(ClothingItem item, CancellationToken cancellationToken) =>
+        (await MapAsync([item], cancellationToken))[0];
+
+    /// <summary>Several garments at once: their extra photos are read together.</summary>
+    public async Task<IReadOnlyList<ClothingResponse>> MapAsync(IReadOnlyList<ClothingItem> items, CancellationToken cancellationToken)
     {
-        var today = await wardrobe.TodayOfAsync(item.UserId, cancellationToken);
+        var photos = await wardrobe.PhotosOfAsync([.. items.Select(item => item.Id)], cancellationToken);
+        var mapped = new List<ClothingResponse>(items.Count);
+        foreach (var item in items)
+        {
+            mapped.Add(Map(item, await wardrobe.TodayOfAsync(item.UserId, cancellationToken), photos[item.Id]));
+        }
+
+        return mapped;
+    }
+
+    public ClothingPhotoResponse Map(ClothingPhoto photo) => new(photo.Id, wardrobe.ImageUrl(photo).AbsoluteUri, photo.Key, photo.Width, photo.Height);
+
+    private ClothingResponse Map(ClothingItem item, LocalDay today, IEnumerable<ClothingPhoto> photos)
+    {
         // A refused photo has no pictures left to show.
         var hasImage = item.Status != ClothingStatus.Rejected;
         return new ClothingResponse(
@@ -308,6 +355,8 @@ internal sealed class ClothingMapper(WardrobeService wardrobe)
             item.RejectReason,
             hasImage ? wardrobe.ImageUrl(item).AbsoluteUri : null,
             hasImage ? item.ImageKey : null,
-            item.CreatedAt);
+            item.CreatedAt,
+            [.. photos.Select(Map)],
+            item.DescribedByAi);
     }
 }

@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 
 import type { Occasion } from '@/api/outfits';
-import { AppText } from '@/components/AppText';
+import { Eyebrow } from '@/components/Eyebrow';
 import { Field } from '@/components/Field';
-import { ChoiceGrid } from '@/components/toggles';
+import { TextTabs } from '@/components/TextTabs';
 import { occasionOptions } from '@/copy/labels';
 import { space } from '@/theme';
 
@@ -17,15 +17,13 @@ interface OccasionPickerProps {
   onNote: (note: string) => void;
 }
 
-/** "Occasion": six tiles, one chosen, and an optional note in the person's own words. Shared by Today and "Style this". */
+/** "Occasion": six words, one chosen, and an optional note in the person's own words. */
 export function OccasionPicker({ occasion, onOccasion, note, onNote }: OccasionPickerProps) {
   return (
     <View style={styles.picker}>
       <View style={styles.group}>
-        <AppText variant="subheading" accessibilityRole="header">
-          What’s the occasion?
-        </AppText>
-        <ChoiceGrid label="Occasion" options={occasionOptions} value={occasion} onChange={onOccasion} testID="occasion" />
+        <Eyebrow header>What’s the occasion?</Eyebrow>
+        <TextTabs label="Occasion" layout="wrap" options={occasionOptions} value={occasion} onChange={onOccasion} testID="occasion" />
       </View>
       <Field
         label="Note (optional)"
@@ -42,5 +40,5 @@ export function OccasionPicker({ occasion, onOccasion, note, onNote }: OccasionP
 
 const styles = StyleSheet.create({
   picker: { gap: space[6] },
-  group: { gap: space[2] },
+  group: { gap: space[1] },
 });

@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import * as account from '@/api/account';
 import { ApiError } from '@/api/problem';
 import EditBirthDate from '@/app/(app)/account/birth-date';
-import RegisterAbout from '@/app/(auth)/register/about';
+import RegisterAccount from '@/app/(auth)/register/account';
 import { useSession } from '@/auth/session';
 import { useRegistrationDraft } from '@/features/registration/draft';
 import { messages } from '@/features/registration/validation';
@@ -99,17 +99,17 @@ describe('the birth date boxes on the profile screen', () => {
 
 describe('the birth date boxes in registration', () => {
   it('ask for all three parts before moving on', async () => {
-    await renderScreen(<RegisterAbout />);
+    await renderScreen(<RegisterAccount />);
 
     await fireEvent.changeText(screen.getByTestId('register-name'), 'Ola');
-    await fireEvent.press(screen.getByTestId('register-next'));
+    await fireEvent.press(screen.getByTestId('register-submit'));
 
     expect(screen.getByText(messages.birthDateMissing)).toBeOnTheScreen();
     expect(router.push).not.toHaveBeenCalled();
   });
 
   it('keep the entered parts in the draft', async () => {
-    await renderScreen(<RegisterAbout />);
+    await renderScreen(<RegisterAccount />);
 
     await chooseMonth('register-birth-date-month', 10);
     await fireEvent.changeText(screen.getByTestId('register-birth-date-day'), '6');

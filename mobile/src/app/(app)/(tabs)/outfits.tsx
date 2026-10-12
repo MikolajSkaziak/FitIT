@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { calendarKeys } from '@/api/calendar';
 import { fetchSavedOutfits, outfitKeys } from '@/api/outfits';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -11,51 +12,82 @@ import { EmptyState } from '@/components/EmptyState';
 import { Field } from '@/components/Field';
 import { Fade, staggerOf, useIntro } from '@/components/motion';
 import { Skeleton } from '@/components/lists';
+import { useTabBarSpace } from '@/components/tabBarSpace';
+import { TextTabs } from '@/components/TextTabs';
 import { messageFor } from '@/copy/errors';
+import { CalendarView } from '@/features/calendar/CalendarView';
+import { boardSize } from '@/features/styling/board';
 import { matchesOutfit } from '@/features/styling/search';
 import { SavedOutfitTile } from '@/features/visualization/SavedOutfitTile';
-import { plural } from '@/lib/plural';
 import { motion, radius, size, space, useTheme } from '@/theme';
 
 const columnGap = space[2];
 const skeletons = ['a', 'b', 'c', 'd'];
 
+/** The saved outfits, or the calendar: what was worn on which day, and what is planned. */
+type Shelf = 'saved' | 'calendar';
+const shelves: readonly { value: Shelf; label: string }[] = [
+  { value: 'saved', label: 'Saved' },
+  { value: 'calendar', label: 'Calendar' },
+];
+
 export default function Outfits() {
   const theme = useTheme();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  // The tab bar floats over the list, so the last row needs room to scroll clear of it.
+  const tabBarSpace = useTabBarSpace();
   const { width } = useWindowDimensions();
   const tileWidth = (width - 2 * size.gutter - columnGap) / 2;
   const [search, setSearch] = useState('');
+  // An outfit's page sends the person here to see one of its days: `view=calendar&day=2026-10-15`.
+  const params = useLocalSearchParams<{ view?: string; day?: string }>();
+  const asked = params.view === 'calendar' ? (params.day ?? 'calendar') : null;
+  const [shelf, setShelf] = useState<Shelf>(asked ? 'calendar' : 'saved');
+  // Sent here again while the tab is alive (it keeps its state between visits): the calendar comes to the front again.
+  const [answered, setAnswered] = useState(asked);
+  if (asked !== answered) {
+    setAnswered(asked);
+    if (asked) {
+      setShelf('calendar');
+    }
+  }
 
   const saved = useQuery({ queryKey: outfitKeys.saved, queryFn: fetchSavedOutfits });
   const all = saved.data ?? [];
   // The first screenful of tiles arrives in turn when the first answer does; searching and refetching never replay it.
   const intro = useIntro(saved.data !== undefined);
-  const items = all.filter((outfit) => matchesOutfit(outfit, search));
+  const items = shelf === 'saved' ? all.filter((outfit) => matchesOutfit(outfit, search)) : [];
   const searching = search.trim().length > 0;
 
   // The spinner belongs to the pull only: tied to every background refetch, iOS leaves it hanging over the list.
   const [pulled, setPulled] = useState(false);
   const refresh = async () => {
     setPulled(true);
-    await saved.refetch();
+    await Promise.all([saved.refetch(), queryClient.invalidateQueries({ queryKey: calendarKeys.all })]);
     setPulled(false);
   };
 
   const header = (
     <View style={styles.header}>
-      <View>
+      <View style={styles.titles}>
+        {all.length > 0 ? (
+          <AppText variant="eyebrow" tabular testID="outfits-count">
+            {all.length} saved
+          </AppText>
+        ) : null}
         <AppText variant="display" accessibilityRole="header">
           Outfits
         </AppText>
-        {all.length > 0 ? (
-          <AppText variant="secondary" color="textSecondary" tabular testID="outfits-count">
-            {all.length} {plural(all.length, ['saved outfit', 'saved outfits'])}
-          </AppText>
-        ) : null}
       </View>
-      {all.length > 0 ? (
+      <TextTabs<Shelf> label="Outfits shown" tabs layout="row" options={shelves} value={shelf} onChange={setShelf} testID="outfits-shelf" />
+      {shelf === 'calendar' ? (
+        // Opened for a day: the calendar starts on its month, and a new day asked for later starts it again.
+        <Fade key={params.day ?? 'calendar'}>
+          <CalendarView openOn={params.day} />
+        </Fade>
+      ) : all.length > 0 ? (
         <Field
           accessibilityLabel="Search saved outfits"
           value={search}
@@ -76,7 +108,7 @@ export default function Outfits() {
     <Fade key="loading" enter={false} exit duration={motion.exit}>
       <View style={styles.skeletons} accessibilityRole="progressbar" accessibilityLabel="Loading saved outfits">
         {skeletons.map((key) => (
-          <Skeleton key={key} height={tileWidth} width={tileWidth} radius={radius.thumb} />
+          <Skeleton key={key} height={boardSize(tileWidth).height} width={tileWidth} radius={radius.thumb} />
         ))}
       </View>
     </Fade>
@@ -111,11 +143,11 @@ export default function Outfits() {
         keyExtractor={(outfit) => outfit.id}
         numColumns={2}
         columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace + space[4] }]}
         ListHeaderComponent={header}
-        ListEmptyComponent={empty}
+        ListEmptyComponent={shelf === 'saved' ? empty : null}
         renderItem={({ item, index }) => (
-          <Fade {...staggerOf(index, intro)}>
+          <Fade {...staggerOf(index, intro)} exit shrink>
             <SavedOutfitTile outfit={item} width={tileWidth} onPress={() => router.push({ pathname: '/outfit/[id]', params: { id: item.id } })} />
           </Fade>
         )}
@@ -133,6 +165,7 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingHorizontal: size.gutter, paddingBottom: space[4], gap: space[4] },
   row: { gap: columnGap },
   header: { gap: space[3] },
+  titles: { gap: space[2] },
   skeletons: { flexDirection: 'row', flexWrap: 'wrap', columnGap, rowGap: space[4] },
   problem: { gap: space[3], paddingTop: space[4] },
 });

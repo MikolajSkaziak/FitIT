@@ -12,9 +12,9 @@ namespace FitIt.Tests.Wardrobe;
 public sealed class StarterCatalogTests
 {
     [Fact]
-    public void Every_piece_has_valid_unique_tags_and_neutral_names()
+    public void Every_piece_has_valid_unique_tags_an_audience_and_neutral_names()
     {
-        Assert.InRange(StarterCatalog.All.Count, 12, 16);
+        Assert.InRange(StarterCatalog.All.Count, 30, 40);
         Assert.Equal(StarterCatalog.All.Count, StarterCatalog.All.Select(piece => piece.Code).Distinct().Count());
         Assert.All(StarterCatalog.All, piece =>
         {
@@ -24,7 +24,39 @@ public sealed class StarterCatalogTests
             Assert.NotEmpty(piece.Tags.Seasons!);
             Assert.Equal($"/starter/{piece.Code}.png", piece.ImagePath);
             Assert.DoesNotContain("women", piece.Tags.Name, StringComparison.OrdinalIgnoreCase);
+            Assert.True(Enum.IsDefined(piece.Audience));
         });
+    }
+
+    [Fact]
+    public void Every_audience_has_pieces_and_the_women_get_a_proper_range_of_their_own()
+    {
+        Assert.All(Enum.GetValues<StarterAudience>(), audience => Assert.Contains(StarterCatalog.All, piece => piece.Audience == audience));
+        var women = StarterCatalog.All.Where(piece => piece.Audience == StarterAudience.Women).Select(piece => piece.Tags.Subcategory).ToHashSet();
+
+        Assert.Contains(Subcategory.Dress, women);
+        Assert.Contains(Subcategory.Skirt, women);
+        Assert.Contains(Subcategory.Blouse, women);
+        Assert.Contains(Subcategory.Flats, women);
+        Assert.Contains(Subcategory.Bag, women);
+        Assert.InRange(StarterCatalog.All.Count(piece => piece.Audience == StarterAudience.Women), 12, 20);
+    }
+
+    [Theory]
+    [InlineData(StarterAudience.Women)]
+    [InlineData(StarterAudience.Men)]
+    public void What_the_phone_shows_one_audience_still_dresses_a_person_in_every_temperature_band(StarterAudience audience)
+    {
+        // The phone's rule: a woman sees women's and everyone's pieces, a man sees men's and everyone's.
+        var shown = StarterCatalog.All.Where(piece => piece.Audience == audience || piece.Audience == StarterAudience.Everyone).ToList();
+        var wardrobe = shown.Select((piece, index) => new Garment(new Guid(index + 1, 0, 0, new byte[8]), piece.Tags)).ToList();
+
+        foreach (var feels in new[] { Looks.Hot, Looks.Warm, Looks.Mild, Looks.Cold, Looks.Freezing })
+        {
+            var candidates = CandidateFilter.Select(wardrobe, Looks.Day(feels), Occasion.Everyday);
+            Assert.True(candidates.IsComplete, $"{audience} at {feels}: missing {string.Join(", ", candidates.Missing.Concat(candidates.MissingEither))}");
+            Assert.NotEmpty(RuleBasedStylist.Compose(candidates, Looks.Day(feels), new HashSet<(Guid, Guid)>(), new Random(1)));
+        }
     }
 
     [Theory]
@@ -66,6 +98,8 @@ public sealed class StarterPieceTests(ApiFactory factory)
         foreach (var piece in pieces)
         {
             Assert.NotEmpty(piece.Colors);
+            var expected = StarterCatalog.Find(piece.Code)!;
+            Assert.Equal((expected.Audience, GarmentCatalog.GroupOf(expected.Tags.Subcategory)), (piece.Audience, piece.Group));
             var picture = await anonymous.GetAsync(piece.ImageUrl);
             Assert.Equal(HttpStatusCode.OK, picture.StatusCode);
             Assert.Equal("image/png", picture.Content.Headers.ContentType?.MediaType);
@@ -76,8 +110,9 @@ public sealed class StarterPieceTests(ApiFactory factory)
     public async Task Chosen_pieces_become_ready_garments_with_their_tags_and_cost_nothing()
     {
         factory.Ai.Reset();
-        var (client, auth) = await factory.SignedInAsync();
-        await client.GiveConsentAsync(false);
+        // A new account has not given its consent to AI processing yet, and choosing catalogue pieces does not need it.
+        var (client, auth) = await factory.SignedInWithoutConsentAsync();
+        Assert.Null(auth.User.AiConsentAt);
 
         var response = await client.PostJsonAsync("/api/me/starter-pieces", Codes("white_tshirt", "blue_jeans", "white_sneakers"));
 
@@ -88,6 +123,7 @@ public sealed class StarterPieceTests(ApiFactory factory)
         Assert.All(wardrobe, garment =>
         {
             Assert.Equal(ClothingStatus.Ready, garment.Status);
+            Assert.False(garment.DescribedByAi);
             Assert.StartsWith("http", garment.ImageUrl, StringComparison.Ordinal);
             // The picture lies under the person's own prefix, and it is the one file for original and cutout.
             Assert.StartsWith($"u/{auth.User.Id:N}/", garment.ImageKey, StringComparison.Ordinal);
@@ -167,6 +203,7 @@ public sealed class StarterPieceTests(ApiFactory factory)
         Assert.All(before, piece => Assert.False(piece.Added));
         Assert.Equal(["navy_hoodie"], after.Where(piece => piece.Added).Select(piece => piece.Code));
         Assert.All(after, piece => Assert.False(string.IsNullOrEmpty(piece.ImageUrl)));
+        Assert.Equal(StarterCatalog.All.Select(piece => piece.Audience), after.Select(piece => piece.Audience));
         Assert.All(await MineAsync(other), piece => Assert.False(piece.Added));
     }
 

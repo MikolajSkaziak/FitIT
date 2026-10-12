@@ -11,15 +11,18 @@ namespace FitIt.Core.Styling;
 public static class CandidateFilter
 {
     /// <summary>The most candidates sent per role: half from what is liked and worn often, half from what is forgotten.</summary>
-    public const int MaxPerRole = 12;
+    public const int MaxPerRole = 8;
 
     /// <summary>Strict, then formality wider by one, then no style rule as well, then warmth with a tolerance of one as well.</summary>
     private const int LastLevel = 3;
 
     private static readonly Category[] Roles = Enum.GetValues<Category>();
 
-    public static CandidateSet Select(IReadOnlyList<Garment> wardrobe, WeatherProfile weather, Occasion occasion, Guid? baseItemId = null)
+    /// <param name="styles">The styles the person likes; within a role, garments that fit them are the first to become candidates.</param>
+    public static CandidateSet Select(
+        IReadOnlyList<Garment> wardrobe, WeatherProfile weather, Occasion occasion, Guid? baseItemId = null, IReadOnlyList<StyleTag>? styles = null)
     {
+        styles ??= [];
         var band = weather.Rule;
         var rule = OccasionRule.For(occasion);
         var baseItem = baseItemId is { } id ? wardrobe.FirstOrDefault(garment => garment.Id == id) : null;
@@ -159,7 +162,7 @@ public static class CandidateFilter
         var items = new List<Candidate>();
         foreach (var role in Roles)
         {
-            items.AddRange(Mix(chosen[role], baseItem).Select((garment, index) => new Candidate($"{AliasPrefix(role)}{index + 1}", garment)));
+            items.AddRange(Mix(chosen[role], baseItem, styles).Select((garment, index) => new Candidate($"{AliasPrefix(role)}{index + 1}", garment)));
         }
 
         var demands = new WeatherDemands(
@@ -196,17 +199,23 @@ public static class CandidateFilter
         && (garment.Role != Category.Outerwear || band.OuterwearMinWarmth is not { } warmth || garment.Tags.Warmth >= warmth - tolerance);
 
     /// <summary>
-    /// At most twelve: six favourites (liked most, then worn most) and six forgotten ones (worn least), so the model can
-    /// build both a sure bet and a discovery. A half that comes up short is filled from the other.
+    /// At most eight: four favourites and four forgotten ones, so the model can build both a sure bet and a discovery. A
+    /// half that comes up short is filled from the other. Within each half the garments that fit the person's styles come
+    /// first; then, among favourites, those liked most (an outfit the person disliked takes a like away from each of its
+    /// garments, and never more than that: a disliked garment ranks lower, it does not disappear) and worn most, and among
+    /// the forgotten those worn least.
     /// </summary>
-    private static List<Garment> Mix(List<Garment> garments, Garment? baseItem)
+    private static List<Garment> Mix(List<Garment> garments, Garment? baseItem, IReadOnlyList<StyleTag> styles)
     {
+        // A garment that cannot be judged stands between a fit and a miss.
+        double Fit(Garment garment) => StyleFit.Of(garment, styles) ?? StyleFit.Compatible;
+
         var kept = garments.Where(garment => garment.Id == baseItem?.Id).ToList();
         var others = garments.Where(garment => garment.Id != baseItem?.Id).ToList();
         var favourites = others.Where(garment => !garment.Forgotten)
-            .OrderByDescending(garment => garment.Likes).ThenByDescending(garment => garment.WearCount).ThenBy(garment => garment.Id).ToList();
+            .OrderByDescending(Fit).ThenByDescending(garment => garment.Likes - garment.Dislikes).ThenByDescending(garment => garment.WearCount).ThenBy(garment => garment.Id).ToList();
         var forgotten = others.Where(garment => garment.Forgotten)
-            .OrderBy(garment => garment.WearCount).ThenBy(garment => garment.Id).ToList();
+            .OrderByDescending(Fit).ThenByDescending(garment => garment.Likes - garment.Dislikes).ThenBy(garment => garment.WearCount).ThenBy(garment => garment.Id).ToList();
 
         var room = MaxPerRole - kept.Count;
         var half = room / 2;

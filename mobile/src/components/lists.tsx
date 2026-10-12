@@ -1,22 +1,29 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
 
-import { radius, space, useTheme } from '@/theme';
+import type { Haptic } from '@/lib/haptics';
+import { radius, size, space, useTheme, type ColorToken } from '@/theme';
 
 import { AppText } from './AppText';
 import { Icon, type IconName } from './Icon';
-import { PressScale } from './motion';
+import { PressScale, Shimmer } from './motion';
 
-/** The quiet frame of a list: surface, hairline border, card radius. */
+/**
+ * What used to be the bordered frame of a list. Lists are hairline rows straight on the page now, so this only
+ * groups them; it is kept so the screens that wrap their rows in it need no change.
+ */
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  const theme = useTheme();
-  return <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, style]}>{children}</View>;
+  return <View style={style}>{children}</View>;
 }
 
 interface RowProps {
   label: string;
-  /** A quiet icon before the label. Rows of one list that have one all start their text at the same place. */
+  /** An icon before the label. Rows of one list that have one all start their text at the same place. */
   icon?: IconName;
+  /** Ink by default; the secondary colour for a quiet fact, the action colour for a way into something. */
+  iconColor?: ColorToken;
+  /** Anything else in front of the label instead of an icon: the 56 point thumbnail of a garment. */
+  leading?: ReactNode;
   /** Shown on the right in the secondary colour. */
   value?: string;
   /** A second, smaller line under the label. */
@@ -25,44 +32,58 @@ interface RowProps {
   right?: ReactNode;
   /** Makes the whole row a button and adds a chevron. */
   onPress?: () => void;
+  /** The label is the name of a thing rather than of a setting: semibold. A chosen row is always strong. */
+  strong?: boolean;
+  /** The chosen row of a list: an ink line under it and a green check at its end instead of a chevron. */
+  selected?: boolean;
+  /** With `onPress`: "radio" or "checkbox" when the row is an option that `selected` answers. A plain button otherwise. */
+  role?: 'button' | 'radio' | 'checkbox';
   /** The row is itself a call to action: label in the action colour. */
   accent?: boolean;
+  /** A destructive way out: the icon, the words and the chevron all in the danger colour. */
+  danger?: boolean;
+  /** The tap on a press: `auto` is a selection tick (Rigid for a danger row, nothing for an option that is already chosen); `none` where another cue takes over. */
+  haptic?: Haptic;
+  /** No line under the row. Only for a row that closes against another line. */
   last?: boolean;
   testID?: string;
 }
 
-/** One line of a settings list. */
-export function Row({ label, icon, value, meta, right, onPress, accent = false, last = false, testID }: RowProps) {
+/** One hairline row of a list: settings, the pieces of an outfit, search matches, the options of a question. */
+export function Row({ label, icon, iconColor = 'text', leading, value, meta, right, onPress, strong = false, selected = false, role = 'button', accent = false, danger = false, haptic = 'auto', last = false, testID }: RowProps) {
   const theme = useTheme();
+  const chevron = Boolean(onPress) && role === 'button' && !selected;
   const content = (
     <>
       <View style={styles.rowLead}>
-        {icon ? <Icon name={icon} size={20} color="textSecondary" /> : null}
+        {leading}
+        {icon ? <Icon name={icon} size={20} color={danger ? 'danger' : accent ? 'action' : iconColor} /> : null}
         <View style={styles.rowText}>
-          <AppText variant={accent ? 'label' : 'body'} color={accent ? 'action' : 'text'}>
+          <AppText variant={strong || selected || accent ? 'title' : 'body'} color={danger ? 'danger' : accent ? 'action' : 'text'}>
             {label}
           </AppText>
           {meta ? (
-            <AppText variant="meta" color="textSecondary">
+            <AppText variant="caption" color="textSecondary">
               {meta}
             </AppText>
           ) : null}
         </View>
       </View>
-      {value || right || onPress ? (
+      {value || right || chevron || selected ? (
         <View style={styles.rowRight}>
           {value ? (
-            <AppText color="textSecondary" tabular align="right" numberOfLines={1} style={styles.value}>
+            <AppText variant="secondary" color="textSecondary" tabular align="right" numberOfLines={1} style={styles.value}>
               {value}
             </AppText>
           ) : null}
           {right}
-          {onPress ? <Icon name="forward" size={20} color={accent ? 'action' : 'textSecondary'} /> : null}
+          {selected ? <Icon name="check" size={20} color="action" /> : null}
+          {chevron ? <Icon name="forward" size={16} color={danger ? 'danger' : accent ? 'action' : 'textSecondary'} /> : null}
         </View>
       ) : null}
     </>
   );
-  const frame = [styles.row, last ? null : { borderBottomWidth: 1, borderBottomColor: theme.border }];
+  const frame = [styles.row, last ? null : { borderBottomWidth: 1, borderBottomColor: selected ? theme.text : theme.border }];
   if (!onPress) {
     return (
       <View style={frame} testID={testID}>
@@ -72,20 +93,27 @@ export function Row({ label, icon, value, meta, right, onPress, accent = false, 
   }
 
   return (
-    <PressScale accessibilityRole="button" accessibilityLabel={value ? `${label}, ${value}` : label} onPress={onPress} testID={testID} style={frame}>
+    <PressScale
+      accessibilityRole={role}
+      accessibilityState={role === 'button' ? undefined : { checked: selected }}
+      accessibilityLabel={value ? `${label}, ${value}` : label}
+      onPress={onPress}
+      haptic={haptic === 'auto' ? (danger ? 'danger' : role !== 'button' && selected ? 'none' : 'nav') : haptic}
+      testID={testID}
+      style={frame}>
       {content}
     </PressScale>
   );
 }
 
-/** A heading with the list it names. */
+/** An eyebrow label with the rows it names. */
 export function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <View style={styles.group}>
-      <AppText variant="subheading" accessibilityRole="header">
+    <View>
+      <AppText variant="eyebrow" accessibilityRole="header">
         {title}
       </AppText>
-      <Card>{children}</Card>
+      {children}
     </View>
   );
 }
@@ -97,18 +125,21 @@ interface SkeletonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-/** A still placeholder in the shape of what is loading. */
+/** A placeholder in the shape of what is loading, with a light that sweeps across it while it waits. */
 export function Skeleton({ width = '100%', height, radius: corner = radius.thumb, style }: SkeletonProps) {
   const theme = useTheme();
-  return <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[{ width, height, borderRadius: corner, backgroundColor: theme.skeleton }, style]} />;
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[{ width, height, borderRadius: corner, backgroundColor: theme.skeleton, overflow: 'hidden' }, style]}>
+      <Shimmer color={theme.skeletonShine} />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: radius.card, overflow: 'hidden' },
-  row: { minHeight: 56, paddingVertical: space[2], paddingHorizontal: space[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[4] },
+  row: { minHeight: size.option, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3] },
   rowLead: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: space[3] },
-  rowText: { flexShrink: 1, gap: 2 },
-  rowRight: { flexDirection: 'row', alignItems: 'center', gap: space[2], flexShrink: 1 },
+  rowText: { flexShrink: 1 },
+  // The value gives way long before the label does: a label never breaks mid-word to make room for it.
+  rowRight: { flexDirection: 'row', alignItems: 'center', gap: space[2], flexShrink: 8 },
   value: { flexShrink: 1 },
-  group: { gap: space[2] },
 });

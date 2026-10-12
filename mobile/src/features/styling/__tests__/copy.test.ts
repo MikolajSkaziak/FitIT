@@ -1,4 +1,4 @@
-import { joinWords, missingNotice, relaxationLine, relaxationLines } from '@/features/styling/copy';
+import { joinWords, missingNotice } from '@/features/styling/copy';
 
 describe('joinWords', () => {
   it('joins the last one with the word and the rest with commas', () => {
@@ -51,19 +51,5 @@ describe('missingNotice', () => {
 
   it('does not list a role twice when it is required and also an option', () => {
     expect(missingNotice(['outerwear'], ['outerwear', 'mid_layer'], 5).title).toBe('You’re missing jackets and coats and warm layers');
-  });
-});
-
-describe('relaxationLine', () => {
-  it('says which rule gave way for which part of the outfit, in a sentence', () => {
-    expect(relaxationLine({ role: 'outerwear', rule: 'warmth' })).toBe('You don’t have jackets and coats for this temperature, so this is the closest match.');
-    expect(relaxationLine({ role: 'shoes', rule: 'formality' })).toBe('You don’t have shoes for this occasion, so this is the closest match.');
-    expect(relaxationLine({ role: 'top', rule: 'style' })).toBe('You don’t have tops in a matching style, so this is the closest match.');
-  });
-
-  it('says each sentence once, however many outfits of the request carry it', () => {
-    const same = { role: 'outerwear' as const, rule: 'warmth' as const };
-
-    expect(relaxationLines([same, same, { role: 'shoes', rule: 'style' }])).toHaveLength(2);
   });
 });

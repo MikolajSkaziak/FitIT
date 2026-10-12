@@ -1,5 +1,4 @@
 import { initialOf } from '@/features/profile/avatar';
-import { consentLine } from '@/features/profile/consent';
 import { deletionSummary, isDeletionConfirmed } from '@/features/profile/deletion';
 import { privacyPolicyUrl } from '@/features/profile/legal';
 import { digitsOnly, messages, resetCodeError } from '@/features/registration/validation';
@@ -43,20 +42,6 @@ describe('deletionSummary', () => {
   it('does not invent a number while the count is unknown or zero', () => {
     expect(deletionSummary(undefined)).toBe('We’ll delete your account, all your clothes, saved outfits and images. This can’t be undone.');
     expect(deletionSummary(0)).toContain('all your clothes');
-  });
-});
-
-describe('consentLine', () => {
-  it('says since when consent stands', () => {
-    expect(consentLine('2026-10-02T12:00:00Z')).toBe('Used to describe your clothes and show outfits on you. You agreed on October 2, 2026.');
-  });
-
-  it('says what stops working once it is withdrawn', () => {
-    expect(consentLine(null)).toBe('Off. Without it, you can’t add clothes or try outfits on.');
-  });
-
-  it('does not print a date it cannot read', () => {
-    expect(consentLine('yesterday')).toBe('Used to describe your clothes and show outfits on you.');
   });
 });
 

@@ -1,63 +1,58 @@
-import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { register } from '@/api/account';
+import { addStarterPieces, wardrobeKeys } from '@/api/wardrobe';
 import { startSession } from '@/auth/session';
+import { usePendingPieces } from '@/features/onboarding/pendingPieces';
 import { toIso } from '@/lib/dates';
-import type { Place } from '@/lib/location';
+import * as haptics from '@/lib/haptics';
 
 import { useRegistrationDraft } from './draft';
-import { checkBirthDate, firstIncompleteStep } from './validation';
-
-/** Where the weather will be checked: the phone's (rounded) location, a city picked by hand, or nothing yet. */
-export type WeatherPlace = (Place & { source: 'device' | 'manual' }) | null;
+import { checkBirthDate } from './validation';
 
 /**
- * Sends the whole draft as one request. On success the session starts and the app moves to the tabs on its own.
+ * Creates the account from the draft and hands over what was picked before it: the gender, the styles and the place go with the
+ * request (how the person feels the cold starts at "normal" and is changed in Profile), and the pieces join the new
+ * wardrobe right after. On success the session starts and the app moves on by itself.
+ *
+ * The pieces are a second request, so they can fail on their own. The account stays created: what was not added is
+ * kept for the next screens to say so and try again.
  */
 export function useRegister() {
-  const router = useRouter();
+  const client = useQueryClient();
   const mutation = useMutation({
-    mutationFn: async (place: WeatherPlace) => {
+    mutationFn: async () => {
       const draft = useRegistrationDraft.getState();
       const birth = checkBirthDate(draft.birthDate);
-      if (!birth.date || !draft.gender || !draft.avatarId) {
+      if (!birth.date) {
         throw new Error('The registration draft is incomplete.');
       }
 
-      return register({
+      const auth = await register({
         email: draft.email.trim(),
         password: draft.password,
         displayName: draft.displayName.trim(),
         birthDate: toIso(birth.date),
         gender: draft.gender,
-        avatarId: draft.avatarId,
         styles: draft.styles,
         thermalPreference: draft.thermalPreference,
-        clothingSize: draft.clothingSize ?? undefined,
-        legLength: draft.legLength ?? undefined,
-        location: place,
+        location: draft.place,
       });
-    },
-    onSuccess: async (auth) => {
+      const pieces = draft.starters;
       await startSession(auth);
+      haptics.success();
+      // Nothing typed during registration (a password among it) outlives the registration.
       useRegistrationDraft.getState().reset();
+      if (pieces.length > 0) {
+        try {
+          await addStarterPieces(pieces);
+          await client.invalidateQueries({ queryKey: wardrobeKeys.all });
+        } catch {
+          usePendingPieces.getState().set(pieces);
+        }
+      }
     },
   });
 
-  /**
-   * True when every earlier step is filled in. Otherwise takes the person back to the first one that is not
-   * (this happens when a step is opened out of order), so they see what is missing instead of a server error.
-   */
-  const ready = (): boolean => {
-    const incomplete = firstIncompleteStep(useRegistrationDraft.getState());
-    if (incomplete) {
-      router.dismissTo(incomplete);
-      return false;
-    }
-
-    return true;
-  };
-
-  return { ready, submit: mutation.mutate, pending: mutation.isPending, error: mutation.error, clearError: mutation.reset };
+  return { submit: () => mutation.mutate(), pending: mutation.isPending, error: mutation.error, clearError: mutation.reset };
 }

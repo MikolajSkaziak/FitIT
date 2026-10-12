@@ -1,36 +1,40 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
-import { fetchClothes, fetchWardrobeStats, wardrobeKeys, type ClothesFilter } from '@/api/wardrobe';
+import { fetchClothes, wardrobeKeys, type Clothing, type ClothesFilter, type GarmentGroup } from '@/api/wardrobe';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { IconToggleButton, ProgressBar } from '@/components/controls';
+import { IconToggleButton } from '@/components/controls';
 import { EmptyState } from '@/components/EmptyState';
 import { Field } from '@/components/Field';
-import { GarmentTile, GarmentTileSkeleton } from '@/components/garments';
+import { GarmentTileSkeleton } from '@/components/garments';
 import { Fade, staggerOf, useIntro } from '@/components/motion';
-import { Pill } from '@/components/toggles';
+import { useTabBarSpace } from '@/components/tabBarSpace';
+import { TextTabs } from '@/components/TextTabs';
 import { messageFor } from '@/copy/errors';
 import { StarterStrip } from '@/features/onboarding/StarterStrip';
 import { groupClothes, sortClothes, toRows, type ListRow } from '@/features/wardrobe/arrange';
 import { filterCount, isFiltered, subFilterTypes, useWardrobeFilters } from '@/features/wardrobe/filters';
 import { firstOutfitHint, missingForFirstOutfit } from '@/features/wardrobe/firstOutfit';
 import { groupLabel, useDictionaries } from '@/features/wardrobe/useDictionaries';
-import { garments, plural } from '@/lib/plural';
+import { WardrobeTile } from '@/features/wardrobe/WardrobeTile';
+import { plural } from '@/lib/plural';
 import { useDebounced } from '@/lib/useDebounced';
 import { motion, size, space, useTheme } from '@/theme';
 
-const columnGap = space[2];
+const columnGap = space[3];
 const skeletons = ['a', 'b', 'c', 'd', 'e', 'f'];
 
 export default function Wardrobe() {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // The tab bar floats over the list, so the last row needs room to scroll clear of it.
+  const tabBarSpace = useTabBarSpace();
   const { width } = useWindowDimensions();
   const tileWidth = (width - 2 * size.gutter - columnGap) / 2;
 
@@ -47,7 +51,9 @@ export default function Wardrobe() {
     })),
   );
   const { sort, groupBy } = useWardrobeFilters(useShallow((state) => ({ sort: state.sort, groupBy: state.groupBy })));
-  const { setSearch, toggleType, clear } = useWardrobeFilters(useShallow((state) => ({ setSearch: state.setSearch, toggleType: state.toggleType, clear: state.clear })));
+  const { setSearch, setGroup, clearGroups, toggleType, clear } = useWardrobeFilters(
+    useShallow((state) => ({ setSearch: state.setSearch, setGroup: state.setGroup, clearGroups: state.clearGroups, toggleType: state.toggleType, clear: state.clear })),
+  );
   // The list follows the search box once typing pauses, not on every letter.
   const settledSearch = useDebounced(chosen.search, 300);
   const filter: ClothesFilter = { ...chosen, search: settledSearch };
@@ -61,7 +67,6 @@ export default function Wardrobe() {
     // Asked again every few seconds only while something is still being described.
     refetchInterval: (query) => (query.state.data?.some((item) => item.status === 'processing') ? 2500 : false),
   });
-  const stats = useQuery({ queryKey: wardrobeKeys.stats, queryFn: fetchWardrobeStats });
   const dictionaries = useDictionaries();
 
   const items = useMemo(() => clothes.data ?? [], [clothes.data]);
@@ -73,57 +78,48 @@ export default function Wardrobe() {
   const intro = useIntro(clothes.data !== undefined);
   const hint = !filtered && clothes.data ? firstOutfitHint(missingForFirstOutfit(clothes.data)) : null;
   const openAdd = () => router.push('/add');
+  const kindOf = (item: Clothing) => groupLabel(dictionaries.data, item.group);
 
   // The spinner belongs to the pull only: tied to every background refetch, iOS leaves it hanging over the list.
   const [pulled, setPulled] = useState(false);
   const refresh = async () => {
     setPulled(true);
-    await Promise.all([clothes.refetch(), stats.refetch()]);
+    await clothes.refetch();
     setPulled(false);
   };
+
+  const showTools = items.length > 0 || filtered;
+  // "All" and one tab for each of the groups; the groups chosen in the filters sheet light their tabs too.
+  const groupTabs = [{ value: 'all' as GarmentGroup | 'all', label: 'All' }, ...(dictionaries.data?.groups ?? []).map((entry) => ({ value: entry.code as GarmentGroup | 'all', label: entry.label }))];
 
   const header = (
     <View style={styles.header}>
       <View style={styles.titleRow}>
-        <AppText variant="display" accessibilityRole="header">
-          Wardrobe
-        </AppText>
-        <View style={styles.actions}>
-          <IconToggleButton
-            icon="filters"
-            label={active > 0 ? `Filters, ${active} active` : 'Filters'}
-            active={active > 0}
-            onPress={() => router.push('/filters')}
-            testID="wardrobe-filters"
-          />
-          <Button label="Add" accessibilityLabel="Add clothes" icon="plus" compact inline onPress={openAdd} testID="wardrobe-add" />
-        </View>
-      </View>
-      {stats.data && stats.data.total > 0 ? (
-        <View style={styles.stat}>
-          <View style={styles.statLine}>
-            <AppText variant="secondaryStrong" tabular>
-              {stats.data.wornLast30Days} of {stats.data.total} {plural(stats.data.total, ['item', 'items'])} worn in outfits
-            </AppText>
-            <AppText variant="meta" color="textSecondary">
-              last 30 days
-            </AppText>
-          </View>
-          <ProgressBar progress={stats.data.wornLast30Days / stats.data.total} label="Wardrobe usage" />
-          {hint ? (
-            <AppText variant="meta" color="textSecondary">
-              {hint}
+        <View style={styles.titles}>
+          {showTools ? (
+            <AppText variant="eyebrow" tabular>
+              {items.length} {plural(items.length, ['piece', 'pieces'])}
             </AppText>
           ) : null}
+          <AppText variant="display" accessibilityRole="header">
+            Wardrobe
+          </AppText>
         </View>
-      ) : null}
-      {items.length > 0 || filtered ? (
+        <IconToggleButton
+          icon="filters"
+          label={active > 0 ? `Filters, ${active} active` : 'Filters'}
+          active={active > 0}
+          onPress={() => router.push('/filters')}
+          testID="wardrobe-filters"
+        />
+      </View>
+      {showTools ? (
         <>
           <Field
             accessibilityLabel="Search your wardrobe"
             value={chosen.search}
             onChangeText={setSearch}
-            placeholder="Search by name"
+            placeholder="Search your wardrobe"
             leadingIcon="search"
             autoCorrect={false}
             autoCapitalize="none"
@@ -131,23 +127,32 @@ export default function Wardrobe() {
             clearButtonMode="while-editing"
             testID="wardrobe-search"
           />
-          {types ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              style={styles.typesBar}
-              contentContainerStyle={styles.types}
-              accessibilityLabel={`${groupLabel(dictionaries.data, chosen.groups[0]) ?? 'Group'}: types`}
-              testID="wardrobe-types-row">
-              {types.map((type) => (
-                <Pill key={type.code} label={type.label} selected={chosen.types.includes(type.code)} onPress={() => toggleType(type.code)} testID={`type-${type.code}`} />
-              ))}
-            </ScrollView>
+          <View>
+            {dictionaries.data ? (
+              <TextTabs
+                label="Groups"
+                tabs
+                options={groupTabs}
+                value={chosen.groups.length > 0 ? chosen.groups : ['all']}
+                onChange={(group) => (group === 'all' ? clearGroups() : setGroup(group))}
+                testID="wardrobe-groups"
+              />
+            ) : null}
+            {types ? (
+              <TextTabs
+                label={`${groupLabel(dictionaries.data, chosen.groups[0]) ?? 'Group'}: types`}
+                options={types.map((type) => ({ value: type.code, label: type.label }))}
+                value={chosen.types}
+                onChange={toggleType}
+                testID="wardrobe-types-row"
+              />
+            ) : null}
+          </View>
+          {hint ? (
+            <AppText variant="meta" color="textSecondary">
+              {hint}
+            </AppText>
           ) : null}
-          <AppText variant="meta" color="textSecondary" tabular style={styles.count}>
-            {garments(items.length)}
-          </AppText>
         </>
       ) : null}
     </View>
@@ -195,14 +200,14 @@ export default function Wardrobe() {
       <FlatList
         data={rows}
         keyExtractor={(row) => row.key}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace + space[4] }]}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         ListFooterComponent={filtered ? null : <StarterStrip />}
         renderItem={({ item: row }) =>
           row.kind === 'heading' ? (
             <View style={styles.heading}>
-              <AppText variant="subheading" accessibilityRole="header">
+              <AppText variant="eyebrow" accessibilityRole="header">
                 {row.title}
               </AppText>
               <AppText variant="meta" color="textSecondary" tabular>
@@ -210,7 +215,7 @@ export default function Wardrobe() {
               </AppText>
             </View>
           ) : (
-            <TileRow row={row} tileWidth={tileWidth} intro={intro} />
+            <TileRow row={row} tileWidth={tileWidth} intro={intro} kindOf={kindOf} />
           )
         }
         keyboardShouldPersistTaps="handled"
@@ -223,13 +228,13 @@ export default function Wardrobe() {
 }
 
 /** Two tiles side by side; a lone last tile keeps its column. */
-function TileRow({ row, tileWidth, intro }: { row: Extract<ListRow, { kind: 'tiles' }>; tileWidth: number; intro: boolean }) {
+function TileRow({ row, tileWidth, intro, kindOf }: { row: Extract<ListRow, { kind: 'tiles' }>; tileWidth: number; intro: boolean; kindOf: (item: Clothing) => string | null }) {
   const router = useRouter();
   return (
     <View style={styles.row}>
       {row.items.map((item, at) => (
-        <Fade key={item.id} {...staggerOf(row.firstIndex + at, intro)}>
-          <GarmentTile item={item} width={tileWidth} onPress={() => router.push({ pathname: '/clothes/[id]', params: { id: item.id } })} />
+        <Fade key={item.id} {...staggerOf(row.firstIndex + at, intro)} exit shrink>
+          <WardrobeTile item={item} width={tileWidth} kind={kindOf(item)} onPress={() => router.push({ pathname: '/clothes/[id]', params: { id: item.id } })} />
         </Fade>
       ))}
     </View>
@@ -238,18 +243,12 @@ function TileRow({ row, tileWidth, intro }: { row: Extract<ListRow, { kind: 'til
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: size.gutter, paddingBottom: space[4], gap: space[4] },
+  content: { flexGrow: 1, paddingHorizontal: size.gutter, paddingBottom: space[4], gap: size.gutter },
   row: { flexDirection: 'row', gap: columnGap },
   heading: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingTop: space[2] },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
-  header: { gap: space[3] },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[4] },
-  stat: { gap: space[2] },
-  statLine: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space[2] },
-  // The types of the chosen group sit in one line that scrolls sideways and runs to both screen edges. It is always one pill high, so the list below never moves.
-  typesBar: { marginHorizontal: -size.gutter, flexGrow: 0 },
-  types: { paddingHorizontal: size.gutter, gap: space[2], alignItems: 'center' },
-  count: { alignSelf: 'flex-end' },
-  skeletons: { flexDirection: 'row', flexWrap: 'wrap', columnGap, rowGap: space[4] },
+  header: { gap: space[6], paddingBottom: space[1] },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: space[4] },
+  titles: { flexShrink: 1, gap: space[2] },
+  skeletons: { flexDirection: 'row', flexWrap: 'wrap', columnGap, rowGap: size.gutter },
   problem: { gap: space[3], paddingTop: space[4] },
 });

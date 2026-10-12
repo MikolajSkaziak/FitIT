@@ -14,6 +14,9 @@ export const longestSide = 1280;
 /** Above this the photo is saved again with stronger compression. */
 export const targetBytes = 400_000;
 
+/** How many photos go into the upload queue in one go, from the library or from the camera. */
+export const batch = 20;
+
 const toPhoto = (asset: ImagePicker.ImagePickerAsset): LocalPhoto => ({ uri: asset.uri, width: asset.width, height: asset.height });
 
 /** Opens the system gallery. Several photos can be chosen at once, up to `limit`. Empty when the person backs out. */
@@ -27,25 +30,6 @@ export async function pickFromGallery(limit: number): Promise<LocalPhoto[]> {
     exif: false,
   });
   return result.canceled ? [] : result.assets.map(toPhoto);
-}
-
-export type CameraShot = { kind: 'taken'; photo: LocalPhoto } | { kind: 'cancelled' } | { kind: 'denied' };
-
-/** Opens the camera, asking for permission the first time. `front` opens the selfie camera. */
-export async function takePhoto({ front = false }: { front?: boolean } = {}): Promise<CameraShot> {
-  const permission = await ImagePicker.requestCameraPermissionsAsync();
-  if (!permission.granted) {
-    return { kind: 'denied' };
-  }
-
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ['images'],
-    quality: 1,
-    exif: false,
-    ...(front ? { cameraType: ImagePicker.CameraType.front } : {}),
-  });
-  const asset = result.canceled ? undefined : result.assets[0];
-  return asset ? { kind: 'taken', photo: toPhoto(asset) } : { kind: 'cancelled' };
 }
 
 /** The size after fitting the longer side into `longestSide`; null when the photo is small enough already. */

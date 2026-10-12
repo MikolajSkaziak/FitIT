@@ -1,30 +1,20 @@
-import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
 import { useEffect, useMemo } from 'react';
 
-import { outfitKeys, type Outfit, type Suggestions } from '@/api/outfits';
+import type { Outfit } from '@/api/outfits';
 import {
   fetchVisualization,
   isFinal,
   requestVisualization,
   visualizationOf,
-  type OutfitVisualization,
-  type Visualization,
 } from '@/api/visualizations';
 import { fetchUsage, wardrobeKeys } from '@/api/wardrobe';
 
+import { attachVisualization } from './attach';
 import { leftToday, noticeFor } from './copy';
 import { createVisualizationOrder, useOrder } from './order';
-
-/** Keeps the order with its outfit wherever the phone holds a copy of it, so leaving the screen and coming back finds it again. */
-function attachVisualization(queryClient: QueryClient, record: Visualization): void {
-  const summary: OutfitVisualization = { id: record.id, status: record.status, imageUrl: record.imageUrl, imageKey: record.imageKey };
-  const swap = (outfit: Outfit): Outfit =>
-    outfit.id === record.outfitId ? { ...outfit, visualization: summary } : outfit;
-  queryClient.setQueriesData<Suggestions>({ queryKey: ['outfits', 'suggestions'] }, (answer) => (answer ? { ...answer, outfits: answer.outfits.map(swap) } : answer));
-  queryClient.setQueriesData<Outfit[]>({ queryKey: outfitKeys.saved }, (list) => list?.map(swap));
-  queryClient.setQueriesData<Outfit>({ queryKey: ['outfits', 'one'] }, (outfit) => (outfit ? swap(outfit) : outfit));
-}
+import { isHidden, useReports } from './report';
 
 /**
  * The picture of one outfit: its state, the words for it, and how much of today's allowance is left.
@@ -71,6 +61,15 @@ export function useVisualization(outfit: Outfit | null, prepare?: () => Promise<
       order.adopt({ id: knownId, status: knownStatus, imageUrl: knownUrl, imageKey: knownKey });
     }
   }, [order, knownId, knownStatus, knownUrl, knownKey]);
+
+  // A picture reported as inappropriate is gone on the server: this order lets go of it too, and the outfit is back to nothing ordered.
+  const reported = useReports((reports) => reports.sent);
+  const shownId = state.picture?.id;
+  useEffect(() => {
+    if (isHidden(reported, shownId)) {
+      order.forget();
+    }
+  }, [order, reported, shownId]);
 
   const left = usage.data?.visualizations;
   return {

@@ -3,6 +3,7 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 
 import { codeOf } from '@/api/problem';
 import type { Clothing, RejectReason, UploadTicket } from '@/api/wardrobe';
+import * as haptics from '@/lib/haptics';
 
 import type { LocalPhoto } from './photos';
 
@@ -188,7 +189,14 @@ export function createUploadQueue(deps: UploadDeps, options: Partial<UploadOptio
       void poll();
     } catch (error) {
       if (started === generation) {
+        // Felt once for a run of failures: a lost connection fails every photo of the batch together.
+        const running = !store.getState().entries.some((entry) => entry.status === 'failed');
         patch(id, { status: 'failed', errorCode: codeOf(error) });
+        if (running && codeOf(error) === 'limit_reached') {
+          haptics.warning();
+        } else if (running) {
+          haptics.error();
+        }
       }
     }
   }

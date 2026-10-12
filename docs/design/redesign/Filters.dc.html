@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wardrobe filters</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./fitit.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,500;1,500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="s" style="height: 980px">
+<div class="p g8"><div class="la">6 pieces</div><h1 class="dl">Wardrobe</h1></div>
+<div class="scrim"></div>
+<div class="sheet">
+<div class="grab"></div>
+<div class="p"><div class="r sb"><h2 class="dm">Filters</h2><button class="lnk">Clear all</button></div></div>
+<div class="p g10"><div class="la r" style="gap: 6px"><svg class="i s" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9V8a2 2 0 10-2-2M12 9l9 7.5a1 1 0 01-.6 1.8H3.6a1 1 0 01-.6-1.8z"></path></svg>Group</div>
+<div class="tok"><div class="tab">T-shirts and tops</div><div class="tab">Shirts and blouses</div><div class="tab">Sweaters and hoodies</div><div class="tab on">Jackets and coats</div><div class="tab">Jeans</div><div class="tab">Pants and shorts</div><div class="tab">Shoes</div><div class="tab">Accessories</div></div></div>
+<div class="p g10"><div class="la r" style="gap: 6px"><svg class="i s" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zM12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"></path></svg>Season</div>
+<div class="tok"><div class="tab">Spring</div><div class="tab">Summer</div><div class="tab on">Fall</div><div class="tab">Winter</div></div></div>
+<div class="p g10"><div class="la r" style="gap: 6px"><svg class="i s" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v5l3 2M12 21a9 9 0 100-18 9 9 0 000 18z"></path></svg>Worn</div>
+<div class="tok"><div class="tab on">Any</div><div class="tab">Never worn</div><div class="tab">Not worn lately</div></div></div>
+<div class="p g10"><div class="la r" style="gap: 6px"><svg class="i s" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M16 5v4M8 15v4"></path></svg>Sort by</div>
+<div class="tok"><div class="tab on">Newest</div><div class="tab">Most worn</div><div class="tab">Color</div><div class="tab">Name</div></div></div>
+<div class="p g10"><div class="la r" style="gap: 6px"><svg class="i s" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 000 18c1.500 0 2-1 2-2s-.500-1.500-.500-2.500 1-2 2.500-2H18a3 3 0 003-3c0-4.700-4-8.500-9-8.500z"></path></svg>Color</div>
+<div class="r" style="gap: 12px; flex-wrap: wrap"><div class="dot on" style="background: #1F2A44"></div><div class="dot" style="background: #111111"></div><div class="dot" style="background: #FFFFFF"></div><div class="dot" style="background: #8C8C8C"></div><div class="dot" style="background: #C9B899"></div><div class="dot" style="background: #6B7045"></div><div class="dot" style="background: #3A6EA5"></div></div></div>
+<div class="p"><button class="btn">Show 2 pieces</button></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":393,"height":980}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

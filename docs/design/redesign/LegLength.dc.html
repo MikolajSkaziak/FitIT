@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Leg length</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./fitit.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,500;1,500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+body{margin:0}
+.fig{position:relative;width:64px;height:188px}
+.fig b{position:absolute;background:#7C857F;display:block}
+.cl{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px 12px;border-radius:6px;border:2px solid transparent}
+.cl.on{background:#fff;border-color:#2F5D4C}
+</style>
+</helmet>
+<div class="s" style="height: 900px">
+<div class="p"><div class="r sb"><button class="cb" aria-label="Back"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button><div class="la">Profile</div><div style="width: 44px"></div></div></div>
+<div class="p g10"><h1 class="dl">Leg length</h1><div class="mu r" style="gap: 8px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M8.500 6.500L12 3l3.500 3.500M8.500 17.500L12 21l3.500-3.500"></path></svg>Where does your waist sit?</div></div>
+<div class="p">
+<div class="r" style="background: #E6EBE3; border-radius: 6px; padding: 12px; gap: 8px; align-items: stretch" role="radiogroup" aria-label="Leg length">
+<div class="cl"><div class="fig" aria-hidden="true"><b style="left: 20px; top: 0; width: 24px; height: 24px; border-radius: 12px"></b><b style="left: 27px; top: 22px; width: 10px; height: 12px"></b><b style="left: 8px; top: 32px; width: 48px; height: 84px; border-radius: 10px"></b><b style="left: 10px; top: 118px; width: 20px; height: 70px; border-radius: 4px; background: #5A635E"></b><b style="left: 34px; top: 118px; width: 20px; height: 70px; border-radius: 4px; background: #5A635E"></b></div><div class="ti">Shorter</div><div class="ca mu">longer torso</div></div>
+<div class="cl on"><div class="fig" aria-hidden="true"><b style="left: 20px; top: 0; width: 24px; height: 24px; border-radius: 12px"></b><b style="left: 27px; top: 22px; width: 10px; height: 12px"></b><b style="left: 8px; top: 32px; width: 48px; height: 72px; border-radius: 10px"></b><b style="left: 10px; top: 106px; width: 20px; height: 82px; border-radius: 4px; background: #2F5D4C"></b><b style="left: 34px; top: 106px; width: 20px; height: 82px; border-radius: 4px; background: #2F5D4C"></b></div><div class="ti">Average</div><div class="ca mu">balanced</div></div>
+<div class="cl"><div class="fig" aria-hidden="true"><b style="left: 20px; top: 0; width: 24px; height: 24px; border-radius: 12px"></b><b style="left: 27px; top: 22px; width: 10px; height: 12px"></b><b style="left: 8px; top: 32px; width: 48px; height: 60px; border-radius: 10px"></b><b style="left: 10px; top: 94px; width: 20px; height: 94px; border-radius: 4px; background: #5A635E"></b><b style="left: 34px; top: 94px; width: 20px; height: 94px; border-radius: 4px; background: #5A635E"></b></div><div class="ti">Longer</div><div class="ca mu">shorter torso</div></div>
+</div>
+<div class="col g4"><h2 class="dm">Average legs</h2><div class="se">Regular lengths usually fit you as they are.</div></div>
+</div>
+<div class="foot"><button class="btn">Save</button><button class="lnk">I’d rather not say</button></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":393,"height":900}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

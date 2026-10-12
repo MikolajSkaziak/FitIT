@@ -76,7 +76,8 @@ public sealed partial class FalClient(HttpClient http, IOptions<FalOptions> opti
     {
         using var request = Queue(HttpMethod.Get, $"{Checked(order)}/status");
         var (status, body) = await SendAsync(request, "say where the order stands", cancellationToken);
-        if (status != HttpStatusCode.OK)
+        // fal answers 202 for an order that is still queued or running and 200 once it is finished; both carry the state.
+        if (status is not (HttpStatusCode.OK or HttpStatusCode.Accepted))
         {
             throw new ProviderException($"fal could not say where the order stands: HTTP {(int)status}.");
         }
