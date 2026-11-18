@@ -74,17 +74,25 @@ export default function StylistChat() {
     ask.mutate([...messages, asked]);
   };
 
-  // A new turn, the wait for one and its answer all scroll into view.
+  // A question and the wait for its answer scroll to the end. A new answer scrolls to its own first line instead, so it is
+  // read from the top and not from the buttons under its outfit.
   const turns = messages.length;
   const waiting = ask.isPending;
+  const answered = messages.at(-1)?.role === 'stylist';
   useEffect(() => {
     if (turns === 0) {
       return undefined;
     }
 
-    const timer = setTimeout(() => list.current?.scrollToEnd({ animated: true }), 50);
+    const timer = setTimeout(() => {
+      if (answered && !waiting) {
+        list.current?.scrollToIndex({ index: turns - 1, viewPosition: 0, animated: true });
+      } else {
+        list.current?.scrollToEnd({ animated: true });
+      }
+    }, 50);
     return () => clearTimeout(timer);
-  }, [turns, waiting, lift]);
+  }, [turns, waiting, answered, lift]);
 
   const openOutfit = (reply: StylistReply) => {
     const outfit = reply.outfit;
@@ -129,6 +137,8 @@ export default function StylistChat() {
         <FlatList
           ref={list}
           data={messages}
+          // Answers differ in height; one not laid out yet is reached through the end of the list instead.
+          onScrollToIndexFailed={() => list.current?.scrollToEnd({ animated: true })}
           keyExtractor={(message) => message.id}
           style={styles.list}
           contentContainerStyle={styles.turns}
