@@ -26,6 +26,7 @@ export default function AppLayout() {
       <Stack.Screen name="filters" options={sheet([0.72, 0.94])} />
       <Stack.Screen name="occasion" options={sheet('fitToContents')} />
       <Stack.Screen name="create" options={sheet('fitToContents')} />
+      <Stack.Screen name="stylist" options={sheet([0.94])} />
       <Stack.Screen name="basics" options={sheet([0.9])} />
       <Stack.Screen name="consent" options={sheet('fitToContents')} />
       <Stack.Screen name="report" options={sheet('fitToContents')} />

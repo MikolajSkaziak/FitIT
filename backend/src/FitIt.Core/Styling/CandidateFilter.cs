@@ -199,13 +199,13 @@ public static class CandidateFilter
         && (garment.Role != Category.Outerwear || band.OuterwearMinWarmth is not { } warmth || garment.Tags.Warmth >= warmth - tolerance);
 
     /// <summary>
-    /// At most eight: four favourites and four forgotten ones, so the model can build both a sure bet and a discovery. A
+    /// At most eight (or <paramref name="max"/>): four favourites and four forgotten ones, so the model can build both a sure bet and a discovery. A
     /// half that comes up short is filled from the other. Within each half the garments that fit the person's styles come
     /// first; then, among favourites, those liked most (an outfit the person disliked takes a like away from each of its
     /// garments, and never more than that: a disliked garment ranks lower, it does not disappear) and worn most, and among
     /// the forgotten those worn least.
     /// </summary>
-    private static List<Garment> Mix(List<Garment> garments, Garment? baseItem, IReadOnlyList<StyleTag> styles)
+    internal static List<Garment> Mix(IReadOnlyList<Garment> garments, Garment? baseItem, IReadOnlyList<StyleTag> styles, int max = MaxPerRole)
     {
         // A garment that cannot be judged stands between a fit and a miss.
         double Fit(Garment garment) => StyleFit.Of(garment, styles) ?? StyleFit.Compatible;
@@ -217,7 +217,7 @@ public static class CandidateFilter
         var forgotten = others.Where(garment => garment.Forgotten)
             .OrderByDescending(Fit).ThenByDescending(garment => garment.Likes - garment.Dislikes).ThenBy(garment => garment.WearCount).ThenBy(garment => garment.Id).ToList();
 
-        var room = MaxPerRole - kept.Count;
+        var room = max - kept.Count;
         var half = room / 2;
         var fromForgotten = Math.Min(forgotten.Count, Math.Max(half, room - favourites.Count));
         var fromFavourites = Math.Min(favourites.Count, room - fromForgotten);

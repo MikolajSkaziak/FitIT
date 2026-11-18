@@ -25,6 +25,7 @@ public sealed class UsageCounters(AppDbContext db, PersonalCalendar calendar, IO
         UsageKind.Visualization => options.Value.VisualizationsPerDay,
         UsageKind.ColorAnalysis => options.Value.ColorAnalysesPerDay,
         UsageKind.Tips => options.Value.TipsPerDay,
+        UsageKind.StylistChat => options.Value.StylistMessagesPerDay,
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 

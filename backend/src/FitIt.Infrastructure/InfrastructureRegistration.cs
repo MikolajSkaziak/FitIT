@@ -87,6 +87,8 @@ public static class InfrastructureRegistration
         services.AddMemoryCache();
         services.AddScoped<WeatherService>();
         services.AddScoped<StylistService>();
+        services.AddScoped<StylistChatService>();
+        services.AddSingleton<FakeStylistChat>();
         services.AddScoped<OutfitService>();
         services.AddScoped<CalendarService>();
         services.AddScoped<OutfitBuilderService>();
@@ -203,6 +205,19 @@ public static class InfrastructureRegistration
             throw new InvalidOperationException($"Providers:OutfitCritic is '{providers.OutfitCritic}', but only 'Gemini' and 'Fake' exist.");
         }
 
+        if (Use(providers.StylistChat, "Providers:StylistChat", providers, environment))
+        {
+            services.AddSingleton<IStylistChat>(provider => provider.GetRequiredService<FakeStylistChat>());
+        }
+        else if (Is(providers.StylistChat, ProviderOptions.Gemini))
+        {
+            services.AddScoped<IStylistChat, GeminiStylistChat>();
+        }
+        else
+        {
+            throw new InvalidOperationException($"Providers:StylistChat is '{providers.StylistChat}', but only 'Gemini' and 'Fake' exist.");
+        }
+
         if (Use(providers.OutfitVisualizer, "Providers:OutfitVisualizer", providers, environment))
         {
             services.AddSingleton<FakeOutfitVisualizer>();
@@ -242,7 +257,7 @@ public static class InfrastructureRegistration
         string[] secretHeaders = ["Authorization", GeminiClient.KeyHeader];
         services.AddScoped<IAiBudget>(provider => provider.GetRequiredService<AiLedger>());
 
-        var gemini = new[] { providers.GarmentTagger, providers.OutfitStylist, providers.OutfitCritic, providers.ColorAnalyst }.Any(setting => Is(setting, ProviderOptions.Gemini));
+        var gemini = new[] { providers.GarmentTagger, providers.OutfitStylist, providers.OutfitCritic, providers.ColorAnalyst, providers.StylistChat }.Any(setting => Is(setting, ProviderOptions.Gemini));
         services.AddOptions<GeminiOptions>().Bind(configuration.GetSection(GeminiOptions.Section))
             .ValidateDataAnnotations()
             .Validate(o => !gemini || !string.IsNullOrWhiteSpace(o.ApiKey), "Gemini:ApiKey is missing although a provider is set to 'Gemini'. Set it with `dotnet user-secrets set Gemini:ApiKey <key>` or the environment variable Gemini__ApiKey.")

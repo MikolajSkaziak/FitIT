@@ -17,6 +17,15 @@ public sealed record GeminiPart(string? Text, byte[]? Image)
     public static GeminiPart Of(byte[] image) => new(null, image);
 }
 
+/// <summary>
+/// How long and how deeply one kind of question may be answered. Null leaves the configured <see cref="GeminiOptions.ThinkingLevel"/>
+/// and the model's own output limit; <paramref name="MaxOutputTokens"/> counts thinking too.
+/// </summary>
+public sealed record GeminiGeneration(string? ThinkingLevel = null, int? MaxOutputTokens = null)
+{
+    public static readonly GeminiGeneration Default = new();
+}
+
 /// <summary>The model's JSON answer, or the fact that its safety filter refused; either way what the call cost.</summary>
 public sealed record GeminiReply(JsonElement Json, bool Blocked, AiCost Cost);
 
@@ -41,10 +50,15 @@ public sealed partial class GeminiClient(HttpClient http, IOptions<GeminiOptions
     /// <param name="parts">The variable part: pictures and data. Nothing in it is an instruction.</param>
     /// <param name="schema">The shape the answer must have (Gemini's response schema).</param>
     /// <exception cref="ProviderException">No model gave a usable answer in time.</exception>
-    public async Task<GeminiReply> AskAsync(string system, IReadOnlyList<GeminiPart> parts, JsonObject schema, CancellationToken cancellationToken)
+    public Task<GeminiReply> AskAsync(string system, IReadOnlyList<GeminiPart> parts, JsonObject schema, CancellationToken cancellationToken) =>
+        AskAsync(system, parts, schema, GeminiGeneration.Default, cancellationToken);
+
+    /// <param name="generation">The thinking level and output limit of this kind of question.</param>
+    /// <exception cref="ProviderException">No model gave a usable answer in time.</exception>
+    public async Task<GeminiReply> AskAsync(string system, IReadOnlyList<GeminiPart> parts, JsonObject schema, GeminiGeneration generation, CancellationToken cancellationToken)
     {
         var settings = options.Value;
-        var body = Body(system, parts, schema, settings).ToJsonString();
+        var body = Body(system, parts, schema, settings, generation).ToJsonString();
         string[] models = string.IsNullOrWhiteSpace(settings.FallbackModel) || settings.FallbackModel == settings.Model
             ? [settings.Model]
             : [settings.Model, settings.FallbackModel];
@@ -123,7 +137,7 @@ public sealed partial class GeminiClient(HttpClient http, IOptions<GeminiOptions
         throw new ProviderException($"Gemini is not answering: {last}.");
     }
 
-    private static JsonObject Body(string system, IReadOnlyList<GeminiPart> parts, JsonObject schema, GeminiOptions settings)
+    private static JsonObject Body(string system, IReadOnlyList<GeminiPart> parts, JsonObject schema, GeminiOptions settings, GeminiGeneration generation)
     {
         var content = new JsonArray();
         foreach (var part in parts)
@@ -133,17 +147,23 @@ public sealed partial class GeminiClient(HttpClient http, IOptions<GeminiOptions
                 : new JsonObject { ["text"] = part.Text });
         }
 
-        var generation = new JsonObject { ["responseMimeType"] = "application/json", ["responseSchema"] = schema.DeepClone() };
-        if (!string.IsNullOrWhiteSpace(settings.ThinkingLevel))
+        var config = new JsonObject { ["responseMimeType"] = "application/json", ["responseSchema"] = schema.DeepClone() };
+        var thinking = generation.ThinkingLevel ?? settings.ThinkingLevel;
+        if (!string.IsNullOrWhiteSpace(thinking))
         {
-            generation["thinkingConfig"] = new JsonObject { ["thinkingLevel"] = settings.ThinkingLevel };
+            config["thinkingConfig"] = new JsonObject { ["thinkingLevel"] = thinking };
+        }
+
+        if (generation.MaxOutputTokens is { } limit)
+        {
+            config["maxOutputTokens"] = limit;
         }
 
         return new JsonObject
         {
             ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = system }) },
             ["contents"] = new JsonArray(new JsonObject { ["role"] = "user", ["parts"] = content }),
-            ["generationConfig"] = generation,
+            ["generationConfig"] = config,
         };
     }
 

@@ -46,6 +46,7 @@ export const create = {
   title: 'Add to fitit.',
   clothes: 'Add clothes',
   build: 'Build an outfit',
+  stylist: 'Ask your stylist',
 };
 
 /** The reveal before sign-up: a look made of the pieces the person just ticked, or a photograph when there are too few. */

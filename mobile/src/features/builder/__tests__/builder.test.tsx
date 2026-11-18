@@ -42,6 +42,7 @@ const usage = (used: number): wardrobe.Usage => ({
   items: { used: 12, limit: 50 },
   suggestions: { used: 0, limit: 20 },
   visualizations: { used, limit: 5 },
+  stylistChat: { used: 0, limit: 30 },
   resetsAt: '2026-10-06T00:00:00+02:00',
 });
 

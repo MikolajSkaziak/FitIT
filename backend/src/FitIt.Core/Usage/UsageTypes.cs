@@ -10,6 +10,9 @@ public enum UsageKind
 
     /// <summary>Tips on an outfit the person built themselves.</summary>
     Tips,
+
+    /// <summary>Messages to the person's stylist in the chat.</summary>
+    StylistChat,
 }
 
 /// <summary>Calls to AI providers that cost money; each one is written to the usage log.</summary>
@@ -21,6 +24,7 @@ public enum AiOperation
     Visualization,
     ColorAnalysis,
     Critique,
+    StylistChat,
 }
 
 public sealed class UsageCounter

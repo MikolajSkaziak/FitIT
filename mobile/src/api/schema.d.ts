@@ -196,6 +196,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/stylist/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["chatWithStylist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/outfits/{id}/days": {
         parameters: {
             query?: never;
@@ -705,6 +721,8 @@ export interface components {
             newPassword: string;
             refreshToken?: null | string;
         };
+        /** @enum {unknown} */
+        ChatRole: "person" | "stylist" | null;
         ClothingPhotoResponse: {
             /** Format: uuid */
             id: string;
@@ -967,6 +985,7 @@ export interface components {
             occasionNote: null | string;
             name: null | string;
             kind: null | components["schemas"]["OutfitKind"];
+            style: null | components["schemas"]["StyleTag"];
             /** Format: int32 */
             score: number;
             reasoning: string;
@@ -1096,6 +1115,12 @@ export interface components {
             code: components["schemas"]["Season"];
             label: string;
         };
+        ShoppingSuggestionResponse: {
+            name: string;
+            category: components["schemas"]["Category"];
+            why: string;
+            colors: components["schemas"]["Color"][];
+        };
         /** @enum {unknown} */
         SkinUndertone: "warm" | "cool" | "neutral" | null;
         /** @enum {unknown} */
@@ -1126,6 +1151,31 @@ export interface components {
         };
         /** @enum {unknown} */
         StyleTag: "casual" | "smart" | "elegant" | "sporty" | "streetwear" | "minimalist" | "old_money" | "preppy" | "vintage" | "y2k" | "boho" | "grunge" | "gorpcore" | "business" | "romantic" | "edgy";
+        StylistChatMessage: {
+            role: null | components["schemas"]["ChatRole"];
+            text: null | string;
+        };
+        StylistChatRequest: {
+            messages: null | components["schemas"]["StylistChatMessage"][];
+            occasion?: null | components["schemas"]["Occasion"];
+            /** Format: date */
+            date?: null | string;
+        };
+        StylistOutfitResponse: {
+            occasion: components["schemas"]["Occasion"];
+            items: components["schemas"]["OutfitItemResponse"][];
+            note: null | string;
+        };
+        StylistReplyResponse: {
+            text: string;
+            outfit: null | components["schemas"]["StylistOutfitResponse"];
+            mentioned: components["schemas"]["ClothingResponse"][];
+            shopping: components["schemas"]["ShoppingSuggestionResponse"][];
+            followUps: string[];
+            source: components["schemas"]["StylistReplySource"];
+        };
+        /** @enum {unknown} */
+        StylistReplySource: "ai" | "rules";
         /** @enum {unknown} */
         Subcategory: "t_shirt" | "shirt" | "blouse" | "polo" | "tank_top" | "longsleeve" | "turtleneck" | "sweater" | "sweatshirt" | "hoodie" | "cardigan" | "blazer" | "suit_jacket" | "vest" | "track_jacket" | "jeans" | "trousers" | "chinos" | "shorts" | "skirt" | "leggings" | "sweatpants" | "dress" | "jumpsuit" | "tracksuit" | "coat" | "jacket" | "down_jacket" | "trench_coat" | "raincoat" | "parka" | "bomber_jacket" | "denim_jacket" | "leather_jacket" | "sneakers" | "boots" | "winter_boots" | "loafers" | "dress_shoes" | "heels" | "flats" | "sandals" | "flip_flops" | "sports_shoes" | "rain_boots" | "scarf" | "hat" | "cap" | "gloves" | "belt" | "bag" | "backpack" | "tie" | "sunglasses";
         SuggestionsResponse: {
@@ -1238,6 +1288,7 @@ export interface components {
             items: components["schemas"]["UsageLineResponse"];
             suggestions: components["schemas"]["UsageLineResponse"];
             visualizations: components["schemas"]["UsageLineResponse"];
+            stylistChat: components["schemas"]["UsageLineResponse"];
             /** Format: date-time */
             resetsAt: string;
         };
@@ -1855,6 +1906,57 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    chatWithStylist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StylistChatRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StylistReplyResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -110,7 +110,7 @@ internal static class WardrobeEndpoints
     {
         var snapshot = await usage.ReadAsync(http.User.UserId(), cancellationToken);
         UsageLineResponse Line(UsageKind kind) => new(snapshot[kind].Used, snapshot[kind].Limit);
-        return TypedResults.Ok(new UsageResponse(Line(UsageKind.ItemAdded), Line(UsageKind.Suggestion), Line(UsageKind.Visualization), snapshot.ResetsAt));
+        return TypedResults.Ok(new UsageResponse(Line(UsageKind.ItemAdded), Line(UsageKind.Suggestion), Line(UsageKind.Visualization), Line(UsageKind.StylistChat), snapshot.ResetsAt));
     }
 
     private static async Task<IResult> CreateUpload(HttpContext http, WardrobeService wardrobe, CancellationToken cancellationToken)

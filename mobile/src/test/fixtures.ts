@@ -93,6 +93,7 @@ export const outfit = (id: string, change: Partial<Outfit> = {}): Outfit => ({
   visualization: null,
   layout: null,
   figureLayout: null,
+  style: null,
   weather: {
     place: 'Gliwice',
     forTomorrow: false,

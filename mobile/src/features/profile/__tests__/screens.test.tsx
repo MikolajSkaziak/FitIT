@@ -352,7 +352,7 @@ describe('deleting the account', () => {
 });
 
 describe('profile', () => {
-  const usage = { items: { used: 12, limit: 50 }, suggestions: { used: 3, limit: 20 }, visualizations: { used: 1, limit: 5 }, resetsAt: '2026-10-08T00:00:00Z' };
+  const usage = { items: { used: 12, limit: 50 }, suggestions: { used: 3, limit: 20 }, visualizations: { used: 1, limit: 5 }, stylistChat: { used: 0, limit: 30 }, resetsAt: '2026-10-08T00:00:00Z' };
   beforeEach(() => shop.fetchUsage.mockReturnValue(unanswered()));
 
   it('shows the limits including visualizations', async () => {

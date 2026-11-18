@@ -87,6 +87,9 @@ public sealed class ProviderOptions
     /// <summary>"Gemini" or "Fake" (tips from the rules: the same garments always get the same sentences).</summary>
     public string OutfitCritic { get; set; } = "Fake";
 
+    /// <summary>"Gemini" or "Fake" (answers from the rules: outfits by the rule-based stylist, gaps and purchases from the computed facts).</summary>
+    public string StylistChat { get; set; } = "Fake";
+
     /// <summary>"Fal" or "Fake" (answers after a few polls with the person's silhouette as the picture).</summary>
     public string OutfitVisualizer { get; set; } = "Fake";
 
@@ -121,6 +124,10 @@ public sealed class LimitOptions
     /// <summary>Requests for tips on a self-built outfit per person per day.</summary>
     [Range(0, 10_000)]
     public int TipsPerDay { get; set; } = 20;
+
+    /// <summary>Messages to the stylist chat per person per day.</summary>
+    [Range(0, 10_000)]
+    public int StylistMessagesPerDay { get; set; } = 30;
 
     /// <summary>Once the day's AI calls have cost this much, tagging waits for tomorrow and the stylist falls back to rules.</summary>
     [Range(0, 100_000)]
@@ -253,6 +260,14 @@ public sealed class GeminiOptions
     /// <summary>"minimal", "low", "medium" or "high"; empty leaves the model's default.</summary>
     [RegularExpression("^[a-z]*$")]
     public string ThinkingLevel { get; set; } = "";
+
+    /// <summary>The thinking level of the stylist chat, which answers while the person waits. The main model takes "low" at the least; empty leaves the model's default.</summary>
+    [RegularExpression("^[a-z]*$")]
+    public string ChatThinkingLevel { get; set; } = "low";
+
+    /// <summary>The most tokens one chat answer may take, thinking included; an answer cut short fails and the rules reply instead.</summary>
+    [Range(256, 65_536)]
+    public int ChatMaxOutputTokens { get; set; } = 4096;
 
     // Paid-tier prices in USD per million tokens (ai.google.dev/gemini-api/docs/pricing, read 2026-10-09). Output includes thinking.
     [Range(0, 1000)]

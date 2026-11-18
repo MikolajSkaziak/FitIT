@@ -150,6 +150,7 @@ builder.Services.AddAuthorization();
 var authPerMinute = builder.Configuration.GetValue("RateLimits:AuthPerMinute", 10);
 var passwordResetPer15Minutes = builder.Configuration.GetValue("RateLimits:PasswordResetPer15Minutes", 10);
 var reportsPerHour = builder.Configuration.GetValue("RateLimits:ReportsPerHour", 10);
+var stylistChatPerMinute = builder.Configuration.GetValue("RateLimits:StylistChatPerMinute", 10);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -177,6 +178,10 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(VisualizationEndpoints.ReportRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
         "report:" + (http.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = reportsPerHour, Window = TimeSpan.FromHours(1), QueueLimit = 0 }));
+    // Per person: the limiter runs after authentication, so the person is known; a request without one is turned away by authorization anyway.
+    options.AddPolicy(StylistEndpoints.ChatRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        "chat:" + (http.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = stylistChatPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
 var app = builder.Build();
@@ -221,8 +226,8 @@ app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseStaticFiles();
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 // The description of the whole API and its test page are for developers and for generating the app's client, not for the public.
@@ -245,6 +250,7 @@ app.MapColorEndpoints();
 app.MapStarterEndpoints();
 app.MapWeatherEndpoints();
 app.MapOutfitEndpoints();
+app.MapStylistEndpoints();
 app.MapCalendarEndpoints();
 app.MapVisualizationEndpoints();
 

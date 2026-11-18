@@ -101,7 +101,7 @@ public sealed record WardrobeStatsResponse(int Total, int WornLast30Days, int Fo
 public sealed record UsageLineResponse(int Used, int Limit);
 
 /// <summary>What has been used today out of the daily limits, and when the count starts again.</summary>
-public sealed record UsageResponse(UsageLineResponse Items, UsageLineResponse Suggestions, UsageLineResponse Visualizations, DateTimeOffset ResetsAt);
+public sealed record UsageResponse(UsageLineResponse Items, UsageLineResponse Suggestions, UsageLineResponse Visualizations, UsageLineResponse StylistChat, DateTimeOffset ResetsAt);
 
 public sealed record TypeEntry(Subcategory Code, string Label);
 

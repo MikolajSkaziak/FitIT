@@ -43,6 +43,7 @@ import { SparkleIcon } from 'phosphor-react-native/src/icons/Sparkle';
 import { SunIcon } from 'phosphor-react-native/src/icons/Sun';
 import { ArrowCounterClockwiseIcon } from 'phosphor-react-native/src/icons/ArrowCounterClockwise';
 import { ArrowsClockwiseIcon } from 'phosphor-react-native/src/icons/ArrowsClockwise';
+import { ArrowUpIcon } from 'phosphor-react-native/src/icons/ArrowUp';
 import { ArrowsOutCardinalIcon } from 'phosphor-react-native/src/icons/ArrowsOutCardinal';
 import { SquaresFourIcon } from 'phosphor-react-native/src/icons/SquaresFour';
 import { ArrowsVerticalIcon } from 'phosphor-react-native/src/icons/ArrowsVertical';
@@ -103,6 +104,7 @@ const icons = {
   shield: ShieldCheckIcon,
   document: FileTextIcon,
   refresh: ArrowsClockwiseIcon,
+  send: ArrowUpIcon,
   clock: ClockIcon,
   drop: DropIcon,
   rain: CloudRainIcon,

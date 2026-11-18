@@ -10,7 +10,7 @@ import { Fade, PressScale, staggerOf } from '@/components/motion';
 import { create } from '@/features/onboarding/copy';
 import { size, space, travel, useTheme } from '@/theme';
 
-/** What the raised plus in the tab bar opens: the two ways to put something into the app. A short sheet. */
+/** What the raised plus in the tab bar opens: the ways to put something into the app, and the stylist to ask about it. A short sheet. */
 export default function Create() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -36,6 +36,9 @@ export default function Create() {
         </Fade>
         <Fade rise={travel.rise} {...staggerOf(1, true)}>
           <Choice icon="hanger" label={create.build} caption="Put pieces together yourself" onPress={go('/builder')} testID="create-build" />
+        </Fade>
+        <Fade rise={travel.rise} {...staggerOf(2, true)}>
+          <Choice icon="sparkle" label={create.stylist} caption="Outfits for any occasion, gaps and what to buy" onPress={go('/stylist')} testID="create-stylist" />
         </Fade>
       </View>
     </View>
