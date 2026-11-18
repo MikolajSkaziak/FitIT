@@ -1,6 +1,7 @@
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PhotoPeekHost } from '@/components/PhotoPeek';
 import { failureCue } from '@/lib/failureCue';
@@ -37,9 +38,13 @@ afterEach(() => {
 export function renderScreen(screen: ReactElement) {
   const client = new QueryClient({ mutationCache: new MutationCache({ onError: failureCue }), defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false, gcTime: 0 } } });
   clients.push(client);
-  return render(<QueryClientProvider client={client}>
-      <PhotoPeekHost>{screen}</PhotoPeekHost>
-    </QueryClientProvider>);
+  return render(
+    <GestureHandlerRootView>
+      <QueryClientProvider client={client}>
+        <PhotoPeekHost>{screen}</PhotoPeekHost>
+      </QueryClientProvider>
+    </GestureHandlerRootView>,
+  );
 }
 
 /** The title on screen has `word` as its accent, performing `act` (`none` when it only sits there in green italic). */

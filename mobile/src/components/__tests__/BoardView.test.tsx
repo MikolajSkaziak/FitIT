@@ -1,8 +1,8 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render as renderView, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { State } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { useReducedMotion, withTiming } from 'react-native-reanimated';
 
@@ -11,6 +11,9 @@ import { useScrollable } from '@/components/scrollLock';
 import { boardLayout, boardSize, type BoardItem, type Placement } from '@/features/styling/board';
 import { clothing, fourItems } from '@/test/fixtures';
 import { motion } from '@/theme';
+
+// Gestures only work under the root view the app puts at its top.
+const render = (ui: Parameters<typeof renderView>[0]) => renderView(ui, { wrapper: GestureHandlerRootView });
 
 const board = boardSize(351);
 

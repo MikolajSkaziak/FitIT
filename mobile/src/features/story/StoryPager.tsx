@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
@@ -25,7 +25,7 @@ interface StoryPagerProps {
 export function StoryPager({ onCreate, onLogin }: StoryPagerProps) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ScrollViewInstance>(null);
   const animated = useAnimatedScroll();
   const [index, setIndex] = useState(0);
   const last = storyPages.length - 1;

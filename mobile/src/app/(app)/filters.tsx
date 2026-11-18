@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fetchClothes, wardrobeKeys, type GarmentGroup, type UsageFilter } from '@/api/wardrobe';
@@ -36,7 +36,7 @@ export default function WardrobeFilters() {
   const dictionaries = useDictionaries();
   const state = useWardrobeFilters();
   const theme = useTheme();
-  const list = useRef<ScrollView>(null);
+  const list = useRef<ScrollViewInstance>(null);
   // Whether filters are still hidden below the fold: the footer says so until the list is scrolled to its end.
   const [sizes, setSizes] = useState({ frame: 0, content: 0 });
   const [offset, setOffset] = useState(0);

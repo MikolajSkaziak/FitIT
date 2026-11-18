@@ -203,7 +203,7 @@ export default function Wardrobe() {
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace + space[4] }]}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
-        ListFooterComponent={filtered ? null : <StarterStrip />}
+        ListFooterComponent={filtered ? undefined : <StarterStrip />}
         renderItem={({ item: row }) =>
           row.kind === 'heading' ? (
             <View style={styles.heading}>

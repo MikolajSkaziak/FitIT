@@ -71,7 +71,7 @@ export default function BuilderSwapSheet() {
             <AppText variant="secondary" color="textSecondary" testID="builder-swap-none">
               {swapCopy.empty}
             </AppText>
-          ) : null
+          ) : undefined
         }
         renderItem={({ item }) => (
           <View style={cell}>

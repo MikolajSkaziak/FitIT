@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { outfitKeys, suggestOutfits, type Occasion, type Outfit, type OutfitPlacement, type Suggestions } from '@/api/outfits';
@@ -234,7 +234,7 @@ interface PagerProps {
 /** The proposals, side by side: swipe or press a pill to move between them. */
 function Pager({ outfits, header, planFor, today }: PagerProps) {
   const { width } = useWindowDimensions();
-  const pages = useRef<ScrollView>(null);
+  const pages = useRef<ScrollViewInstance>(null);
   const [index, setIndex] = useState(0);
   const [worn, setWorn] = useState<readonly string[]>([]);
   const actions = useOutfitActions();

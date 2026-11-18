@@ -148,7 +148,8 @@ describe('the tab bar', () => {
   const route = (name: string) => ({ key: `${name}-key`, name });
   const bar = {
     state: { index: 0, routes: ['index', 'wardrobe', 'outfits', 'profile'].map(route) },
-    navigation: { emit: jest.fn(() => ({ defaultPrevented: false })), navigate: jest.fn() },
+    emitter: { emit: jest.fn(() => ({ defaultPrevented: false })) },
+    navigateToTab: jest.fn(),
     insets: { top: 0, bottom: 34, left: 0, right: 0 },
   } as unknown as BottomTabBarProps;
 
@@ -160,7 +161,7 @@ describe('the tab bar', () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Wardrobe' }));
     expect(select).toHaveBeenCalledTimes(1);
-    expect(bar.navigation.navigate).toHaveBeenCalledWith('wardrobe', undefined);
+    expect(bar.navigateToTab).toHaveBeenCalledWith('wardrobe-key');
   });
 
   it('gives a medium tap for the round plus', async () => {

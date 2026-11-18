@@ -48,7 +48,8 @@ describe('the raised plus in the tab bar', () => {
   const route = (name: string) => ({ key: `${name}-key`, name });
   const bar = {
     state: { index: 0, routes: ['index', 'wardrobe', 'outfits', 'profile'].map(route) },
-    navigation: { emit: jest.fn(() => ({ defaultPrevented: false })), navigate: jest.fn() },
+    emitter: { emit: jest.fn(() => ({ defaultPrevented: false })) },
+    navigateToTab: jest.fn(),
     insets: { top: 0, bottom: 34, left: 0, right: 0 },
   } as unknown as BottomTabBarProps;
 
@@ -59,7 +60,7 @@ describe('the raised plus in the tab bar', () => {
     const add = screen.getByRole('button', { name: 'Add' });
     await fireEvent.press(add);
     expect(router.push).toHaveBeenCalledWith('/create');
-    expect(bar.navigation.navigate).not.toHaveBeenCalled();
+    expect(bar.navigateToTab).not.toHaveBeenCalled();
   });
 
   it('turns into a close mark while the menu is on top, and closes it', async () => {
@@ -73,9 +74,11 @@ describe('the raised plus in the tab bar', () => {
 });
 
 describe('the menu behind the plus', () => {
-  it('offers two ways and replaces itself with the one chosen', async () => {
+  it('offers three ways and replaces itself with the one chosen', async () => {
     await renderScreen(<Create />);
 
+    await fireEvent.press(screen.getByTestId('create-stylist'));
+    expect(router.replace).toHaveBeenLastCalledWith('/stylist');
     await fireEvent.press(screen.getByTestId('create-clothes'));
     expect(router.replace).toHaveBeenLastCalledWith('/add');
     await fireEvent.press(screen.getByTestId('create-build'));

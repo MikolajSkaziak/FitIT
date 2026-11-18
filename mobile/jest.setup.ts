@@ -2,6 +2,9 @@
 import '@testing-library/react-native/matchers';
 // The gesture handler's own stand-ins for its native module.
 import 'react-native-gesture-handler/jestSetup';
+// Gesture handler 3 binds itself to the UI thread on load; tests have none, so it does what it does on the web: nothing.
+jest.mock('react-native-gesture-handler/src/handlers/gestures/installUIRuntimeBindings', () => ({ installUIRuntimeBindings: () => undefined }));
+jest.mock('react-native-gesture-handler/lib/module/handlers/gestures/installUIRuntimeBindings', () => ({ installUIRuntimeBindings: () => undefined }));
 
 // Native pieces that have no place in a unit test.
 jest.mock('react-native-safe-area-context', () => jest.requireActual('react-native-safe-area-context/jest/mock').default);

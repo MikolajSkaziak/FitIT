@@ -74,7 +74,7 @@ export default function PickOutfitSheet() {
           contentContainerStyle={[styles.body, { paddingBottom: Math.max(insets.bottom, space[4]) }]}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            withinHorizon(day, today) ? <Button label={suggestLabel(day, today)} kind="secondary" icon="sparkle" onPress={suggest} testID="pick-outfit-suggest" /> : null
+            withinHorizon(day, today) ? <Button label={suggestLabel(day, today)} kind="secondary" icon="sparkle" onPress={suggest} testID="pick-outfit-suggest" /> : undefined
           }
           ListEmptyComponent={
             saved.isPending ? (

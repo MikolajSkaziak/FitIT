@@ -145,7 +145,7 @@ export default function Outfits() {
         columnWrapperStyle={styles.row}
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace + space[4] }]}
         ListHeaderComponent={header}
-        ListEmptyComponent={shelf === 'saved' ? empty : null}
+        ListEmptyComponent={shelf === 'saved' ? empty : undefined}
         renderItem={({ item, index }) => (
           <Fade {...staggerOf(index, intro)} exit shrink>
             <SavedOutfitTile outfit={item} width={tileWidth} onPress={() => router.push({ pathname: '/outfit/[id]', params: { id: item.id } })} />

@@ -27,7 +27,7 @@ const addSize = 64;
  * you are in on a fill the colour of the well; and beside it, on its own, a round green "+" that is not a tab: it opens
  * the menu of ways to add. Nothing is laid out under the bar, so screens pad their own bottoms (see `useTabBarSpace`).
  */
-export function TabBar({ state, navigation }: BottomTabBarProps) {
+export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const theme = useTheme();
   const bottom = useTabBarOffset();
   return (
@@ -48,13 +48,13 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
               accessibilityLabel={tab.label}
               testID={`tab-${route.name}`}
               onPress={() => {
-                const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
                 if (!focused && !event.defaultPrevented) {
                   haptics.press('nav');
-                  navigation.navigate(route.name, route.params);
+                  navigateToTab(route.key);
                 }
               }}
-              onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
+              onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
               style={({ pressed }) => [styles.tab, pressed ? styles.pressed : null]}>
               <ToggleFade on={focused} style={[StyleSheet.absoluteFill, styles.fill, { backgroundColor: theme.sage }]} />
               <CrossFade on={focused} faceStyle={styles.face}>

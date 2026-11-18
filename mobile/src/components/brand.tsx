@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { StyleSheet, View, type ImageSourcePropType } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { ThermalPreference } from '@/api/account';
 import { radius, space, useTheme } from '@/theme';
@@ -97,7 +97,7 @@ export const tryOnPictures = {
  * The same mannequin, pose and backdrop dressed for each answer to how the person feels the cold (layers differ and nothing else):
  * `f` is the women's set, `m` the men's. 900 points tall, 3:4.
  */
-export const thermalPictures: Record<'f' | 'm', Record<ThermalPreference, ImageSourcePropType>> = {
+export const thermalPictures: Record<'f' | 'm', Record<ThermalPreference, number>> = {
   f: {
     runs_cold: require('../../assets/images/thermal/f-cold.jpg'),
     normal: require('../../assets/images/thermal/f-normal.jpg'),

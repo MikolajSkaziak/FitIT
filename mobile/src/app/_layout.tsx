@@ -64,10 +64,12 @@ export default function RootLayout() {
               <Unreachable />
             ) : (
               <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.canvas } }}>
-                <Stack.Protected guard={signedIn}>
+                {/* Each side says where to go when it is closed: the router would otherwise aim at the bare group,
+                    which has no screen of its own, and show "Unmatched Route". */}
+                <Stack.Protected guard={signedIn} redirectTo="/welcome">
                   <Stack.Screen name="(app)" />
                 </Stack.Protected>
-                <Stack.Protected guard={!signedIn}>
+                <Stack.Protected guard={!signedIn} redirectTo="/">
                   <Stack.Screen name="(auth)" />
                 </Stack.Protected>
               </Stack>
